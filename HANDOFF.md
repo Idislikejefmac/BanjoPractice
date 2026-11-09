@@ -32,6 +32,7 @@ git clone https://github.com/Idislikejefmac/BanjoPractice-Songs.git sheet-music
 | `songs/<id>.abc` | 17 songs. `N:` lines give the form, Dad's pencil notes and every `N:Uncertain` reading |
 | `photos/` | The 20 photos the songs were transcribed from (`S:` in each song names its photo) |
 | `tools/abccheck.py` | Python checker used on the machine without Node: bar lengths and word alignment (see below) |
+| `CHECKLIST.md` | Every uncertain reading and transcription choice, as a checklist to tick off |
 | `README.md` | Layout, use, transcription rules |
 
 Songs: Angel Band, Dark Hollow, Fox on the Run, Head Over Heels in Love with You, I'll Fly Away,
@@ -79,6 +80,9 @@ checks) compared labels with `"1"`/`"2"` the same way.
 
 ## Readings to check against the book (each is also an `N:Uncertain` line in its song)
 
+The full list, with checkboxes, is **`sheet-music/CHECKLIST.md`** in the private songs repo (it
+includes word readings and transcription choices too). The main ones:
+
 | Song | Check |
 | --- | --- |
 | The Long Black Veil | Last held note: B or C♯ |
@@ -107,7 +111,7 @@ checks) compared labels with `"1"`/`"2"` the same way.
    song with ✓/✗; fix any ✗ in `sheet-music/songs/` and commit/push in that repository.
 5. **Look at each song in the app** (`npm run dev`): notation, words under the right notes, and
    playback through every verse (three or four passes where the song has `[1,2`/`[1,2,3`
-   endings). Check the readings in the table above against the photos.
+   endings). Work through `sheet-music/CHECKLIST.md` against the photos.
 6. **Build the pack for Dad:** `node scripts/make-song-pack.ts` writes
    `sheet-music/dads-songs-YYYY-MM-DD.json` (git-ignored). Send it to the iPad and load it with
    **Settings → Restore from a backup**. Do this only after step 3, or the multi-verse songs
