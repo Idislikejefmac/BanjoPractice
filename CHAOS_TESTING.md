@@ -31,7 +31,7 @@ Every chaos run checks these after **every** action. A run fails the first time 
 | I15 | **Wake lock correct**: wake lock is held if and only if a song is open, the setting is on and the app is visible | P5 hook | C, W (fake) |
 | I16 | **Session restorable**: after any step, a hard reload returns to the same song, key, tempo, loop and practice mode (stopped), and to the same scroll position within one line | Snapshot before reload vs after (§6.5) | C, W |
 
-(W) means it's checked on WebKit only where Playwright WebKit has Web Audio. S0 found it doesn't on Windows; Linux CI is being checked (§9).
+(W) means it's checked on WebKit in Linux CI, where Playwright WebKit has Web Audio. It doesn't on Windows, so local runs check (W) audio rows in Chromium only (§9).
 
 ---
 
@@ -301,7 +301,7 @@ Record the iPad model, iPadOS version, app version and result in `tests/manual/i
 
 - **Phase 0 gate (spike S0)**: verify Web Audio, service workers and `setOffline` in Playwright WebKit on Windows. Rows marked (W) and WebKit runs of §6.2–6.3 are enabled only where it works. Otherwise those run in Chromium, with the iPad checklist covering WebKit.
   - **S0 result, Windows (Nov 8, 2026; Playwright WebKit 27.2, Chromium 158):** WebKit has **no Web Audio** (`AudioContext`, `webkitAudioContext` and `OfflineAudioContext` are all undefined). Service worker, offline reload and IndexedDB **work** in WebKit. Chromium passes all four. So on Windows, (W) audio rows run in Chromium only, with the iPad checklist covering Safari audio. WebKit still runs the storage, offline and DOM invariants.
-  - The CI `spike-s0` job also runs on Linux, where Playwright WebKit is a different build. If Web Audio works there, the (W) audio rows run in Linux CI.
+  - **S0 result, Linux CI (ubuntu-latest, same day):** WebKit **has** Web Audio (context runs, time advances, output measurable, `OfflineAudioContext` renders) as well as service worker, offline and IndexedDB. **Decision: (W) rows, including audio, run in Linux CI. Local Windows runs use Chromium for audio.** The iPad checklist still covers real Safari behavior (silent switch, interruptions, route changes).
 - **On every PR**: T1 in full, T2 for 5 min per engine (deterministic mode), and the T3 core scenarios (quota on save, suspended/interrupted, update mid-practice, reload at random step, newer database). **Any failure blocks the merge.**
 - **Nightly**: T2 for 60 min per engine, all of T3 (both modes), T4 for 2 h. Failures open a GitHub issue automatically with the seed, minimal trace and artifacts.
 - **Promote to Dad's URL**: nightly green on the commit, the T5 checklist, then T6 against the promoted artifact.

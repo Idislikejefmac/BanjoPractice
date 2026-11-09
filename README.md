@@ -18,12 +18,13 @@ A practice app for a 5-string banjo in three-finger Scruggs style: pick a song, 
 | Done | Still to do in phase 0 |
 | --- | --- |
 | C1 music theory (notes, keys and modes, spelling, chords, transposition) | Install the placeholder on Dad's iPad (Safari → Share → Add to Home Screen) |
-| C2 fretboard, capo and 5th-string spikes | Spike S0 on Linux CI (does WebKit there have Web Audio?) |
+| C2 fretboard, capo and 5th-string spikes | |
 | C3 roll library (all 8 rolls) | |
 | C4 rule validator (H1–H9) | |
 | C5 tab text format (parser + serializer) | |
 | Lockfile committed; `npm run verify` and e2e green on Windows | |
-| Spike S0 on Windows: WebKit has no Web Audio; service worker, offline and IndexedDB work (CHAOS_TESTING.md §9) | |
+| Spike S0: Linux WebKit (CI) has Web Audio, Windows WebKit doesn't; service worker, offline and IndexedDB work in both (CHAOS_TESTING.md §9) | |
+| First green CI and Pages deploy: [production](https://idislikejefmac.github.io/BanjoPractice/), [staging](https://idislikejefmac.github.io/BanjoPractice/staging/) | |
 | Platform interfaces P1–P8, fakes, IndexedDB storage, offline, wake lock, pedal input, diagnostics | |
 | Chaos controller skeleton + storage fault wrapper, production-strip check | |
 | Placeholder app (installable, offline, shows the rolls checked live) | |
