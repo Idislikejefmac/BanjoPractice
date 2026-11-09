@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- viewport-fit=cover + safe-area padding keeps the toolbar clear of the iPad status bar. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#3b2a1a" />
+    <meta name="description" content="Scruggs-style banjo practice: tab, notation and playback." />
+    <!-- Home Screen web app on iPad. Safari uses apple-touch-icon, not the manifest icons. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Banjo" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="apple-touch-icon" href="%BASE_URL%apple-touch-icon.png" />
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
+    <title>Banjo Practice</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <noscript>Banjo Practice needs JavaScript turned on.</noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

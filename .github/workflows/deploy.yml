@@ -1,0 +1,85 @@
+name: Deploy to GitHub Pages
+
+# Every deploy publishes two builds in one Pages site (DEVELOPMENT.md §13):
+#   /<repo>/          production: the commit tagged `production` (Dad's URL)
+#   /<repo>/staging/  staging: the latest main
+# Each has its own IndexedDB name and service-worker scope, so staging never touches
+# production data. Until the first promote there is no `production` tag, and production is
+# built from main too.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Build staging from main
+        run: |
+          npm ci
+          npm test
+          BASE_PATH="/${REPO}/staging/" npm run build -- --outDir dist-staging
+          node scripts/check-prod-bundle.mjs dist-staging
+        env:
+          REPO: ${{ github.event.repository.name }}
+
+      - name: Build production from the `production` tag
+        run: |
+          if git rev-parse -q --verify "refs/tags/production" >/dev/null; then
+            REF=production
+          else
+            echo "No production tag yet: building production from main."
+            REF=HEAD
+          fi
+          echo "Production ref: $(git rev-parse --short "$REF")"
+          git worktree add ../prod "$REF"
+          cd ../prod
+          npm ci
+          BASE_PATH="/${REPO}/" npm run build
+          node scripts/check-prod-bundle.mjs dist
+        env:
+          REPO: ${{ github.event.repository.name }}
+
+      - name: Assemble the site
+        run: |
+          mkdir -p site
+          cp -r ../prod/dist/. site/
+          mkdir -p site/staging
+          cp -r dist-staging/. site/staging/
+          # GitHub Pages: don't run Jekyll over the files.
+          touch site/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

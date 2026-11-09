@@ -1,0 +1,36 @@
+name: Promote to production
+
+# Run by hand (Actions tab → Promote to production → Run workflow) after the iPad checklist
+# (CHAOS_TESTING.md §7) passes on staging. Moves the `production` tag and redeploys.
+# Rolling back = running this again with the previous commit.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Commit or branch to promote (default: main)"
+        required: true
+        default: main
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Move the production tag
+        run: |
+          SHA=$(git rev-parse "${{ inputs.ref }}^{commit}")
+          git tag -f production "$SHA"
+          git push -f origin refs/tags/production
+          echo "Promoted $(git log -1 --format='%h %s' "$SHA")" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    needs: tag
+    uses: ./.github/workflows/deploy.yml
