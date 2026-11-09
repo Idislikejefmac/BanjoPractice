@@ -176,6 +176,7 @@ export class Player {
       loaded,
       this.store.practice.peek().keyShift,
       this.store.settings.peek().spikes,
+      this.store.practice.peek().rolls,
     );
   }
 

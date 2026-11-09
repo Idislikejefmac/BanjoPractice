@@ -42,12 +42,14 @@ function hash(text: string): string {
 function arrangeCached(
   key: string,
   index: SongIndex,
-  overrides?: Readonly<Record<string, string>>,
+  overrides: Readonly<Record<string, string>> | undefined,
+  rolls: readonly string[] | null,
 ): ArrangeResult {
-  const fullKey = `${key}:${JSON.stringify(overrides ?? {})}`;
+  const fullKey = `${key}:${JSON.stringify(overrides ?? {})}:${rolls ? [...rolls].sort().join(",") : "all"}`;
   let r = cache.get(fullKey);
   if (!r) {
     r = arrange(index, {
+      ...(rolls ? { rolls } : {}),
       ...(overrides
         ? { overrides: new Map(Object.entries(overrides).map(([m, roll]) => [Number(m), roll])) }
         : {}),
@@ -62,6 +64,8 @@ export function practiceArrangement(
   loaded: LoadedSong,
   keyShift: number,
   spikes: readonly number[],
+  /** Roll ids the auto-arranger may use; null = all. Hand-written tabs are left as they are. */
+  rolls: readonly string[] | null = null,
 ): PracticeArrangement {
   const songKey = loaded.index.key;
   const sounding = transposeKey(songKey, keyShift);
@@ -82,6 +86,7 @@ export function practiceArrangement(
       `${loaded.song.id}:${hash(loaded.song.abc)}:0`,
       loaded.index,
       loaded.song.overrides,
+      rolls,
     );
     return {
       plan,
@@ -103,6 +108,7 @@ export function practiceArrangement(
     `${loaded.song.id}:${hash(loaded.song.abc)}:${semis}`,
     index,
     loaded.song.overrides,
+    rolls,
   );
   return {
     plan,

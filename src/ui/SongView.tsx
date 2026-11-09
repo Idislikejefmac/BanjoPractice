@@ -177,11 +177,12 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
   }, [loaded, width, scale]);
 
   const keyShift = store.practice.value.keyShift;
+  const rolls = store.practice.value.rolls;
   const shapeNotation = store.practice.value.notationKey === "shape";
   // The tab for this key: the hand-written one with a capo, or C6's in new shapes (F11, F14).
   const practiceTab = useMemo(
-    () => (loaded ? practiceArrangement(loaded, keyShift, settings.spikes) : null),
-    [loaded, keyShift, settings.spikes],
+    () => (loaded ? practiceArrangement(loaded, keyShift, settings.spikes, rolls) : null),
+    [loaded, keyShift, settings.spikes, rolls],
   );
   const position = practiceTab?.plan ?? null;
   const arranged = practiceTab?.measures ?? null;

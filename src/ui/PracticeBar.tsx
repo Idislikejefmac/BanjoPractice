@@ -9,6 +9,7 @@ import type { MetronomeMode, PartId, PracticePrefs } from "../app/model.ts";
 import { DEFAULT_TEMPO, TEMPO_MAX, TEMPO_MIN } from "../app/model.ts";
 import { MELODY_INSTRUMENTS } from "../audio/engine.ts";
 import { planFor } from "../core/banjo/position.ts";
+import { ROLLS } from "../core/banjo/rolls.ts";
 import { transposeKey } from "../core/music/spelling.ts";
 import { songParts } from "../core/playback/parts.ts";
 import { formatKey } from "../core/music/keys.ts";
@@ -29,7 +30,7 @@ const NEXT_METRONOME: Readonly<Record<MetronomeMode, MetronomeMode>> = {
   throughout: "off",
 };
 
-type Panel = "none" | "tempo" | "parts" | "loop";
+type Panel = "none" | "tempo" | "parts" | "loop" | "rolls";
 
 /** A short vertical volume slider (0–100%) under a part's button. */
 function VolumeSlider({
@@ -130,6 +131,8 @@ export function PracticeBar({ store, player }: { store: AppStore; player: Player
   const shownTempo = state !== "stopped" && p.speedBuilder.enabled ? follow.bpm : tempo;
   const playing = state !== "stopped";
   const set = (patch: Partial<PracticePrefs>) => store.updatePractice(patch);
+  // Measures the arranger couldn't fit into the chosen rolls (shown in the Rolls panel).
+  const unfitted = panel === "rolls" ? (player.tab()?.arrangeResult?.problems.length ?? 0) : 0;
   const allKeys = Array.from({ length: 12 }, (_, shift) => {
     const plan = planFor(transposeKey(loaded.index.key, shift), {
       arrangementShape: loaded.index.key,
@@ -265,6 +268,13 @@ export function PracticeBar({ store, player }: { store: AppStore; player: Player
           </div>
         </div>
 
+        <button
+          class={p.rolls || panel === "rolls" ? "tool on" : "tool"}
+          data-action="rolls"
+          onClick={() => toggle("rolls")}
+        >
+          {p.rolls ? `Rolls (${p.rolls.length})` : "Rolls"}
+        </button>
         <button
           class={p.loop ? "tool on" : panel === "loop" ? "tool on" : "tool"}
           data-action="loop"
@@ -510,6 +520,76 @@ export function PracticeBar({ store, player }: { store: AppStore; player: Player
             </section>
           )}
 
+          {panel === "rolls" && (
+            <section data-panel="rolls">
+              <p class="hint">
+                Which rolls the app may use when it arranges this song's tab. This song only.
+              </p>
+              <div class="button-row">
+                {[
+                  { label: "Every roll", ids: null },
+                  { label: "Forward and reverse", ids: ["forward", "forward-reverse"] },
+                  { label: "Forward only", ids: ["forward"] },
+                ].map((preset) => {
+                  const same =
+                    preset.ids === null
+                      ? p.rolls === null
+                      : p.rolls !== null &&
+                        p.rolls.length === preset.ids.length &&
+                        preset.ids.every((id) => p.rolls!.includes(id));
+                  return (
+                    <button
+                      key={preset.label}
+                      class={same ? "plain-button on" : "plain-button"}
+                      aria-pressed={same}
+                      data-roll-preset={preset.label}
+                      onClick={() => set({ rolls: preset.ids })}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <fieldset class="setting-row choice">
+                <legend>Rolls to use</legend>
+                {ROLLS.map((r) => {
+                  const on = p.rolls === null || p.rolls.includes(r.id);
+                  return (
+                    <label key={r.id} class="setting-row">
+                      <input
+                        type="checkbox"
+                        name="roll"
+                        value={r.id}
+                        checked={on}
+                        onChange={() => {
+                          const now = p.rolls ?? ROLLS.map((x) => x.id);
+                          const next = on ? now.filter((id) => id !== r.id) : [...now, r.id];
+                          // Keep at least one roll; all of them again is the same as "every roll".
+                          if (next.length === 0) return;
+                          set({ rolls: next.length === ROLLS.length ? null : next });
+                        }}
+                      />
+                      <span>
+                        {r.name}
+                        <small> {r.use}</small>
+                      </span>
+                    </label>
+                  );
+                })}
+              </fieldset>
+              {p.rolls && unfitted > 0 && (
+                <p class="hint" data-roll-unfitted>
+                  {unfitted === 1
+                    ? "1 measure can't fit the melody into these rolls, so it is a plain roll on the chord."
+                    : `${unfitted} measures can't fit the melody into these rolls, so they are plain rolls on the chord.`}
+                </p>
+              )}
+              <p class="hint">
+                This changes tabs the app arranges itself, not tabs written by hand. Short
+                thumb-and-pinch endings can still appear at the end of a phrase.
+              </p>
+            </section>
+          )}
           {panel === "loop" && (
             <section>
               {parts.length > 0 && (

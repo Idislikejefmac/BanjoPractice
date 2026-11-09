@@ -91,6 +91,11 @@ export interface ArrangeOptions {
   readonly weights?: Partial<ArrangeWeights>;
   /** F14/F17 overrides: written measure number → roll id (or "a+b" halves) to use. */
   readonly overrides?: ReadonlyMap<number, string>;
+  /**
+   * Roll ids to use (the rest are left out). A half-and-half measure needs both halves
+   * allowed; the short fill endings stay available. Empty or missing = every roll.
+   */
+  readonly rolls?: readonly string[];
   /** Candidates kept per measure for the cross-measure search. */
   readonly beam?: number;
 }
@@ -146,6 +151,17 @@ function allTemplates(): Template[] {
 }
 
 const TEMPLATES = allTemplates();
+
+/** The templates for an allowed-rolls list (see ArrangeOptions.rolls). */
+function allowedTemplates(rolls: readonly string[] | undefined): readonly Template[] {
+  if (!rolls || rolls.length === 0) return TEMPLATES;
+  const ok = new Set(rolls);
+  const chosen = TEMPLATES.filter((t) =>
+    t.kind === "fill" ? true : t.name.split("+").every((id) => ok.has(id)),
+  );
+  // A list of ids we don't know would leave only fills: use every roll instead.
+  return chosen.some((t) => t.kind !== "fill") ? chosen : TEMPLATES;
+}
 
 // --- Melody simplification -----------------------------------------------------------------
 
@@ -548,6 +564,7 @@ export function arrange(index: SongIndex, opts: ArrangeOptions = {}): ArrangeRes
   const plan = opts.plan ?? NO_CAPO;
   const w = { ...DEFAULT_WEIGHTS, ...opts.weights };
   const beam = opts.beam ?? 16;
+  const allowed = allowedTemplates(opts.rolls);
   const problems: ArrangeProblem[] = [];
   const dropped = new Map<number, number>();
 
@@ -563,7 +580,7 @@ export function arrange(index: SongIndex, opts: ArrangeOptions = {}): ArrangeRes
     const override = opts.overrides?.get(m.index);
     const templates = override
       ? TEMPLATES.filter((t) => t.name === override)
-      : TEMPLATES.filter((t) => t.name !== "tag" || isLast);
+      : allowed.filter((t) => t.name !== "tag" || isLast);
     const cands: Candidate[] = [];
     for (const tpl of templates) {
       for (const o of measureOptions(tpl, m, targets, parsed, startChord, tuning, plan, w)) {
@@ -608,7 +625,8 @@ export function arrange(index: SongIndex, opts: ArrangeOptions = {}): ArrangeRes
     // join the measure before legally (otherwise the search could be left with only illegal
     // joins). They cost a lot, so they're only used when nothing else fits.
     const firstFingers = new Set<string>();
-    for (const tpl of TEMPLATES) {
+    // The allowed rolls come first; the others only fill in so a legal join always exists.
+    for (const tpl of [...allowed, ...TEMPLATES.filter((t) => !allowed.includes(t))]) {
       if (tpl.kind === "fill" || firstFingers.size >= 3) continue;
       const first = tpl.tokens[tpl.tokens.length - m.slots] ?? "";
       if (firstFingers.has(first)) continue;

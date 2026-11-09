@@ -27,6 +27,8 @@ export interface PracticePrefs {
   /** F34: show the notation in the sounding key, or in the tab's shape key (as banjo books do). */
   readonly notationKey: "sounding" | "shape";
   readonly parts: Readonly<Record<PartId, PartPrefs>>;
+  /** Roll ids the auto-arranged tab may use, or null for every roll (this song only). */
+  readonly rolls: readonly string[] | null;
   readonly metronome: MetronomeMode;
   /** Click (count-in and metronome) volume, 0–1. */
   readonly clickVolume: number;
@@ -60,6 +62,7 @@ export const DEFAULT_PRACTICE: PracticePrefs = {
     chords: { on: true, volume: 0.8 },
     banjo: { on: true, volume: 1 },
   },
+  rolls: null,
   metronome: "count-in",
   clickVolume: 0.8,
   countInBeats: 4,
@@ -199,6 +202,14 @@ export function practiceProblems(v: unknown): string[] {
         p.push(`parts.${id}`);
       }
     }
+  if (
+    v.rolls !== null &&
+    (!Array.isArray(v.rolls) ||
+      v.rolls.length === 0 ||
+      !v.rolls.every((r: unknown) => typeof r === "string"))
+  ) {
+    p.push("rolls");
+  }
   if (!["off", "count-in", "throughout"].includes(v.metronome as string)) p.push("metronome");
   if (v.countInBeats !== 4 && v.countInBeats !== 8) p.push("countInBeats");
   if (typeof v.clickVolume !== "number" || v.clickVolume < 0 || v.clickVolume > 1) {

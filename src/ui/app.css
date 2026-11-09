@@ -1201,9 +1201,8 @@ h2 {
   accent-color: var(--finger-t);
 }
 
-.wanted-row {
-  display: flex;
-  flex-direction: column;
-  padding: 6px 8px;
+.hint {
+  margin: 6px 0;
   color: var(--ink-soft);
+  font-size: 0.9rem;
 }
