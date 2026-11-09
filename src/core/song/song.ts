@@ -40,6 +40,35 @@ export interface Song {
   /** Override for the slot length (C9 rollUnit), as a fraction of a whole note. */
   readonly rollUnit?: number;
   readonly updatedAt?: string;
+  /** F17 roll overrides for user songs: written measure number → roll id. */
+  readonly overrides?: Readonly<Record<string, string>>;
+  /** F17: the editor's structured form of a user song, if it was entered in the editor. */
+  readonly editor?: unknown;
+}
+
+/** Problems with a stored song record (I7); empty when valid. */
+export function songProblems(v: unknown): string[] {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return ["not an object"];
+  const s = v as Record<string, unknown>;
+  const p: string[] = [];
+  if (s.schemaVersion !== SONG_SCHEMA_VERSION) p.push("schemaVersion");
+  if (typeof s.id !== "string" || s.id === "") p.push("id");
+  if (typeof s.title !== "string") p.push("title");
+  if (s.source !== "builtin" && s.source !== "user") p.push("source");
+  if (typeof s.abc !== "string" || !/^K:/m.test(s.abc)) p.push("abc");
+  if (s.tab !== undefined && typeof s.tab !== "string") p.push("tab");
+  if (!Array.isArray(s.tags) || !s.tags.every((t) => typeof t === "string")) p.push("tags");
+  if (s.overrides !== undefined) {
+    const o = s.overrides;
+    if (
+      typeof o !== "object" ||
+      o === null ||
+      !Object.values(o).every((x) => typeof x === "string")
+    ) {
+      p.push("overrides");
+    }
+  }
+  return p;
 }
 
 export interface SongProblem {

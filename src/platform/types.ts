@@ -37,6 +37,21 @@ export interface KeyValueStore {
   keys(store: StoreName): Promise<string[]>;
   /** All-or-nothing: validate and prepare everything before calling (no awaits inside). */
   putMany<T>(store: StoreName, entries: readonly (readonly [string, T])[]): Promise<void>;
+  /**
+   * All-or-nothing across stores (F18 import): every put and delete lands, or none does.
+   * Validate and prepare everything first: nothing else may be awaited inside.
+   */
+  writeAll(
+    ops: readonly (
+      | {
+          readonly op: "put";
+          readonly store: StoreName;
+          readonly key: string;
+          readonly value: unknown;
+        }
+      | { readonly op: "delete"; readonly store: StoreName; readonly key: string }
+    )[],
+  ): Promise<void>;
   close(): void;
 }
 
@@ -50,19 +65,34 @@ export class StorageUnavailableError extends Error {
   override name = "StorageUnavailableError";
 }
 
+/** This browser has no Web Audio at all (unlock() rejects with this). */
+export class AudioUnavailableError extends Error {
+  override name = "AudioUnavailableError";
+}
+
 /** P2 · Audio context. One live context at a time; recreated on sample-rate changes. */
 export interface AudioService {
   readonly state: "suspended" | "running" | "interrupted" | "closed";
-  /** Call from a user gesture. Resolves when audio can play. */
+  /** Call from a user gesture. Resolves when audio can play; rejects if it can't yet. */
   unlock(): Promise<void>;
   currentTime(): number;
+  /** Output latency in seconds, for lining the highlight up with what Dad hears (P8). */
+  latency(): number;
+  /** The live context and the master input (through the limiter), or null before unlock. */
+  graph(): { readonly context: BaseAudioContext; readonly master: AudioNode } | null;
   onStateChange(listener: (state: AudioService["state"]) => void): () => void;
+  /** The context was replaced (e.g. after a sample-rate change): decoded buffers are stale. */
+  onRecreate(listener: () => void): () => void;
+  /** Contexts created and not yet closed (I13: never more than one). */
+  liveContexts(): number;
 }
 
 /** P3 · Sample loader. Buffers may be dropped by the OS and reloaded transparently. */
 export interface SampleLoader {
+  /** Decoded sample for an instrument and MIDI note; rejects if missing or undecodable. */
   load(instrument: string, midi: number): Promise<AudioBuffer>;
-  isCached(instrument: string): Promise<boolean>;
+  /** Forget decoded buffers (after the context is recreated). */
+  clear(): void;
 }
 
 /** P4 · Offline and updates. New versions apply on the next cold launch, no banner. */

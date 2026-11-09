@@ -16,7 +16,22 @@
     <title>Banjo Practice</title>
   </head>
   <body>
-    <div id="app"></div>
+    <!-- Shown until the app renders (never a blank screen, CHAOS_TESTING.md I12), e.g. while
+         storage is slow to open. Replaced by the first render. -->
+    <div id="app">
+      <p
+        style="
+          margin: 30vh auto 0;
+          text-align: center;
+          font:
+            1.2rem -apple-system,
+            sans-serif;
+          color: #6b5d4f;
+        "
+      >
+        Loading Banjo Practice…
+      </p>
+    </div>
     <noscript>Banjo Practice needs JavaScript turned on.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>

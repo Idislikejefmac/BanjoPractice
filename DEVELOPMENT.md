@@ -686,7 +686,7 @@ Changes from `PLAN.md`:
 | S1 | Own scheduler sound quality with midi-js-soundfont mp3 samples. Is `smplr` a usable voice manager on iOS? | Phase 2 | A1 internals |
 | S2 | Hidden 8-rest voice trick for slot x-positions across wraps and resize (R3) | Phase 1 | R3 approach. **Done (Nov 8, 2026): it works.** Every melody note lands within 1 px of its slot's hidden rest, including one-note measures and pickups. The app picks its own line breaks and renders abcjs one line at a time (`src/core/song/layoutAbc.ts`), with the tab line under each; later lines use `M:none` so the time signature only prints once. Guarded by `tests/e2e/alignment.spec.ts` |
 | S3 | On Dad's iPad: silent switch / Silent mode with `audioSession`; recovery after a phone call; sample rate after Bluetooth and mic changes; Wake Lock in Home Screen mode; how often iPadOS reloads the app | Phase 2 (test in phase 1) | P2, P5, P8 fallbacks; how the fakes behave |
-| S4 | Soundfont and mandolin sample sources: license, size, quality | Phase 2 | A2 sources |
+| S4 | Soundfont and mandolin sample sources: license, size, quality | Phase 2 | A2 sources. **Done (Nov 8, 2026):** FluidR3_GM per-note mp3s from midi-js-soundfonts (CC BY 3.0, flat note names, ~17 KB per note), self-hosted. No GM mandolin: generated pluck for now. Sound quality (S1) still needs a listen on the iPad |
 | S5 | Arranger prototype on the 4 hand-written tunes' melodies (DP + lick templates) | During phase 1 | C6 weights, phase 3 effort |
 | S6 | Tuner accuracy on a real banjo recording (D3–G4, harmonics) | Phase 6 | F19 algorithm |
 
@@ -750,8 +750,8 @@ The style guide's chord shapes, roll templates, MIDI numbers and capo math were 
 | smplr (candidate) | Sample voice management | MIT | Decided by S1 |
 | pitchy (or own YIN) | Tuner | MIT | Decided by S6 |
 | jspdf, svg2pdf.js | Printable tab (F32) | MIT | Lazy-loaded |
-| Soundfonts (banjo, guitar, violin, flute), mp3 | Samples | FluidR3_GM: MIT; MusyngKite: CC BY-SA 3.0 | **Self-hosted** for offline; attribution in About |
-| Mandolin samples | Melody instrument | Must be CC0 / CC BY | Source chosen in S4 |
+| Soundfonts (banjo, guitar, violin, flute), mp3 | Samples | **FluidR3_GM: CC BY 3.0** (corrected in S4; the midi-js-soundfonts README states it); MusyngKite: CC BY-SA 3.0 | **Self-hosted** in `public/samples/` (fetched once by `scripts/fetch-samples.mjs`, ~3.6 MB, precached for offline); attribution in About and `public/samples/LICENSE.txt` |
+| Mandolin samples | Melody instrument | Must be CC0 / CC BY | FluidR3_GM has no mandolin (S4). **Generated in the app** (Karplus–Strong pluck) until a CC0/CC BY sample set is chosen |
 | vite, typescript | Build | MIT / Apache-2.0 | Dev only |
 | vitest, fast-check, @playwright/test | Tests | MIT / Apache-2.0 | Dev only |
 | eslint (+ import boundaries rule), prettier | Lint, `/core` purity | MIT | Dev only |

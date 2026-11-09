@@ -14,9 +14,11 @@ import { AppStore } from "../../src/app/store.ts";
 import type { Services } from "../../src/app/services.ts";
 import { createDiagnostics } from "../../src/platform/diagnostics.ts";
 import {
+  createFakeAudio,
   createFakeClock,
   createFakeInput,
   createFakeOffline,
+  createFakeSamples,
   createFakeShare,
   createFakeWakeLock,
   createMemoryStore,
@@ -78,6 +80,8 @@ function fakeServices(storage: KeyValueStore): Services {
     input: createFakeInput(),
     clock: createFakeClock(),
     share: createFakeShare(),
+    audio: createFakeAudio(),
+    samples: createFakeSamples(),
     diagnostics: createDiagnostics("test", null),
   };
 }
@@ -153,6 +157,47 @@ describe("app store", () => {
     expect(a.savesPending).toBe(false);
     expect(a.notices.value).toEqual([]);
     expect(await storage.get("songPrefs", "a-song")).toMatchObject({ favorite: true });
+  });
+
+  // Regression: chaos seed 2 (WebKit). A slow save landed after a newer one and brought back
+  // the old value after a reload.
+  it("never lets a slow save overwrite a newer one (last write wins)", async () => {
+    const storage = createMemoryStore();
+    let call = 0;
+    const slowFirst: KeyValueStore = {
+      ...storage,
+      async put(s, k, v) {
+        if (call++ === 0) await new Promise((r) => setTimeout(r, 50));
+        return storage.put(s, k, v);
+      },
+    };
+    const a = new AppStore(fakeServices(slowFirst), SONGS, null);
+    await a.load();
+    a.toggleFavorite("a-song"); // favorite: slow to save
+    a.toggleFavorite("a-song"); // not favorite: newer
+    await new Promise((r) => setTimeout(r, 120));
+    expect(a.savesPending).toBe(false);
+    expect(a.prefs.value.get("a-song")?.favorite).toBe(false);
+    expect(await storage.get("songPrefs", "a-song")).toMatchObject({ favorite: false });
+  });
+
+  // Regression: chaos seed 2 (Chromium). A star tapped just before a hard reload was lost.
+  it("keeps a change made just before the app was killed mid-save", async () => {
+    const storage = createMemoryStore();
+    const local = memoryLocal();
+    const hanging: KeyValueStore = { ...storage, put: () => new Promise(() => {}) };
+    const a = new AppStore(fakeServices(hanging), SONGS, local);
+    await a.load();
+    a.toggleFavorite("b-song");
+    a.updateSettings({ showAccents: true });
+    // The page dies here. A fresh start with working storage must still have both.
+    const b = new AppStore(fakeServices(storage), SONGS, local);
+    await b.load();
+    expect(b.favorites.value.map((s) => s.id)).toEqual(["b-song"]);
+    expect(b.settings.value.showAccents).toBe(true);
+    await settle();
+    expect(await storage.get("songPrefs", "b-song")).toMatchObject({ favorite: true });
+    expect(b.savesPending).toBe(false);
   });
 
   it("ignores a saved session for a song that no longer exists", async () => {

@@ -1,0 +1,5 @@
+{
+  "seed": 2,
+  "steps": 400,
+  "note": "I16/I6 at steps 78 (Chromium) and 337 (WebKit): a slow save landed after a newer one, and a star tapped just before a hard reload was lost. Fixed by one-write-per-record (last write wins) and a localStorage write-ahead copy of pending saves."
+}

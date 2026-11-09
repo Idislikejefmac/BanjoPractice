@@ -2,11 +2,13 @@
 // behavior; extend them as spike S3 reports what the real iPad does.
 
 import type {
+  AudioService,
   Clock,
   InputService,
   KeyValueStore,
   OfflineService,
   PedalAction,
+  SampleLoader,
   ShareService,
   StoreName,
   WakeLockService,
@@ -39,6 +41,16 @@ export function createMemoryStore(): KeyValueStore & {
     },
     async keys(store: StoreName) {
       return [...table(store).keys()].sort();
+    },
+    async writeAll(ops) {
+      // Copy everything first so a bad value fails before anything changes.
+      const prepared = ops.map((o) =>
+        o.op === "put" ? { ...o, value: structuredClone(o.value) } : o,
+      );
+      for (const o of prepared) {
+        if (o.op === "put") table(o.store).set(o.key, o.value);
+        else table(o.store).delete(o.key);
+      }
     },
     async putMany<T>(store: StoreName, entries: readonly (readonly [string, T])[]) {
       const copies = entries.map(([k, v]) => [k, structuredClone(v)] as const);
@@ -157,5 +169,99 @@ export function createFakeShare(
       shared.push({ title, text });
       return result;
     },
+  };
+}
+
+/**
+ * P2 fake, modeled on observed iPad behavior (CHAOS_TESTING.md §3.1), not ideal behavior:
+ * - before the first tap, unlock() only works from a "tap" (call tap() first);
+ * - after interrupt() (a phone call), resume is refused until the next tap;
+ * - routeChange() flips the sample rate, and the next unlock recreates the context.
+ * There is no Web Audio here: graph() is null, so nothing actually sounds.
+ */
+export function createFakeAudio(): AudioService & {
+  tap(): void;
+  interrupt(): void;
+  routeChange(): void;
+  advance(seconds: number): void;
+  readonly sampleRate: number;
+  readonly created: number;
+} {
+  let state: AudioService["state"] = "suspended";
+  let tapped = false;
+  let time = 0;
+  let live = 0;
+  let created = 0;
+  let rate = 48000;
+  let staleRate = false;
+  const stateListeners = new Set<(s: AudioService["state"]) => void>();
+  const recreateListeners = new Set<() => void>();
+  const set = (s: AudioService["state"]) => {
+    state = s;
+    stateListeners.forEach((l) => l(s));
+  };
+  return {
+    get state() {
+      return state;
+    },
+    get sampleRate() {
+      return rate;
+    },
+    get created() {
+      return created;
+    },
+    tap() {
+      tapped = true;
+    },
+    interrupt() {
+      tapped = false;
+      set("interrupted");
+    },
+    routeChange() {
+      staleRate = true;
+      rate = rate === 48000 ? 44100 : 48000;
+    },
+    advance(seconds) {
+      if (state === "running") time += seconds;
+    },
+    async unlock() {
+      if (live === 0 || staleRate) {
+        if (live > 0) {
+          live--;
+          recreateListeners.forEach((l) => l());
+        }
+        live++;
+        created++;
+        staleRate = false;
+      }
+      if (!tapped) throw new Error("Audio is still paused. Tap Play again.");
+      tapped = false;
+      set("running");
+    },
+    currentTime: () => time,
+    latency: () => 0.02,
+    graph: () => null,
+    onStateChange(listener) {
+      stateListeners.add(listener);
+      return () => stateListeners.delete(listener);
+    },
+    onRecreate(listener) {
+      recreateListeners.add(listener);
+      return () => recreateListeners.delete(listener);
+    },
+    liveContexts: () => live,
+  };
+}
+
+/** P3 fake: every load fails (the engine then uses its synth fallback). */
+export function createFakeSamples(): SampleLoader & { loads: string[] } {
+  const loads: string[] = [];
+  return {
+    loads,
+    async load(instrument, midi) {
+      loads.push(`${instrument}/${midi}`);
+      throw new Error("no samples in tests");
+    },
+    clear() {},
   };
 }

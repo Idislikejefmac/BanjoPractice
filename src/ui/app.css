@@ -49,14 +49,234 @@ button {
   position: sticky;
   top: 0;
   z-index: 30;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: var(--toolbar-h);
   padding: env(safe-area-inset-top) calc(8px + env(safe-area-inset-right)) 0
     calc(8px + env(safe-area-inset-left));
   background: var(--brand);
   color: var(--brand-ink);
+}
+
+.toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 56px;
+}
+
+/* Practice row: Play/Stop, Restart, Repeat, tempo, key and parts, always visible. */
+.practice-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 0 0 8px;
+}
+
+.tool.play {
+  min-width: 104px;
+  font-weight: 700;
+  background: #2f6b3a;
+  border-color: #2f6b3a;
+  color: #fff;
+}
+
+.tool.play.on {
+  background: var(--bad);
+  border-color: var(--bad);
+  color: #fff;
+}
+
+.tempo,
+.parts {
+  display: flex;
+  gap: 4px;
+}
+
+.tempo-value {
+  min-width: 56px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.key-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 0 10px;
+  background: transparent;
+  color: var(--brand-ink);
+}
+
+.key-select option {
+  color: var(--ink);
+}
+
+.chip {
+  padding: 0 10px;
+  font-size: 0.95rem;
+}
+
+.practice-panel {
+  position: fixed;
+  top: var(--toolbar-h);
+  right: 0;
+  z-index: 29;
+  width: min(460px, 100vw);
+  max-height: calc(100vh - var(--toolbar-h));
+  overflow-y: auto;
+  padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 0 0 0 var(--radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.practice-panel h3 {
+  margin: 14px 0 4px;
+}
+
+.slider-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.slider-row input[type="range"] {
+  width: 100%;
+  height: 32px;
+}
+
+.setting-row input[type="number"] {
+  width: 84px;
+  min-height: 40px;
+  font-size: 1rem;
+}
+
+.loop-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.loop-row select {
+  min-height: 44px;
+  font-size: 1rem;
+}
+
+.practice-panel .big-button {
+  margin-top: 12px;
+}
+
+/* F10: the playing measure, across both staves. */
+.song-line {
+  position: relative;
+}
+
+.measure-highlight {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--highlight);
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+.song-line > .notation,
+.song-line > .tab {
+  position: relative;
+}
+
+/* F31: visual metronome. A new element per beat restarts the flash. */
+.beat-light {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--finger-t);
+  animation: beat 0.35s ease-out forwards;
+}
+
+@keyframes beat {
+  from {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+  to {
+    opacity: 0.25;
+    transform: scale(1);
+  }
+}
+
+/* F30: the next 8 finger letters, big. */
+.finger-strip {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 0 0 10px;
+}
+
+.strip-item {
+  display: inline-flex;
+  gap: 2px;
+  opacity: 0.75;
+}
+
+.strip-item.now {
+  opacity: 1;
+  outline: 3px solid var(--brand-ink);
+  outline-offset: 3px;
+  border-radius: 999px;
+}
+
+.badge.big {
+  min-width: 2.2em;
+  height: 2.2em;
+  font-size: 1.15rem;
+}
+
+/* F29: "your turn" phrases are tinted differently from the playing highlight. */
+.song.your-turn .measure-highlight,
+.song.your-turn .tab-measure.current {
+  background: #d9f2dc;
+  fill: #d9f2dc;
+}
+
+.your-turn-label {
+  position: fixed;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 40;
+  margin: 0;
+  padding: 10px 18px;
+  border-radius: var(--radius);
+  background: #2f6b3a;
+  color: #fff;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.tab-fret.step-current {
+  fill: var(--bad);
+}
+
+.plain-button.on {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--brand-ink);
+}
+
+/* F7: large count-in numbers. */
+.count-in {
+  position: fixed;
+  left: 50%;
+  top: 45%;
+  z-index: 50;
+  transform: translate(-50%, -50%);
+  font-size: 9rem;
+  font-weight: 800;
+  color: var(--brand);
+  opacity: 0.85;
+  pointer-events: none;
 }
 
 .toolbar-title {
@@ -685,4 +905,97 @@ h2 {
   border: none;
   background: var(--brand);
   color: var(--brand-ink);
+}
+
+/* F16 chord finder */
+.chord-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.chord-pick select {
+  min-height: 44px;
+  font-size: 1rem;
+}
+
+.chord-name {
+  font-size: 1.6rem;
+}
+
+.chord-finder .settings-page > *,
+.chord-finder > * {
+  max-width: 820px;
+}
+
+.neck {
+  width: 100%;
+  height: auto;
+  margin: 12px 0;
+  background: #f3e7cf;
+  border-radius: var(--radius);
+}
+
+.neck-string {
+  stroke: #6b5d4f;
+  stroke-width: 1.5;
+}
+
+.neck-fret {
+  stroke: #a89880;
+  stroke-width: 2;
+}
+
+.neck-nut {
+  stroke: var(--ink);
+  stroke-width: 5;
+}
+
+.neck-marker {
+  fill: #d6c6a6;
+}
+
+.neck-spike {
+  fill: #444;
+}
+
+.neck-capo {
+  fill: #333;
+  opacity: 0.8;
+}
+
+.neck-label {
+  font-size: 11px;
+  fill: var(--ink-soft);
+}
+
+.neck-dot circle {
+  fill: var(--brand);
+}
+
+.neck-dot text {
+  fill: var(--brand-ink);
+  font-size: 11px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+.neck-open {
+  fill: none;
+  stroke: var(--brand);
+  stroke-width: 2;
+}
+
+.neck-open.drone {
+  stroke: var(--finger-t);
+}
+
+.voicing-info {
+  line-height: 1.6;
+}
+
+/* Chord symbols in the notation are tappable (F16). */
+.notation .abcjs-chord {
+  cursor: pointer;
 }

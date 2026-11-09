@@ -2,9 +2,70 @@
 // The validators back invariant I7 (every stored record parses at the current schema) and
 // make loading defensive: a corrupt record is replaced by defaults, never crashes the app.
 
+import { songProblems } from "../core/song/song.ts";
+
 export const MODEL_SCHEMA_VERSION = 1;
 
 export type ViewMode = "both" | "tab";
+export type MelodyInstrumentId = "violin" | "flute" | "mandolin";
+export type MetronomeMode = "off" | "count-in" | "throughout";
+export type PartId = "melody" | "chords" | "banjo";
+
+export interface PartPrefs {
+  readonly on: boolean;
+  /** 0–1. */
+  readonly volume: number;
+}
+
+/** Per-song practice state (DEVELOPMENT.md §2.2 PracticeContext, minus the transport). */
+export interface PracticePrefs {
+  /** null = the song's own tempo (Q:). */
+  readonly tempoBpm: number | null;
+  /** Semitones up from the song's key, 0–11. Capo on the same shapes, or new shapes (F11). */
+  readonly keyShift: number;
+  /** F34: show the notation in the sounding key, or in the tab's shape key (as banjo books do). */
+  readonly notationKey: "sounding" | "shape";
+  readonly parts: Readonly<Record<PartId, PartPrefs>>;
+  readonly metronome: MetronomeMode;
+  readonly countInBeats: 4 | 8;
+  readonly clickPattern: "every-beat" | "two-and-four";
+  readonly autoRepeat: boolean;
+  /** F27: beats of silence between loop repeats. */
+  readonly loopGapBeats: 0 | 1 | 2 | 4;
+  /** F29 echo mode: phrase length in measures, or 0 for off. */
+  readonly echoMeasures: 0 | 1 | 2 | 4;
+  /** Section loop, as written measure numbers (F8). */
+  readonly loop: { readonly from: number; readonly to: number } | null;
+  readonly speedBuilder: {
+    readonly enabled: boolean;
+    readonly startBpm: number;
+    readonly stepBpm: number;
+    readonly targetBpm: number;
+  };
+}
+
+export const TEMPO_MIN = 30;
+export const TEMPO_MAX = 240;
+export const DEFAULT_TEMPO = 100;
+
+export const DEFAULT_PRACTICE: PracticePrefs = {
+  tempoBpm: null,
+  keyShift: 0,
+  notationKey: "sounding",
+  parts: {
+    melody: { on: true, volume: 0.8 },
+    chords: { on: true, volume: 0.8 },
+    banjo: { on: true, volume: 1 },
+  },
+  metronome: "count-in",
+  countInBeats: 4,
+  clickPattern: "every-beat",
+  autoRepeat: false,
+  loopGapBeats: 0,
+  echoMeasures: 0,
+  loop: null,
+  speedBuilder: { enabled: false, startBpm: 70, stepBpm: 4, targetBpm: 110 },
+};
 export type FretNumbering = "actual" | "capo-relative";
 
 export interface Settings {
@@ -21,6 +82,11 @@ export interface Settings {
   readonly spikes: readonly number[];
   /** Keep the screen awake while a song is open (F12). */
   readonly keepAwake: boolean;
+  readonly melodyInstrument: MelodyInstrumentId;
+  /** F30: big finger letters above the tab while playing or stepping. */
+  readonly showFingerStrip: boolean;
+  /** F31: a flashing beat light. */
+  readonly visualMetronome: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -33,6 +99,9 @@ export const DEFAULT_SETTINGS: Settings = {
   fretNumbering: "actual",
   spikes: [],
   keepAwake: true,
+  melodyInstrument: "violin",
+  showFingerStrip: true,
+  visualMetronome: true,
 };
 
 export const SIZE_STEPS = [0.85, 1, 1.25, 1.55] as const;
@@ -45,6 +114,7 @@ export interface SongPrefs {
   readonly lastOpenedAt?: string;
   /** View for this song, if Dad changed it from the default. */
   readonly view?: ViewMode;
+  readonly practice?: PracticePrefs;
 }
 
 export interface Session {
@@ -78,14 +148,91 @@ export function settingsProblems(v: unknown): string[] {
   if (v.schemaVersion !== MODEL_SCHEMA_VERSION) p.push("schemaVersion");
   if (!isInt(v.size) || v.size < 0 || v.size >= SIZE_STEPS.length) p.push("size");
   if (!isView(v.defaultView)) p.push("defaultView");
-  for (const k of ["showRollNames", "showAccents", "colorBadges", "keepAwake"]) {
+  for (const k of [
+    "showRollNames",
+    "showAccents",
+    "colorBadges",
+    "keepAwake",
+    "showFingerStrip",
+    "visualMetronome",
+  ]) {
     if (!isBool(v[k])) p.push(k);
   }
   if (v.fretNumbering !== "actual" && v.fretNumbering !== "capo-relative") p.push("fretNumbering");
   if (!Array.isArray(v.spikes) || !v.spikes.every((s) => isInt(s) && s >= 6 && s <= 22)) {
     p.push("spikes");
   }
+  if (!["violin", "flute", "mandolin"].includes(v.melodyInstrument as string)) {
+    p.push("melodyInstrument");
+  }
   return p;
+}
+
+const isBpm = (v: unknown) => typeof v === "number" && v >= TEMPO_MIN && v <= TEMPO_MAX;
+
+export function practiceProblems(v: unknown): string[] {
+  if (!isObj(v)) return ["not an object"];
+  const p: string[] = [];
+  if (v.tempoBpm !== null && !isBpm(v.tempoBpm)) p.push("tempoBpm");
+  if (!isInt(v.keyShift) || v.keyShift < 0 || v.keyShift > 11) p.push("keyShift");
+  if (v.notationKey !== "sounding" && v.notationKey !== "shape") p.push("notationKey");
+  const parts = v.parts;
+  if (!isObj(parts)) p.push("parts");
+  else
+    for (const id of ["melody", "chords", "banjo"]) {
+      const part = parts[id];
+      if (
+        !isObj(part) ||
+        !isBool(part.on) ||
+        typeof part.volume !== "number" ||
+        part.volume < 0 ||
+        part.volume > 1
+      ) {
+        p.push(`parts.${id}`);
+      }
+    }
+  if (!["off", "count-in", "throughout"].includes(v.metronome as string)) p.push("metronome");
+  if (v.countInBeats !== 4 && v.countInBeats !== 8) p.push("countInBeats");
+  if (v.clickPattern !== "every-beat" && v.clickPattern !== "two-and-four") p.push("clickPattern");
+  if (!isBool(v.autoRepeat)) p.push("autoRepeat");
+  if (![0, 1, 2, 4].includes(v.loopGapBeats as number)) p.push("loopGapBeats");
+  if (![0, 1, 2, 4].includes(v.echoMeasures as number)) p.push("echoMeasures");
+  if (v.loop !== null) {
+    if (
+      !isObj(v.loop) ||
+      !isInt(v.loop.from) ||
+      !isInt(v.loop.to) ||
+      v.loop.from < 0 ||
+      v.loop.to < 0
+    ) {
+      p.push("loop");
+    }
+  }
+  const sb = v.speedBuilder;
+  if (
+    !isObj(sb) ||
+    !isBool(sb.enabled) ||
+    !isBpm(sb.startBpm) ||
+    !isBpm(sb.targetBpm) ||
+    typeof sb.stepBpm !== "number" ||
+    sb.stepBpm < 1 ||
+    sb.stepBpm > 30
+  ) {
+    p.push("speedBuilder");
+  }
+  return p;
+}
+
+/** Practice prefs from storage, falling back to defaults for anything invalid. */
+export function readPractice(v: unknown): PracticePrefs {
+  if (practiceProblems(v).length === 0) return v as unknown as PracticePrefs;
+  if (!isObj(v)) return DEFAULT_PRACTICE;
+  const merged: Obj = { ...DEFAULT_PRACTICE };
+  for (const key of Object.keys(DEFAULT_PRACTICE)) {
+    const candidate = { ...DEFAULT_PRACTICE, [key]: v[key] };
+    if (practiceProblems(candidate).length === 0) merged[key] = v[key];
+  }
+  return merged as unknown as PracticePrefs;
 }
 
 export function songPrefsProblems(v: unknown): string[] {
@@ -96,6 +243,7 @@ export function songPrefsProblems(v: unknown): string[] {
   if (!isBool(v.favorite)) p.push("favorite");
   if (v.lastOpenedAt !== undefined && !isIso(v.lastOpenedAt)) p.push("lastOpenedAt");
   if (v.view !== undefined && !isView(v.view)) p.push("view");
+  if (v.practice !== undefined) p.push(...practiceProblems(v.practice).map((x) => `practice.${x}`));
   return p;
 }
 
@@ -134,6 +282,7 @@ export function readSongPrefs(v: unknown): SongPrefs | null {
 
 /** The validator for each persisted store (I7). Stores not listed hold no records yet. */
 export const STORE_VALIDATORS: Readonly<Record<string, (v: unknown) => string[]>> = {
+  songs: songProblems,
   settings: settingsProblems,
   songPrefs: songPrefsProblems,
   session: sessionProblems,

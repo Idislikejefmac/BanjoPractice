@@ -8,10 +8,14 @@ interface Props {
   readonly p: TabPrimitives;
   /** Written measure number to highlight (phase 2: the playing measure). */
   readonly highlight?: number | null;
+  /** F28 step mode: the note(s) at this measure and slot are drawn larger. */
+  readonly stepAt?: { readonly measure: number; readonly slot: number } | null;
   readonly label?: string;
 }
 
-export function TabSvg({ p, highlight = null, label = "Banjo tab" }: Props) {
+export function TabSvg({ p, highlight = null, stepAt = null, label = "Banjo tab" }: Props) {
+  const isStep = (measure: number, slot: number) =>
+    stepAt !== null && stepAt.measure === measure && stepAt.slot === slot;
   const u = p.fontSize / 12.5;
   return (
     <svg
@@ -92,10 +96,12 @@ export function TabSvg({ p, highlight = null, label = "Banjo tab" }: Props) {
       {p.frets.map((f) => (
         <text
           key={`f${f.measure}-${f.slot}-${f.string}`}
-          class={f.melody ? "tab-fret melody" : "tab-fret"}
+          class={`tab-fret${f.melody ? " melody" : ""}${isStep(f.measure, f.slot) ? " step-current" : ""}`}
           x={f.x}
           y={f.y}
-          style={{ fontSize: `${f.melody ? p.melodyFontSize : p.fontSize}px` }}
+          style={{
+            fontSize: `${(f.melody ? p.melodyFontSize : p.fontSize) * (isStep(f.measure, f.slot) ? 1.5 : 1)}px`,
+          }}
           data-measure={f.measure}
           data-slot={f.slot}
         >
@@ -105,8 +111,12 @@ export function TabSvg({ p, highlight = null, label = "Banjo tab" }: Props) {
 
       {p.badges.map((b) => (
         <g key={`bd${b.measure}-${b.slot}-${b.y}`} class={`tab-badge finger-${b.finger}`}>
-          <circle cx={b.x} cy={b.y} r={b.r} />
-          <text x={b.x} y={b.y} style={{ fontSize: `${b.r * 1.25}px` }}>
+          <circle cx={b.x} cy={b.y} r={b.r * (isStep(b.measure, b.slot) ? 1.6 : 1)} />
+          <text
+            x={b.x}
+            y={b.y}
+            style={{ fontSize: `${b.r * 1.25 * (isStep(b.measure, b.slot) ? 1.6 : 1)}px` }}
+          >
             {b.finger}
           </text>
         </g>

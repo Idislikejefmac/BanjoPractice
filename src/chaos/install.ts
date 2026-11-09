@@ -3,6 +3,7 @@
 // production.
 
 import type { Services } from "../app/services.ts";
+import type { Player } from "../app/player.ts";
 import type { AppStore } from "../app/store.ts";
 import type { StoreName } from "../platform/types.ts";
 import { STORE_NAMES } from "../platform/types.ts";
@@ -14,6 +15,15 @@ declare global {
     __banjoTest?: {
       services: Services;
       store: AppStore;
+      player: Player;
+      /** Audio resource counts (I11, I13) and late slots (phase-2 exit). */
+      audio(): {
+        contexts: number;
+        sources: number;
+        buffers: number;
+        lateSlots: number;
+        state: string;
+      };
       version: string;
       /** Every record in P1, by store (I6, I7). */
       dumpStorage(): Promise<Record<string, Record<string, unknown>>>;
@@ -23,11 +33,23 @@ declare global {
   }
 }
 
-export function installChaos(services: Services, chaos: ChaosController, store: AppStore): void {
+export function installChaos(
+  services: Services,
+  chaos: ChaosController,
+  store: AppStore,
+  player: Player,
+): void {
   window.__banjoChaos = chaos;
   window.__banjoTest = {
     services,
     store,
+    player,
+    audio: () => ({
+      contexts: services.audio.liveContexts(),
+      ...player.engine.counts(),
+      lateSlots: player.scheduler.lateSlots,
+      state: player.state.value,
+    }),
     version: __APP_VERSION__,
     async dumpStorage() {
       const out: Record<string, Record<string, unknown>> = {};

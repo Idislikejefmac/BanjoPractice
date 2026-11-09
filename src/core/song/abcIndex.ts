@@ -60,6 +60,8 @@ export interface SongIndex {
   readonly rollUnit: number;
   /** Tempo in beats per minute of the Q: beat, if given. */
   readonly tempoBpm: number | null;
+  /** The Q: beat as a fraction of a whole note (1/4 if not given). */
+  readonly tempoBeat: number;
   /** Where the music body starts in the source (everything before it is the header). */
   readonly bodyStart: number;
   readonly headerLines: readonly string[];
@@ -123,6 +125,11 @@ function parseFraction(text: string | null): Fraction | null {
   return m ? { num: Number(m[1]), den: Number(m[2]) } : null;
 }
 
+function parseTempoBeat(text: string | null): number {
+  const m = /(\d+)\/(\d+)\s*=/.exec(text ?? "");
+  return m ? Number(m[1]) / Number(m[2]) : 1 / 4;
+}
+
 function parseTempo(text: string | null): number | null {
   // "1/4=120", "120", "\"Moderato\" 1/4=96"
   const m = /(?:\d+\/\d+\s*=\s*)?(\d+)\s*$/.exec(text ?? "");
@@ -172,6 +179,7 @@ export function indexAbc(abc: string, opts: { rollUnit?: number } = {}): SongInd
       unitLength,
       rollUnit,
       tempoBpm: parseTempo(headerField(header, "Q")),
+      tempoBeat: parseTempoBeat(headerField(header, "Q")),
       bodyStart,
       headerLines: header,
       measures,
@@ -297,6 +305,7 @@ export function indexAbc(abc: string, opts: { rollUnit?: number } = {}): SongInd
     unitLength,
     rollUnit,
     tempoBpm: parseTempo(headerField(header, "Q")),
+    tempoBeat: parseTempoBeat(headerField(header, "Q")),
     bodyStart,
     headerLines: header,
     measures,

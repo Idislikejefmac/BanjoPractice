@@ -52,7 +52,9 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
+        // Instrument samples are precached too, so playback works offline from the first
+        // launch (about 3.6 MB; DEVELOPMENT.md A2).
+        globPatterns: ["**/*.{js,css,html,svg,png,woff2,mp3}"],
         // The production service worker's scope covers /staging/ too; never let it answer
         // staging navigations (staging registers its own, more specific worker).
         navigateFallbackDenylist: isStaging ? [] : [/\/staging\//],

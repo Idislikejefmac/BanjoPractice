@@ -8,20 +8,26 @@
 
 import { batch, computed, signal } from "@preact/signals";
 import type { Song } from "../core/song/song.ts";
+import { songProblems } from "../core/song/song.ts";
 import type { KeyValueStore, StoreName } from "../platform/types.ts";
 import type { Services } from "./services.ts";
-import type { Session, Settings, SongPrefs, ViewMode } from "./model.ts";
+import type { PracticePrefs, Session, Settings, SongPrefs, ViewMode } from "./model.ts";
 import {
+  DEFAULT_PRACTICE,
   DEFAULT_SESSION,
   DEFAULT_SETTINGS,
   MODEL_SCHEMA_VERSION,
   readSession,
   readSettings,
   readSongPrefs,
+  readPractice,
   recentSongIds,
+  STORE_VALIDATORS,
 } from "./model.ts";
 
 const SESSION_MIRROR_KEY = "banjo.session";
+/** Write-ahead copy of saves not yet confirmed by IndexedDB (survives a kill mid-save). */
+const PENDING_KEY = "banjo.pendingWrites";
 const SESSION_DEBOUNCE_MS = 500;
 const RETRY_MS = 3000;
 
@@ -34,11 +40,23 @@ export interface Notice {
 type PendingWrite = { store: StoreName; key: string; value: unknown };
 
 export class AppStore {
-  readonly songs: readonly Song[];
+  /** Built-in songs and exercises, then Dad's own songs (F2, F17). */
+  readonly songList = signal<readonly Song[]>([]);
+  private readonly builtins: readonly Song[];
+  /** F18: when Dad last exported a backup (ISO), for "Last backup: N days ago". */
+  readonly lastBackupAt = signal<string | null>(null);
+  /** F17: the song editor is open on this song id ("new" for a new song), or null. */
+  readonly editing = signal<string | null>(null);
+
+  get songs(): readonly Song[] {
+    return this.songList.value;
+  }
   readonly settings = signal<Settings>(DEFAULT_SETTINGS);
   readonly prefs = signal<ReadonlyMap<string, SongPrefs>>(new Map());
   readonly session = signal<Session>(DEFAULT_SESSION);
   readonly settingsOpen = signal(false);
+  /** F16 chord finder: open with this chord symbol, or null when closed. */
+  readonly chordFinder = signal<string | null>(null);
   readonly notices = signal<readonly Notice[]>([]);
   /** Bumped when the user picks a song, so the view scrolls to its top. */
   readonly openNonce = signal(0);
@@ -49,6 +67,12 @@ export class AppStore {
   readonly view = computed<ViewMode>(() => {
     const id = this.session.value.songId;
     return (id ? this.prefs.value.get(id)?.view : undefined) ?? this.settings.value.defaultView;
+  });
+  /** Practice state for the open song (tempo, key, parts, loop…). */
+  readonly practice = computed<PracticePrefs>(() => {
+    const id = this.session.value.songId;
+    const p = id ? this.prefs.value.get(id)?.practice : undefined;
+    return p ? readPractice(p) : DEFAULT_PRACTICE;
   });
   readonly favorites = computed(() =>
     this.songs.filter((s) => this.prefs.value.get(s.id)?.favorite),
@@ -62,9 +86,14 @@ export class AppStore {
   private nextNoticeId = 1;
   private sessionTimer: ReturnType<typeof setTimeout> | null = null;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
-  /** Writes that failed, newest value per record, retried until they succeed. */
-  private failed = new Map<string, PendingWrite>();
-  private inFlight = 0;
+  /**
+   * Saves not yet confirmed, newest value per record. One write per record is in flight at a
+   * time, and only the newest value is written, so a slow or retried save can never land
+   * after a newer one (last write wins).
+   */
+  private pending = new Map<string, PendingWrite>();
+  private writing = new Set<string>();
+  private failing = new Set<string>();
 
   private readonly services: Services;
   private readonly local: Pick<Storage, "getItem" | "setItem"> | null;
@@ -75,7 +104,8 @@ export class AppStore {
     local: Pick<Storage, "getItem" | "setItem"> | null,
   ) {
     this.services = services;
-    this.songs = songs;
+    this.builtins = songs;
+    this.songList.value = songs;
     this.local = local;
   }
 
@@ -88,7 +118,19 @@ export class AppStore {
     let settings = DEFAULT_SETTINGS;
     const prefs = new Map<string, SongPrefs>();
     let session: Session | null = null;
+    const userSongs = new Map<string, Song>();
     try {
+      for (const key of await this.storage.keys("songs")) {
+        const s = await this.storage.get<Song>("songs", key);
+        if (songProblems(s).length === 0) userSongs.set(s!.id, { ...s!, source: "user" });
+        else
+          this.services.diagnostics.log(
+            "error",
+            `A saved song couldn't be read and was set aside (${key})`,
+          );
+      }
+      const meta = await this.storage.get<{ lastBackupAt?: string }>("meta", "meta");
+      if (meta?.lastBackupAt) this.lastBackupAt.value = meta.lastBackupAt;
       settings = readSettings(await this.storage.get("settings", "settings"));
       for (const key of await this.storage.keys("songPrefs")) {
         const p = readSongPrefs(await this.storage.get("songPrefs", key));
@@ -99,6 +141,20 @@ export class AppStore {
     } catch (e) {
       this.reportError("Couldn't read your saved settings", e);
     }
+    // Saves that hadn't reached IndexedDB when the app was last closed or killed.
+    const unsaved = this.readPending();
+    for (const w of unsaved) {
+      if (w.store === "settings") settings = readSettings(w.value);
+      if (w.store === "songPrefs") {
+        const p = readSongPrefs(w.value);
+        if (p) prefs.set(p.songId, p);
+      }
+      if (w.store === "songs") userSongs.set((w.value as Song).id, w.value as Song);
+    }
+    this.songList.value = [
+      ...this.builtins,
+      ...[...userSongs.values()].sort((a, b) => a.title.localeCompare(b.title)),
+    ];
     // The localStorage mirror is newer if a reload happened before the debounced write.
     const mirrored = this.readMirror();
     if (mirrored && (!session || mirrored.savedAt > session.savedAt)) session = mirrored;
@@ -110,6 +166,37 @@ export class AppStore {
       this.prefs.value = prefs;
       this.session.value = session ?? DEFAULT_SESSION;
     });
+    for (const w of unsaved) this.write(w.store, w.key, w.value);
+  }
+
+  private readPending(): PendingWrite[] {
+    try {
+      const raw = this.local?.getItem(PENDING_KEY);
+      const list = raw ? (JSON.parse(raw) as PendingWrite[]) : [];
+      return Array.isArray(list)
+        ? list.filter(
+            (w) =>
+              (w.store === "settings" ||
+                w.store === "songPrefs" ||
+                w.store === "songs" ||
+                w.store === "drafts" ||
+                w.store === "meta") &&
+              typeof w.key === "string" &&
+              (STORE_VALIDATORS[w.store]?.(w.value).length ?? 0) === 0,
+          )
+        : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private persistPending(): void {
+    try {
+      const list = [...this.pending.values()].filter((w) => w.store !== "session");
+      this.local?.setItem(PENDING_KEY, JSON.stringify(list));
+    } catch {
+      // localStorage full or blocked: the IndexedDB write still happens.
+    }
   }
 
   private readMirror(): Session | null {
@@ -124,16 +211,32 @@ export class AppStore {
   // --- Writes ---------------------------------------------------------------------------
 
   private write(store: StoreName, key: string, value: unknown): void {
-    this.inFlight++;
-    this.storage.put(store, key, value).then(
+    const id = `${store}/${key}`;
+    this.pending.set(id, { store, key, value });
+    this.persistPending();
+    if (!this.writing.has(id) && !this.failing.has(id)) this.pump(id);
+  }
+
+  private pump(id: string): void {
+    const w = this.pending.get(id);
+    if (!w) return;
+    this.writing.add(id);
+    this.storage.put(w.store, w.key, w.value).then(
       () => {
-        this.inFlight--;
-        this.failed.delete(`${store}/${key}`);
-        if (this.failed.size === 0) this.dismissSaveErrors();
+        this.writing.delete(id);
+        this.failing.delete(id);
+        // Only clear it if nothing newer was queued while this write was in flight.
+        if (this.pending.get(id) === w) {
+          this.pending.delete(id);
+          this.persistPending();
+        } else {
+          this.pump(id);
+        }
+        if (this.failing.size === 0) this.dismissSaveErrors();
       },
       (e: unknown) => {
-        this.inFlight--;
-        this.failed.set(`${store}/${key}`, { store, key, value });
+        this.writing.delete(id);
+        this.failing.add(id);
         this.reportError(saveFailureText(e), e);
         this.scheduleRetry();
       },
@@ -144,15 +247,15 @@ export class AppStore {
     if (this.retryTimer) return;
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null;
-      const pending = [...this.failed.values()];
-      this.failed.clear();
-      for (const w of pending) this.write(w.store, w.key, w.value);
+      const ids = [...this.failing];
+      this.failing.clear();
+      for (const id of ids) if (!this.writing.has(id)) this.pump(id);
     }, RETRY_MS);
   }
 
   /** True while any save is in flight or waiting for a retry (test hook, I6). */
   get savesPending(): boolean {
-    return this.inFlight > 0 || this.failed.size > 0 || this.sessionTimer !== null;
+    return this.pending.size > 0 || this.sessionTimer !== null;
   }
 
   private saveSession(next: Session): void {
@@ -215,6 +318,14 @@ export class AppStore {
     else this.updateSettings({ defaultView: view });
   }
 
+  /** Changes the open song's practice state (debounced writes would batch slider drags). */
+  updatePractice(patch: Partial<PracticePrefs>): void {
+    const id = this.session.value.songId;
+    if (!id) return;
+    const next = readPractice({ ...this.practice.value, ...patch });
+    this.updatePrefs(id, { practice: next });
+  }
+
   setTopMeasure(measure: number): void {
     if (measure !== this.session.value.topMeasure) this.updateSession({ topMeasure: measure });
   }
@@ -227,6 +338,77 @@ export class AppStore {
     const next = readSettings({ ...this.settings.value, ...patch });
     this.settings.value = next;
     this.write("settings", "settings", next);
+  }
+
+  // --- Dad's songs (F17), backups (F18) ----------------------------------------------------
+
+  /** Saves a user song (new or edited). Shows the backup prompt (F18). */
+  saveSong(song: Song): void {
+    const saved: Song = { ...song, source: "user", updatedAt: new Date().toISOString() };
+    const others = this.songList.value.filter((s) => s.id !== saved.id);
+    const user = [...others.filter((s) => s.source === "user"), saved].sort((a, b) =>
+      a.title.localeCompare(b.title),
+    );
+    this.songList.value = [...this.builtins, ...user];
+    this.write("songs", saved.id, saved);
+    this.notify(
+      "info",
+      "Song saved. Remember to back up your songs (Settings → Back up my songs).",
+    );
+  }
+
+  /** Deletes a user song; the old record goes to trash first (§8.1), in one transaction. */
+  async deleteSong(id: string): Promise<boolean> {
+    const song = this.songList.value.find((s) => s.id === id && s.source === "user");
+    if (!song) return false;
+    const now = new Date().toISOString();
+    try {
+      await this.storage.writeAll([
+        {
+          op: "put",
+          store: "trash",
+          key: `${now}:${id}`,
+          value: { deletedAt: now, reason: "deleted", store: "songs", record: song },
+        },
+        { op: "delete", store: "songs", key: id },
+      ]);
+    } catch (e) {
+      this.reportError("Couldn't delete the song", e);
+      return false;
+    }
+    this.songList.value = this.songList.value.filter((s) => s.id !== id);
+    if (this.session.value.songId === id) this.closeSong();
+    return true;
+  }
+
+  /** F17: editor drafts autosave on every change (debounced by the write queue). */
+  saveDraft(key: string, draft: unknown): void {
+    this.write("drafts", key, { savedAt: new Date().toISOString(), draft });
+  }
+
+  async loadDraft(key: string): Promise<unknown> {
+    try {
+      const d = await this.storage.get<{ draft: unknown }>("drafts", key);
+      return d?.draft ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  discardDraft(key: string): void {
+    this.storage.delete("drafts", key).catch(() => {});
+  }
+
+  /** Records that a backup was made (F18 "Last backup: N days ago"). */
+  markBackedUp(): void {
+    const at = new Date().toISOString();
+    this.lastBackupAt.value = at;
+    this.write("meta", "meta", { lastBackupAt: at });
+  }
+
+  /** After an import: reread everything from storage. */
+  async reload(): Promise<void> {
+    await this.load();
   }
 
   // --- Notices --------------------------------------------------------------------------

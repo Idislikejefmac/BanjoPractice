@@ -47,6 +47,10 @@ export function wrapStorage(store: KeyValueStore, chaos: ChaosController): KeyVa
       await op("keys");
       return store.keys(s);
     },
+    async writeAll(ops) {
+      await op("writeAll");
+      return store.writeAll(ops);
+    },
     async putMany<T>(s: StoreName, entries: readonly (readonly [string, T])[]) {
       await op("putMany");
       return store.putMany(s, entries);

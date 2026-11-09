@@ -83,7 +83,9 @@ export function SongPanel({ store }: { store: AppStore }) {
   const all = store.songs;
   const q = query.trim().toLowerCase();
   const match = (s: Song) => q === "" || s.title.toLowerCase().includes(q);
-  const builtins = all.filter((s) => s.source === "builtin" && match(s));
+  const isExercise = (s: Song) => s.tags.includes("exercise");
+  const builtins = all.filter((s) => s.source === "builtin" && !isExercise(s) && match(s));
+  const exercises = all.filter((s) => isExercise(s) && match(s));
   const mine = all.filter((s) => s.source === "user" && match(s));
 
   return (
@@ -119,6 +121,7 @@ export function SongPanel({ store }: { store: AppStore }) {
         />
         <Section store={store} title="Songs" id="builtin" songs={builtins} />
         <Section store={store} title="My songs" id="mine" songs={mine} />
+        <Section store={store} title="Roll exercises" id="exercises" songs={exercises} />
       </aside>
     </>
   );

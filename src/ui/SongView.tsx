@@ -2,7 +2,12 @@
 // F35 scroll restore (the measure at the top of the screen is saved in the session).
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+import type { Player } from "../app/player.ts";
 import type { AppStore } from "../app/store.ts";
+import { practiceArrangement } from "../core/song/practiceArrangement.ts";
+import type { SongIndex } from "../core/song/abcIndex.ts";
+import { indexAbc } from "../core/song/abcIndex.ts";
+import { transposeAbc } from "../core/song/transposeAbc.ts";
 import { SIZE_STEPS, measuresPerLine } from "../app/model.ts";
 import type { ArrangedMeasure } from "../core/banjo/types.ts";
 import { capoPlan } from "../core/banjo/tuning.ts";
@@ -56,6 +61,14 @@ function useWidth(ref: { current: HTMLElement | null }): number {
 
 interface LineProps {
   readonly loaded: LoadedSong;
+  /** ABC and index for the notation: the song transposed to the sounding key (F11). */
+  readonly notation: { readonly abc: string; readonly index: SongIndex };
+  /** Written measure number playing now (F10). */
+  readonly current: number | null;
+  /** F16: a chord symbol in the notation was tapped. */
+  readonly onChordTap: (chord: string) => void;
+  /** F28: the step cursor's measure and slot. */
+  readonly stepAt: { readonly measure: number; readonly slot: number } | null;
   readonly line: DisplayLine;
   readonly lineNo: number;
   readonly width: number;
@@ -65,7 +78,20 @@ interface LineProps {
   readonly tabOpts: Omit<TabLayoutOptions, "scale" | "showChords" | "showMeasureNumber">;
 }
 
-function SongLine({ loaded, line, lineNo, width, scale, tabOnly, arranged, tabOpts }: LineProps) {
+function SongLine({
+  loaded,
+  notation,
+  current,
+  stepAt,
+  onChordTap,
+  line,
+  lineNo,
+  width,
+  scale,
+  tabOnly,
+  arranged,
+  tabOpts,
+}: LineProps) {
   const notationRef = useRef<HTMLDivElement>(null);
   const measures = loaded.index.measures.slice(line.from, line.to);
   const infos = measures.map(info);
@@ -77,16 +103,16 @@ function SongLine({ loaded, line, lineNo, width, scale, tabOnly, arranged, tabOp
       setGeometry(evenGeometry(infos, width, 34 * scale));
       return;
     }
-    const abc = lineAbc(loaded.song.abc, loaded.index, line, { showMeter: lineNo === 0 });
+    const abc = lineAbc(notation.abc, notation.index, line, { showMeter: lineNo === 0 });
     let result = null;
     try {
-      result = renderNotationLine(el, abc, width, NOTATION_SCALE * scale, infos);
+      result = renderNotationLine(el, abc, width, NOTATION_SCALE * scale, infos, onChordTap);
     } catch {
       result = null;
     }
     setGeometry(result?.geometry ?? evenGeometry(infos, width, 34 * scale));
     // `infos` is derived from `loaded` and `line`, which are the dependencies.
-  }, [loaded, line, lineNo, width, scale, tabOnly]);
+  }, [loaded, notation, line, lineNo, width, scale, tabOnly]);
 
   const tab =
     geometry && arranged
@@ -99,16 +125,28 @@ function SongLine({ loaded, line, lineNo, width, scale, tabOnly, arranged, tabOp
         })
       : null;
 
+  // The playing measure, highlighted across both staves (light yellow, never blue).
+  const box = current !== null ? geometry?.find((g) => g.index === current) : undefined;
+
   return (
     <div
-      class="song-line"
+      class={box ? "song-line playing" : "song-line"}
       data-first-measure={measures[0]?.index ?? 0}
       data-last-measure={measures[measures.length - 1]?.index ?? 0}
     >
+      {box && (
+        <div
+          class="measure-highlight"
+          data-measure={box.index}
+          style={{ left: `${box.left}px`, width: `${box.right - box.left}px` }}
+        />
+      )}
       {!tabOnly && <div class="notation" ref={notationRef} aria-label="Notation" />}
       {tab && (
         <TabSvg
           p={tab}
+          highlight={current}
+          stepAt={stepAt}
           label={`Tab, measures ${measures[0]?.index ?? 0} to ${measures[measures.length - 1]?.index ?? 0}`}
         />
       )}
@@ -116,7 +154,7 @@ function SongLine({ loaded, line, lineNo, width, scale, tabOnly, arranged, tabOp
   );
 }
 
-export function SongView({ store }: { store: AppStore }) {
+export function SongView({ store, player }: { store: AppStore; player: Player }) {
   const song = store.currentSong.value;
   const settings = store.settings.value;
   const view = store.view.value;
@@ -132,14 +170,69 @@ export function SongView({ store }: { store: AppStore }) {
     return lineBreaks(loaded.index.measures, per);
   }, [loaded, width, scale]);
 
-  const arranged = loaded?.arrangement && !loaded.stale ? loaded.arrangement.measures : null;
-  const plan = capoPlan(0, settings.spikes);
+  const keyShift = store.practice.value.keyShift;
+  const shapeNotation = store.practice.value.notationKey === "shape";
+  // The tab for this key: the hand-written one with a capo, or C6's in new shapes (F11, F14).
+  const practiceTab = useMemo(
+    () => (loaded ? practiceArrangement(loaded, keyShift, settings.spikes) : null),
+    [loaded, keyShift, settings.spikes],
+  );
+  const position = practiceTab?.plan ?? null;
+  const arranged = practiceTab?.measures ?? null;
+  // Notation in the sounding key (C1 transposes the ABC text; abcjs only draws it), or in
+  // the tab's shape key (F34).
+  const notation = useMemo(() => {
+    if (!loaded || !practiceTab) return null;
+    if (shapeNotation) return { abc: practiceTab.abc, index: practiceTab.index };
+    if (keyShift === 0) return { abc: loaded.song.abc, index: loaded.index };
+    const t = transposeAbc(loaded.song.abc, keyShift, practiceTab.plan.soundingKey);
+    return { abc: t.abc, index: indexAbc(t.abc) };
+  }, [loaded, practiceTab, keyShift, shapeNotation]);
   const tabOpts = {
     showRollNames: settings.showRollNames,
     showAccents: settings.showAccents,
     fretNumbering: settings.fretNumbering,
-    plan,
+    plan: position?.capo ?? capoPlan(0, settings.spikes),
   };
+  const follow = player.follow.value;
+  const current = follow.measure;
+  const openChord = useMemo(() => (chord: string) => (store.chordFinder.value = chord), [store]);
+  const stepAt =
+    player.step.value && follow.measure !== null && follow.slot !== null
+      ? { measure: follow.measure, slot: follow.slot }
+      : null;
+
+  // F10 follow: keep the playing line in the upper third. A manual scroll pauses it for 4 s.
+  const pausedUntil = useRef(0);
+  const programmatic = useRef(false);
+  useEffect(() => {
+    if (current === null || Date.now() < pausedUntil.current) return;
+    const el = [...document.querySelectorAll<HTMLElement>(".song-line")].find(
+      (l) => Number(l.dataset.firstMeasure) <= current && Number(l.dataset.lastMeasure) >= current,
+    );
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const top = toolbarHeight();
+    const band = top + (window.innerHeight - top) / 3;
+    if (r.top < top || r.top > band) {
+      programmatic.current = true;
+      window.scrollTo({ top: window.scrollY + r.top - top - 8, behavior: "smooth" });
+      setTimeout(() => (programmatic.current = false), 600);
+    }
+  }, [current]);
+  useEffect(() => {
+    const onUser = () => {
+      if (!programmatic.current && player.state.peek() !== "stopped") {
+        pausedUntil.current = Date.now() + 4000;
+      }
+    };
+    window.addEventListener("wheel", onUser, { passive: true });
+    window.addEventListener("touchmove", onUser, { passive: true });
+    return () => {
+      window.removeEventListener("wheel", onUser);
+      window.removeEventListener("touchmove", onUser);
+    };
+  }, [player]);
 
   // Scroll: restore the saved place once per song, then keep the session up to date.
   const restored = useRef<string | null>(null);
@@ -216,15 +309,27 @@ export function SongView({ store }: { store: AppStore }) {
   const brokenRules = loaded.violations.filter((v) => v.severity === "error");
 
   return (
-    <article class="song" aria-label={song.title}>
+    <article class={follow.yourTurn ? "song your-turn" : "song"} aria-label={song.title}>
+      {follow.yourTurn && (
+        <p class="your-turn-label" role="status">
+          Your turn
+        </p>
+      )}
       <header class="song-head">
         <h2>{song.title}</h2>
         <p class="song-meta">
-          <span>Key of {formatKey(index.key)}</span>
+          <span>Key of {formatKey(position?.soundingKey ?? index.key)}</span>
+          {keyShift > 0 && shapeNotation && practiceTab && (
+            <span data-testid="notation-key">
+              Notes shown in {formatKey(practiceTab.index.key)}, as the tab
+            </span>
+          )}
           <span>
             {index.meter.num}/{index.meter.den}
           </span>
-          <span class="capo-instruction">No capo</span>
+          <span class="capo-instruction" data-testid="capo-instruction">
+            {position?.instruction ?? "No capo"}
+          </span>
           {song.credit && <span>{song.credit}</span>}
         </p>
         {notes.map((n) => (
@@ -232,14 +337,23 @@ export function SongView({ store }: { store: AppStore }) {
             {n}
           </p>
         ))}
-        {loaded.arrangement === null && !loaded.stale && (
-          <p class="song-note">This song has no banjo tab yet.</p>
+        {practiceTab?.generated && (
+          <p class="song-note" data-testid="generated-note">
+            {loaded.arrangement && !loaded.stale
+              ? "This key uses an auto-generated arrangement."
+              : "This tab was arranged by the app."}
+          </p>
         )}
         {loaded.stale && (
           <p class="song-note warn" role="status">
-            The tab for this song doesn't match the notation, so only the notation is shown.
+            The hand-written tab doesn't match the notation, so the app arranged one instead.
           </p>
         )}
+        {(practiceTab?.arrangeResult?.problems ?? []).map((p) => (
+          <p class="song-note warn" role="status" key={p.measure}>
+            Measure {p.measure}: {p.message}.
+          </p>
+        ))}
         {brokenRules.length > 0 && (
           <p class="song-note warn" role="status">
             {brokenRules.length} place(s) in this tab can't be played as written (measure{" "}
@@ -253,6 +367,10 @@ export function SongView({ store }: { store: AppStore }) {
             <SongLine
               key={`${line.from}-${line.to}-${width}-${scale}-${view}`}
               loaded={loaded}
+              notation={notation!}
+              current={current}
+              stepAt={stepAt}
+              onChordTap={openChord}
               line={line}
               lineNo={i}
               width={width}

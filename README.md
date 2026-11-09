@@ -13,22 +13,16 @@ A practice app for a 5-string banjo in three-finger Scruggs style: pick a song, 
 
 ## Status
 
-**Phase 0 (core and tooling)**, see DEVELOPMENT.md §9.
+Phases 0–2b are built and run on **staging**. Production (Dad's URL) still serves the phase-0
+placeholder until the iPad checklist (CHAOS_TESTING.md §7) is done and someone runs *Promote to
+production*. Phase details: DEVELOPMENT.md §9.
 
-| Done | Still to do in phase 0 |
-| --- | --- |
-| C1 music theory (notes, keys and modes, spelling, chords, transposition) | Install the placeholder on Dad's iPad (Safari → Share → Add to Home Screen) |
-| C2 fretboard, capo and 5th-string spikes | |
-| C3 roll library (all 8 rolls) | |
-| C4 rule validator (H1–H9) | |
-| C5 tab text format (parser + serializer) | |
-| Lockfile committed; `npm run verify` and e2e green on Windows | |
-| Spike S0: Linux WebKit (CI) has Web Audio, Windows WebKit doesn't; service worker, offline and IndexedDB work in both (CHAOS_TESTING.md §9) | |
-| First green CI and Pages deploy: [production](https://idislikejefmac.github.io/BanjoPractice/), [staging](https://idislikejefmac.github.io/BanjoPractice/staging/) | |
-| Platform interfaces P1–P8, fakes, IndexedDB storage, offline, wake lock, pedal input, diagnostics | |
-| Chaos controller skeleton + storage fault wrapper, production-strip check | |
-| Placeholder app (installable, offline, shows the rolls checked live) | |
-| CI, deploy (production + isolated staging) and promote workflows | |
+| Phase | Built | Waiting on people |
+| --- | --- | --- |
+| 0 · Core and tooling | C1–C5, P1–P8 interfaces and fakes, chaos harness, CI, staging/production deploys, spike S0 | Install on Dad's iPad |
+| 1 · Read | Song library, favorites, recently played, notation + tab aligned line by line (spike S2), tab-only view, sizes, settings, diagnostics, session restore, offline; 4 songs; UI monkey + storage/lifecycle faults | **Jeff and Dad: check the four draft melodies and tabs**; S3 on the iPad |
+| 2 · Play | Scheduler on one audio clock, sampled banjo/guitar/fiddle/flute (S4), boom-chuck chords, metronome and count-in, tempo, speed builder, section loops, key change with capo instruction (C8, C1 transposition), follow highlight + auto-scroll, pedal | S1 (how it sounds) and S3 (silent switch, calls, Bluetooth) on the iPad |
+| 2b · Practice modes | Part loops, loop pause, step mode, echo mode, finger strip, beat light, tap tempo, notation in the tab's key | |
 
 ## Getting started
 

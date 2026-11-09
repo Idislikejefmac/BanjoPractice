@@ -16,6 +16,8 @@ export class ErrorBoundary extends Component<Props, State> {
   override state: State = { failed: false };
 
   override componentDidCatch(error: unknown): void {
+    // Also to the console, so tests and the chaos monkey see it (I1).
+    console.error("UI error boundary:", error);
     this.props.diagnostics.log("error", error instanceof Error ? error.message : String(error), {
       stack: error instanceof Error ? error.stack : undefined,
       context: "UI error boundary",

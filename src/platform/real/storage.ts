@@ -72,7 +72,8 @@ export async function openIndexedDbStore(
   let lastError: unknown;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const db = await openOnce(name, opts.timeoutMs ?? 4000);
+      // 3 tries × 2 s: Safari sometimes fails the first open, but Dad shouldn't wait long.
+      const db = await openOnce(name, opts.timeoutMs ?? 2000);
       return wrap(db);
     } catch (e) {
       if (e instanceof StorageNewerVersionError) throw e;
@@ -97,6 +98,20 @@ function wrap(db: IDBPDatabase): KeyValueStore {
     },
     async keys(store: StoreName) {
       return (await db.getAllKeys(store)).map(String).sort();
+    },
+    async writeAll(ops) {
+      const stores = [...new Set(ops.map((o) => o.store))];
+      if (stores.length === 0) return;
+      // One transaction over every store touched; only IndexedDB requests inside it.
+      const tx = db.transaction(stores, "readwrite");
+      await Promise.all([
+        ...ops.map((o) =>
+          o.op === "put"
+            ? tx.objectStore(o.store).put(o.value, o.key)
+            : tx.objectStore(o.store).delete(o.key),
+        ),
+        tx.done,
+      ]);
     },
     async putMany<T>(store: StoreName, entries: readonly (readonly [string, T])[]) {
       // One transaction; only IndexedDB requests are awaited inside it.
