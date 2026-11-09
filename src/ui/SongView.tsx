@@ -69,6 +69,8 @@ interface LineProps {
   readonly onChordTap: (chord: string) => void;
   /** F28: the step cursor's measure and slot. */
   readonly stepAt: { readonly measure: number; readonly slot: number } | null;
+  /** F30: the note playing now (not while stepping). */
+  readonly playAt: { readonly measure: number; readonly slot: number } | null;
   readonly line: DisplayLine;
   readonly lineNo: number;
   readonly width: number;
@@ -85,6 +87,7 @@ function SongLine({
   notation,
   current,
   stepAt,
+  playAt,
   onChordTap,
   line,
   lineNo,
@@ -153,6 +156,7 @@ function SongLine({
           p={tab}
           highlight={current}
           stepAt={stepAt}
+          playAt={playAt}
           label={`Tab, measures ${measures[0]?.index ?? 0} to ${measures[measures.length - 1]?.index ?? 0}`}
         />
       )}
@@ -207,6 +211,15 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
   const openChord = useMemo(() => (chord: string) => (store.chordFinder.value = chord), [store]);
   const stepAt =
     player.step.value && follow.measure !== null && follow.slot !== null
+      ? { measure: follow.measure, slot: follow.slot }
+      : null;
+  const playAt =
+    !player.step.value &&
+    player.state.value !== "stopped" &&
+    follow.countIn === null &&
+    !follow.yourTurn &&
+    follow.measure !== null &&
+    follow.slot !== null
       ? { measure: follow.measure, slot: follow.slot }
       : null;
 
@@ -383,6 +396,7 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
               notation={notation!}
               current={current}
               stepAt={stepAt}
+              playAt={playAt}
               onChordTap={openChord}
               line={line}
               lineNo={i}

@@ -10,12 +10,22 @@ interface Props {
   readonly highlight?: number | null;
   /** F28 step mode: the note(s) at this measure and slot are drawn larger. */
   readonly stepAt?: { readonly measure: number; readonly slot: number } | null;
+  /** F30: the note being played now: its finger badge is ringed and slightly larger. */
+  readonly playAt?: { readonly measure: number; readonly slot: number } | null;
   readonly label?: string;
 }
 
-export function TabSvg({ p, highlight = null, stepAt = null, label = "Banjo tab" }: Props) {
+export function TabSvg({
+  p,
+  highlight = null,
+  stepAt = null,
+  playAt = null,
+  label = "Banjo tab",
+}: Props) {
   const isStep = (measure: number, slot: number) =>
     stepAt !== null && stepAt.measure === measure && stepAt.slot === slot;
+  const isPlay = (measure: number, slot: number) =>
+    playAt !== null && playAt.measure === measure && playAt.slot === slot;
   const u = p.fontSize / 12.5;
   return (
     <svg
@@ -109,18 +119,22 @@ export function TabSvg({ p, highlight = null, stepAt = null, label = "Banjo tab"
         </text>
       ))}
 
-      {p.badges.map((b) => (
-        <g key={`bd${b.measure}-${b.slot}-${b.y}`} class={`tab-badge finger-${b.finger}`}>
-          <circle cx={b.x} cy={b.y} r={b.r * (isStep(b.measure, b.slot) ? 1.6 : 1)} />
-          <text
-            x={b.x}
-            y={b.y}
-            style={{ fontSize: `${b.r * 1.25 * (isStep(b.measure, b.slot) ? 1.6 : 1)}px` }}
+      {p.badges.map((b) => {
+        const grow = isStep(b.measure, b.slot) ? 1.6 : isPlay(b.measure, b.slot) ? 1.3 : 1;
+        const playing = isPlay(b.measure, b.slot);
+        return (
+          <g
+            key={`bd${b.measure}-${b.slot}-${b.y}`}
+            class={`tab-badge finger-${b.finger}${playing ? " play-now" : ""}`}
           >
-            {b.finger}
-          </text>
-        </g>
-      ))}
+            {playing && <circle class="play-halo" cx={b.x} cy={b.y} r={b.r * 2} />}
+            <circle cx={b.x} cy={b.y} r={b.r * grow} />
+            <text x={b.x} y={b.y} style={{ fontSize: `${b.r * 1.25 * grow}px` }}>
+              {b.finger}
+            </text>
+          </g>
+        );
+      })}
 
       {p.stems.map((s, i) => (
         <line key={`st${i}`} class="tab-stem" x1={s.x} x2={s.x} y1={s.y1} y2={s.y2} />

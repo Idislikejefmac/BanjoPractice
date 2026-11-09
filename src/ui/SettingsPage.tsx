@@ -122,12 +122,6 @@ export function SettingsPage({ store, services }: { store: AppStore; services: S
           onChange={(v) => store.updateSettings({ showLyrics: v })}
         />
         <Toggle
-          name="showFingerStrip"
-          label="Big finger letters while playing"
-          checked={s.showFingerStrip}
-          onChange={(v) => store.updateSettings({ showFingerStrip: v })}
-        />
-        <Toggle
           name="visualMetronome"
           label="Flashing beat light"
           checked={s.visualMetronome}

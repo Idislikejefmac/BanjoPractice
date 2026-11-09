@@ -63,36 +63,6 @@ function clampTempo(n: number): number {
   return Math.max(TEMPO_MIN, Math.min(TEMPO_MAX, Math.round(n)));
 }
 
-/** F9: a tap changes by 1; holding the button changes by 5 every 300 ms. */
-function useHoldStep(apply: (step: number) => void) {
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const held = useRef(false);
-  const clear = () => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = null;
-  };
-  return (sign: 1 | -1) => ({
-    onPointerDown: () => {
-      held.current = false;
-      clear();
-      const repeat = () => {
-        held.current = true;
-        apply(5 * sign);
-        timer.current = setTimeout(repeat, 300);
-      };
-      timer.current = setTimeout(repeat, 500);
-    },
-    onPointerUp: clear,
-    onPointerLeave: clear,
-    onPointerCancel: clear,
-    onClick: () => {
-      clear();
-      if (!held.current) apply(sign);
-      held.current = false;
-    },
-  });
-}
-
 /** F33: tap 4 or more times to set the tempo from the average gap. */
 function useTapTempo(onTempo: (bpm: number) => void) {
   const taps = useRef<number[]>([]);
@@ -119,11 +89,6 @@ export function PracticeBar({ store, player }: { store: AppStore; player: Player
   const settings = store.settings.value;
   const [tapCount, setTapCount] = useState(0);
   const tap = useTapTempo((bpm) => store.updatePractice({ tempoBpm: bpm }));
-  const nudge = useHoldStep((delta) => {
-    const current =
-      store.practice.peek().tempoBpm ?? player.song()?.index.tempoBpm ?? DEFAULT_TEMPO;
-    store.updatePractice({ tempoBpm: clampTempo(current + delta) });
-  });
   if (!loaded) return null;
 
   const songTempo = loaded.index.tempoBpm ?? DEFAULT_TEMPO;
@@ -196,9 +161,6 @@ export function PracticeBar({ store, player }: { store: AppStore; player: Player
         </button>
 
         <div class="tempo" role="group" aria-label="Tempo">
-          <button class="tool" data-action="slower" aria-label="Slower" {...nudge(-1)}>
-            −
-          </button>
           <button
             class={panel === "tempo" ? "tool tempo-value on" : "tool tempo-value"}
             data-action="tempo"
@@ -207,9 +169,22 @@ export function PracticeBar({ store, player }: { store: AppStore; player: Player
           >
             {shownTempo}
           </button>
-          <button class="tool" data-action="faster" aria-label="Faster" {...nudge(1)}>
-            +
-          </button>
+          <span class="vslider-wrap">
+            <input
+              type="range"
+              name="tempo-slider"
+              aria-label="Tempo"
+              min={TEMPO_MIN}
+              max={TEMPO_MAX}
+              step={1}
+              value={shownTempo}
+              onInput={(e) =>
+                store.updatePractice({
+                  tempoBpm: clampTempo(Number((e.target as HTMLInputElement).value)),
+                })
+              }
+            />
+          </span>
         </div>
 
         <select
@@ -703,20 +678,6 @@ export function PracticeBar({ store, player }: { store: AppStore; player: Player
           <button class="big-button" onClick={() => setPanel("none")}>
             Done
           </button>
-        </div>
-      )}
-
-      {settings.showFingerStrip && (playing || step) && follow.slot !== null && (
-        <div class="finger-strip" aria-label="Next fingers">
-          {player.upcomingFingers(8).map((f, i) => (
-            <span key={f.key} class={i === 0 ? "strip-item now" : "strip-item"}>
-              {f.finger.split("+").map((finger, j) => (
-                <span key={j} class={`badge big badge-${finger}`}>
-                  {finger}
-                </span>
-              ))}
-            </span>
-          ))}
         </div>
       )}
 

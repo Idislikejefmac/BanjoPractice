@@ -90,8 +90,6 @@ export interface Settings {
   /** Keep the screen awake while a song is open (F12). */
   readonly keepAwake: boolean;
   readonly melodyInstrument: MelodyInstrumentId;
-  /** F30: big finger letters above the tab while playing or stepping. */
-  readonly showFingerStrip: boolean;
   /** F31: a flashing beat light. */
   readonly visualMetronome: boolean;
   /** Song words under the notes (and under the tab in tab-only view). */
@@ -109,7 +107,6 @@ export const DEFAULT_SETTINGS: Settings = {
   spikes: [],
   keepAwake: true,
   melodyInstrument: "violin",
-  showFingerStrip: true,
   visualMetronome: true,
   showLyrics: true,
 };
@@ -163,7 +160,6 @@ export function settingsProblems(v: unknown): string[] {
     "showAccents",
     "colorBadges",
     "keepAwake",
-    "showFingerStrip",
     "visualMetronome",
     "showLyrics",
   ]) {

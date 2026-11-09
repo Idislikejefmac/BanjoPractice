@@ -48,7 +48,7 @@ export interface Follow {
   readonly countIn: number | null;
   readonly pass: number;
   readonly bpm: number;
-  /** Slot (0-based) within the playing measure, for the finger strip (F30). */
+  /** Slot (0-based) within the playing measure, for the playing-note highlight (F30). */
   readonly slot: number | null;
   /** Beat counter, increasing; the visual metronome flashes when it changes (F31). */
   readonly beat: number;
@@ -79,7 +79,6 @@ export class Player {
   });
   /** F28: step mode is on when this isn't null. */
   readonly step = signal<StepPosition | null>(null);
-  private lastOrder: readonly number[] = [];
   readonly engine: AudioEngine;
   readonly scheduler: Scheduler;
   private readonly deps: PlayerDeps;
@@ -252,7 +251,6 @@ export class Player {
     }
     this.step.value = null;
     const program = this.program(loaded);
-    this.lastOrder = program.order;
     const missing = await this.engine.prepare(program.measures.flatMap((m) => m.events));
     if (missing > 0) {
       this.deps.diagnostics.log(
@@ -376,7 +374,6 @@ export class Player {
       return;
     }
     this.stop();
-    this.lastOrder = this.stepOrder(loaded);
     this.step.value = { orderIndex: 0, slot: -1 };
   }
 
@@ -435,38 +432,6 @@ export class Player {
         { preview: true },
       );
     }
-  }
-
-  /**
-   * F30: the next `count` picked fingers from the current position (playing or stepping),
-   * following the playback order.
-   */
-  upcomingFingers(count = 8): { finger: string; key: string }[] {
-    const loaded = this.song();
-    const f = this.follow.peek();
-    if (!loaded || f.slot === null || f.orderIndex < 0) return [];
-    const arranged = this.tab()?.measures ?? null;
-    if (!arranged) return [];
-    const order = this.step.peek() ? this.stepOrder(loaded) : this.lastOrder;
-    const out: { finger: string; key: string }[] = [];
-    let oi = f.orderIndex;
-    let slot = f.slot;
-    for (let guard = 0; out.length < count && guard < 200; guard++) {
-      const m = arranged[order[oi]!];
-      if (!m) break;
-      const picks = m.notes
-        .filter((n) => n.slot === slot && n.finger !== null)
-        .sort((a, b) => a.string - b.string);
-      if (picks.length > 0) {
-        out.push({ finger: picks.map((n) => n.finger).join("+"), key: `${oi}-${slot}` });
-      }
-      slot++;
-      if (slot >= m.slots) {
-        slot = 0;
-        oi = oi + 1 < order.length ? oi + 1 : 0;
-      }
-    }
-    return out;
   }
 
   /** rAF in the browser; the injected clock elsewhere (unit tests run in Node, deterministically). */

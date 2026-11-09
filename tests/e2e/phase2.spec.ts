@@ -22,7 +22,7 @@ test("Play counts in, follows the music measure by measure, and Stop clears it (
 }) => {
   test.skip(noAudio(browserName), "no Web Audio in Playwright WebKit on Windows");
   await openSong(page, "cripple-creek");
-  for (let i = 0; i < 10; i++) await page.click('[data-action="faster"]'); // 110 bpm
+  await page.locator('input[name="tempo-slider"]').fill("110");
   await page.click('[data-action="play"]');
   await expect(page.locator(".count-in")).toBeVisible();
   await expect(page.locator('[data-action="play"]')).toHaveAttribute("aria-label", "Stop");
@@ -34,6 +34,11 @@ test("Play counts in, follows the music measure by measure, and Stop clears it (
   });
   // Exactly one measure is highlighted (on both staves, as one box per line) (I5).
   await expect(page.locator(".measure-highlight")).toHaveCount(1);
+  // The finger badge of the note being played is ringed (F30), and only that moment's note.
+  await expect(page.locator(".tab-badge.play-now").first()).toBeVisible({ timeout: 3000 });
+  expect(await page.locator(".tab-badge.play-now").count()).toBeLessThanOrEqual(2);
+  // The old strip of big finger letters above the tab is gone.
+  await expect(page.locator(".finger-strip")).toHaveCount(0);
   await page.click('[data-action="play"]');
   await expect(page.locator(".measure-highlight")).toHaveCount(0, { timeout: 500 });
   await expect(page.locator('[data-action="play"]')).toHaveAttribute("aria-label", "Play");
@@ -42,20 +47,15 @@ test("Play counts in, follows the music measure by measure, and Stop clears it (
 test("tempo, parts and metronome are per song and remembered (F6, F9)", async ({ page }) => {
   await openSong(page, "old-joe-clark");
   await expect(page.locator('[data-action="tempo"]')).toHaveText("100");
-  await page.click('[data-action="slower"]');
-  await page.click('[data-action="slower"]');
+  // The slider next to the number sets the tempo; the number itself opens the tempo panel (F9).
+  await page.locator('input[name="tempo-slider"]').fill("98");
   await expect(page.locator('[data-action="tempo"]')).toHaveText("98");
-  // Holding the button steps by 5 (F9).
-  const slower = page.locator('[data-action="slower"]');
-  const box = (await slower.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.waitForTimeout(950); // 500 ms, then a step every 300 ms: two steps
-  await page.mouse.up();
-  // At least one step of 5 (timing on a busy machine can give an extra one).
-  const held = Number(await page.locator('[data-action="tempo"]').textContent());
-  expect(held).toBeLessThan(98);
-  expect((98 - held) % 5).toBe(0);
+  await page.locator('input[name="tempo-slider"]').fill("90");
+  const held = 90;
+  await expect(page.locator('[data-action="tempo"]')).toHaveText("90");
+  await page.click('[data-action="tempo"]');
+  await expect(page.locator(".practice-panel")).toBeVisible();
+  await page.click(".practice-panel .big-button");
   await page.click('[data-part="banjo"]');
   await page.click('[data-action="metronome"]');
   await page.waitForTimeout(300);

@@ -605,7 +605,7 @@ graph LR
 
 **F29 Echo mode (call and response).** The app plays a phrase (1, 2 or 4 measures, set by Dad), then keeps the metronome going in silence for the same length while he plays it back, then moves on. A silent phrase shows the tab highlighted in a different tint ("your turn").
 
-**F30 Finger strip.** A large strip above the tab showing the next 8 finger letters (T I M T I M T M) in big colored badges, scrolling with playback. It lets a tab reader keep the right-hand pattern in view without reading small glyphs.
+**F30 Finger strip (changed 2026-11-09: the strip above the tab is removed; the finger badge of the note being played is ringed and slightly larger in the tab itself, since the strip moved too fast to follow and drew the eye away from the music).** A large strip above the tab showing the next 8 finger letters (T I M T I M T M) in big colored badges, scrolling with playback. It lets a tab reader keep the right-hand pattern in view without reading small glyphs.
 
 **F31 Visual metronome.** A large beat pulse (a toolbar light, or optional full-width bar flashes) on every beat, with an accented downbeat. Useful when the banjo drowns out the click.
 

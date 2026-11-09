@@ -241,12 +241,11 @@ const ACTIONS: Action[] = [
     name: "tempo",
     weight: 8,
     async run(ctx) {
-      const which = ctx.random() < 0.5 ? "slower" : "faster";
-      const times = 1 + Math.floor(ctx.random() * 4);
-      for (let i = 0; i < times; i++) {
-        if (!(await clickIfVisible(ctx, `[data-action="${which}"]`))) return null;
-      }
-      return `${which} x${times}`;
+      const slider = ctx.page.locator('input[name="tempo-slider"]');
+      if (!(await slider.isVisible().catch(() => false))) return null;
+      const bpm = 30 + Math.floor(ctx.random() * 211);
+      await slider.fill(String(bpm));
+      return String(bpm);
     },
   },
   {

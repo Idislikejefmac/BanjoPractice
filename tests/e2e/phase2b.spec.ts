@@ -22,10 +22,7 @@ test("part loops: one tap loops the A or B part (F26)", async ({ page }) => {
   await expect(page.locator('[data-action="loop"]')).toHaveText("Loop 1–4");
 });
 
-test("step mode: Next note moves one note at a time with a big finger strip (F28, F30)", async ({
-  page,
-  browserName,
-}) => {
+test("step mode: Next note moves one note at a time (F28)", async ({ page, browserName }) => {
   test.skip(noAudio(browserName), "stepping sounds the note: no Web Audio in WebKit on Windows");
   await openSong(page, "cripple-creek");
   await page.click('[data-action="loop"]');
@@ -33,8 +30,6 @@ test("step mode: Next note moves one note at a time with a big finger strip (F28
   await expect(page.locator('[data-action="step-next"]')).toBeVisible();
   await page.click('[data-action="step-next"]');
   await expect(page.locator(".tab-fret.step-current").first()).toHaveAttribute("data-slot", "0");
-  await expect(page.locator(".finger-strip .strip-item")).toHaveCount(8);
-  await expect(page.locator(".finger-strip .strip-item.now")).toHaveText("M");
   await page.click('[data-action="step-next"]');
   await expect(page.locator(".tab-fret.step-current").first()).toHaveAttribute("data-slot", "1");
   // The pedal steps too (right = next, left = back).
