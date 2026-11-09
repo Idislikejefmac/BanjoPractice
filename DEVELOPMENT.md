@@ -684,7 +684,7 @@ Changes from `PLAN.md`:
 | --- | --- | --- | --- |
 | S0 | Does Web Audio run (context created, time advancing, output to an analyser) in Playwright WebKit on Windows? Do service workers and offline mode work there? | Phase 0 | Whether audio and offline chaos tiers run on WebKit, or Chromium + iPad checklist only |
 | S1 | Own scheduler sound quality with midi-js-soundfont mp3 samples. Is `smplr` a usable voice manager on iOS? | Phase 2 | A1 internals |
-| S2 | Hidden 8-rest voice trick for slot x-positions across wraps and resize (R3) | Phase 1 | R3 approach |
+| S2 | Hidden 8-rest voice trick for slot x-positions across wraps and resize (R3) | Phase 1 | R3 approach. **Done (Nov 8, 2026): it works.** Every melody note lands within 1 px of its slot's hidden rest, including one-note measures and pickups. The app picks its own line breaks and renders abcjs one line at a time (`src/core/song/layoutAbc.ts`), with the tab line under each; later lines use `M:none` so the time signature only prints once. Guarded by `tests/e2e/alignment.spec.ts` |
 | S3 | On Dad's iPad: silent switch / Silent mode with `audioSession`; recovery after a phone call; sample rate after Bluetooth and mic changes; Wake Lock in Home Screen mode; how often iPadOS reloads the app | Phase 2 (test in phase 1) | P2, P5, P8 fallbacks; how the fakes behave |
 | S4 | Soundfont and mandolin sample sources: license, size, quality | Phase 2 | A2 sources |
 | S5 | Arranger prototype on the 4 hand-written tunes' melodies (DP + lick templates) | During phase 1 | C6 weights, phase 3 effort |

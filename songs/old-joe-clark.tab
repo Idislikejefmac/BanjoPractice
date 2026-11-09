@@ -1,0 +1,10 @@
+# Old Joe Clark: Scruggs-style arrangement written fresh for this app (DEVELOPMENT.md §10).
+# Melody high on the 1st string; the B part uses the open 5th string as a melody note.
+m1  G          lick:pull-off            | 1:2M* 5:0T 1:2M* 2:0I 1:2M* p1:0* 2:1I* 5:0T |
+m2  G          forward                  | 1:2M* 5:0T 1:5M* 2:0I 5:0T* 2:0I 1:5M 5:0T |
+m3  G          lick:pull-off            | 1:2M* 5:0T 1:2M* 2:0I 1:2M* p1:0* 2:1I* 5:0T |
+m4  D G@5      lick:walk-down           | 1:2M* 2:1I* 1:0M* 2:0I* 3:0T* 2:0I 1:0M 5:0T |
+m5  G          lick:high-pull-off       | 1:5M* 2:0I 5:0T* 2:0I 1:7M* p1:5* 2:5I* 5:0T |
+m6  F G@5      forward-reverse          | 1:3M* 2:1I 1:3M* 3:2T 1:0M* 2:0I 5:0T 2:0I |
+m7  G          lick:high-pull-off       | 1:5M* 2:0I 5:0T* 2:0I 1:7M* p1:5* 2:5I* 5:0T |
+m8  D G@5      lick:pull-off-walk-down  | 1:2M* p1:0* 2:1I* p2:0* 3:0T* 2:0I 1:0M 5:0T |

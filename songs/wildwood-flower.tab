@@ -1,0 +1,11 @@
+# Wildwood Flower: C-position arrangement written fresh for this app (DEVELOPMENT.md §10).
+# Melody runs on the 4th string with hammer-ons and pull-offs, as in C-position playing.
+m0  C          lick:hammer-pickup       | 3:0T* h3:2* |
+m1  C          lick:hammer-on           | 2:0I* h2:1* 1:2M 5:0T 2:1I* 1:0M* 2:1I* p2:0* |
+m2  F C@5      lick:melody-on-3rd       | 3:2T* 1:3M 2:1I* 5:0T 3:0I* 1:2M 5:0T 1:2M |
+m3  G          lick:4th-string-run      | 4:3T* p4:2* p4:0* h4:2* h4:3* 3:0I* h3:2* 2:0M* |
+m4  C          lick:pinch-start         | [5:0T,2:1I*] 1:2M 2:1I* 5:0T 2:1I* 1:2M 3:0T* h3:2* |
+m5  C          lick:hammer-on           | 2:0I* h2:1* 1:2M 5:0T 2:1I* 1:0M* 2:1I* p2:0* |
+m6  F C@5      lick:melody-on-3rd       | 3:2T* 1:3M 2:1I* 5:0T 3:0I* 1:2M 5:0T 1:2M |
+m7  G G7@5     lick:4th-string-run      | 4:3T* p4:2* p4:0* h4:2* h4:3* - 3:0I* 2:0M* |
+m8  C          tag !end                 | [5:0T,2:1I*] 1:2M 2:1I* 5:0T [2:1I*,1:2M] - - - |
