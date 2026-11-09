@@ -32,3 +32,6 @@ Thumbs.db
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Photos of Dad's sheet music: private, never committed (some books are copyrighted)
+sheet-music/

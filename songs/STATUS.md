@@ -5,8 +5,11 @@ sheet music, or a verified public-domain printing. Never from memory, and never 
 sites, modern songbooks or recordings (DEVELOPMENT.md §10). The banjo tab is then written
 fresh for this app and checked by Jeff and Dad.
 
-Copyrighted material from Dad's books (modern arrangements and tabs) goes only onto Dad's iPad
-as his own songs, never into this public repository.
+**Default: songs live on Dad's iPad only.** This app is for Dad's personal use, not a product.
+Photos of his sheet music go in `sheet-music/` (git-ignored, never committed). Transcriptions go
+in `sheet-music/songs/<id>.abc` (and an optional `.tab`), and `node scripts/make-song-pack.ts`
+turns them into a backup file to load on the iPad with Settings → Restore from a backup. Only
+songs that are clearly public domain *and* worth sharing might ever go in this public folder.
 
 The drafts written from memory early on now live in `tests/fixtures/songs/` and are used only by
 the tests. They must not be shipped (the production-bundle check fails if they are).
