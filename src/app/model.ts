@@ -19,6 +19,14 @@ export interface PartPrefs {
 }
 
 /** Per-song practice state (DEVELOPMENT.md §2.2 PracticeContext, minus the transport). */
+export interface VoicePrefs {
+  readonly on: boolean;
+  /** 0–1. */
+  readonly volume: number;
+  /** Octaves from the written pitch: -1 is a man's register, 0 as written. */
+  readonly octave: -2 | -1 | 0;
+}
+
 export interface PracticePrefs {
   /** null = the song's own tempo (Q:). */
   readonly tempoBpm: number | null;
@@ -29,6 +37,8 @@ export interface PracticePrefs {
   readonly parts: Readonly<Record<PartId, PartPrefs>>;
   /** Roll ids the auto-arranged tab may use, or null for every roll (this song only). */
   readonly rolls: readonly string[] | null;
+  /** The synthesized singing voice (this song only). */
+  readonly voice: VoicePrefs;
   readonly metronome: MetronomeMode;
   /** Click (count-in and metronome) volume, 0–1. */
   readonly clickVolume: number;
@@ -63,6 +73,7 @@ export const DEFAULT_PRACTICE: PracticePrefs = {
     banjo: { on: true, volume: 1 },
   },
   rolls: null,
+  voice: { on: false, volume: 0.8, octave: -1 },
   metronome: "count-in",
   clickVolume: 0.8,
   countInBeats: 4,
@@ -205,6 +216,17 @@ export function practiceProblems(v: unknown): string[] {
       !v.rolls.every((r: unknown) => typeof r === "string"))
   ) {
     p.push("rolls");
+  }
+  const voice = v.voice;
+  if (
+    !isObj(voice) ||
+    !isBool(voice.on) ||
+    typeof voice.volume !== "number" ||
+    voice.volume < 0 ||
+    voice.volume > 1 ||
+    ![-2, -1, 0].includes(voice.octave as number)
+  ) {
+    p.push("voice");
   }
   if (!["off", "count-in", "throughout"].includes(v.metronome as string)) p.push("metronome");
   if (v.countInBeats !== 4 && v.countInBeats !== 8) p.push("countInBeats");

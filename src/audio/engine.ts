@@ -9,6 +9,7 @@ import type { Part } from "../core/playback/generators.ts";
 import type { AudioService, SampleLoader } from "../platform/types.ts";
 import type { AudioOut, ScheduledNote } from "./scheduler.ts";
 import { clickSamples, pluckSamples } from "./synth.ts";
+import { voiceSamples } from "./voice.ts";
 
 export type MelodyInstrument = "violin" | "flute" | "mandolin";
 export const MELODY_INSTRUMENTS: readonly { id: MelodyInstrument; label: string }[] = [
@@ -33,7 +34,11 @@ const PART_GAIN: Readonly<Record<Part, number>> = {
   chords: 0.45,
   banjo: 0.7,
   metronome: 0.6,
+  voice: 0.9,
 };
+
+/** Rendered syllables kept for reuse; the oldest go first so memory stays bounded (I11). */
+const VOICE_CACHE_MAX = 150;
 
 interface Live {
   source: AudioBufferSourceNode;
@@ -47,6 +52,7 @@ export class AudioEngine implements AudioOut {
   private readonly samples: SampleLoader;
   private readonly buffers = new Map<string, AudioBuffer>();
   private readonly synth = new Map<string, AudioBuffer>();
+  private readonly voices = new Map<string, { buffer: AudioBuffer; lead: number }>();
   private readonly live = new Set<Live>();
   melodyInstrument: MelodyInstrument = "violin";
 
@@ -56,6 +62,7 @@ export class AudioEngine implements AudioOut {
     audio.onRecreate(() => {
       this.buffers.clear();
       this.synth.clear();
+      this.voices.clear();
       this.live.clear();
     });
   }
@@ -64,6 +71,7 @@ export class AudioEngine implements AudioOut {
     if (part === "banjo") return "banjo";
     if (part === "chords") return "acoustic_guitar_steel";
     if (part === "metronome") return "click";
+    if (part === "voice") return "voice";
     return this.melodyInstrument;
   }
 
@@ -112,7 +120,7 @@ export class AudioEngine implements AudioOut {
     return {
       sources: this.live.size - previews,
       previews,
-      buffers: this.buffers.size + this.synth.size,
+      buffers: this.buffers.size + this.synth.size + this.voices.size,
     };
   }
 
@@ -136,7 +144,59 @@ export class AudioEngine implements AudioOut {
     return b;
   }
 
+  /** A sung syllable: rendered once per word, pitch and (rounded) length, then reused. */
+  private playVoice(note: ScheduledNote, opts: { preview?: boolean }): void {
+    const graph = this.audio.graph();
+    if (!graph || note.text === undefined) return;
+    const ctx = graph.context;
+    const seconds = Math.max(0.08, Math.round(note.duration / 0.04) * 0.04);
+    const key = `${note.text}|${note.legato ? 1 : 0}|${note.midi}|${seconds.toFixed(2)}`;
+    let v = this.voices.get(key);
+    if (!v) {
+      const sound = voiceSamples({
+        text: note.text,
+        midi: note.midi,
+        seconds,
+        legato: note.legato === true,
+        sampleRate: ctx.sampleRate,
+      });
+      const buffer = ctx.createBuffer(1, sound.data.length, ctx.sampleRate);
+      buffer.copyToChannel(sound.data as Float32Array<ArrayBuffer>, 0);
+      v = { buffer, lead: sound.lead };
+      if (this.voices.size >= VOICE_CACHE_MAX) {
+        const oldest = this.voices.keys().next().value;
+        if (oldest !== undefined) this.voices.delete(oldest);
+      }
+      this.voices.set(key, v);
+    }
+    // The leading consonants start before the beat so the vowel lands on it.
+    const wanted = note.time - v.lead;
+    const start = Math.max(wanted, ctx.currentTime);
+    const source = ctx.createBufferSource();
+    source.buffer = v.buffer;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(PART_GAIN.voice * note.velocity ** 1.5, start);
+    source.connect(gain);
+    gain.connect(graph.master);
+    source.start(start, start - wanted);
+    source.stop(wanted + v.buffer.duration + 0.05);
+    const live: Live = { source, gain, preview: opts.preview === true };
+    this.live.add(live);
+    source.onended = () => {
+      this.live.delete(live);
+      try {
+        gain.disconnect();
+      } catch {
+        // Already disconnected.
+      }
+    };
+  }
+
   play(note: ScheduledNote, opts: { preview?: boolean } = {}): void {
+    if (note.part === "voice") {
+      this.playVoice(note, opts);
+      return;
+    }
     const graph = this.audio.graph();
     if (!graph) return;
     const ctx = graph.context;

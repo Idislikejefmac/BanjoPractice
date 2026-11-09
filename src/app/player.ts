@@ -115,6 +115,7 @@ export class Player {
       for (const part of ["melody", "chords", "banjo"] as const) {
         this.scheduler.setPart(part, p.parts[part].on, p.parts[part].volume);
       }
+      this.scheduler.setPart("voice", p.voice.on, p.voice.volume);
       this.scheduler.setPart("metronome", p.metronome === "throughout", p.clickVolume);
     });
     effect(() => {
@@ -193,19 +194,32 @@ export class Player {
       transpose: p.keyShift,
       plan: plan.capo,
       metronome: p.clickPattern,
+      voiceOctave: p.voice.octave,
     });
     const base = p.loop
       ? loopOrder(loaded.index, { kind: "section", from: p.loop.from, to: p.loop.to })
       : playbackOrder(loaded.index);
+    // The voice sings verse 1 the first time a measure is played, verse 2 the second time...
+    const verseCount = Math.max(1, loaded.index.verses);
+    const timesPlayed = new Map<number, number>();
+    const baseVerses = base.map((pos) => {
+      const n = timesPlayed.get(pos) ?? 0;
+      timesPlayed.set(pos, n + 1);
+      return n % verseCount;
+    });
     // F29 echo mode: each phrase is played, then repeated silently for Dad to play back.
     let order = base;
+    let verses = baseVerses;
     let silent: boolean[] | undefined;
     if (p.echoMeasures > 0) {
       order = [];
+      verses = [];
       silent = [];
       for (let i = 0; i < base.length; i += p.echoMeasures) {
         const phrase = base.slice(i, i + p.echoMeasures);
+        const phraseVerses = baseVerses.slice(i, i + p.echoMeasures);
         order.push(...phrase, ...phrase);
+        verses.push(...phraseVerses, ...phraseVerses);
         silent.push(...phrase.map(() => false), ...phrase.map(() => true));
       }
     }
@@ -214,6 +228,7 @@ export class Player {
     return {
       measures,
       order,
+      verses,
       ...(silent ? { silent } : {}),
       slotSeconds: (bpm) => slotSeconds(loaded.index, bpm),
       countIn: p.metronome === "off" ? null : countInEvents(loaded.index, p.countInBeats),

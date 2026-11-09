@@ -15,8 +15,8 @@ import { parseChord } from "../music/chords.ts";
 import { mod12, pitchClass } from "../music/notes.ts";
 import type { IndexedMeasure, SongIndex } from "../song/abcIndex.ts";
 
-export type Part = "melody" | "chords" | "banjo" | "metronome";
-export const PARTS: readonly Part[] = ["melody", "chords", "banjo", "metronome"];
+export type Part = "melody" | "chords" | "banjo" | "metronome" | "voice";
+export const PARTS: readonly Part[] = ["melody", "chords", "banjo", "metronome", "voice"];
 
 export interface NoteEvent {
   readonly part: Part;
@@ -30,6 +30,12 @@ export interface NoteEvent {
   readonly velocity: number;
   /** Strum spread: play this many strum steps late (the scheduler sets the step, ~12 ms). */
   readonly strumStep?: number;
+  /** Voice: the printed syllable to sing on this note. */
+  readonly text?: string;
+  /** Voice: a held note carrying on the same vowel (no new consonants). */
+  readonly legato?: boolean;
+  /** Voice: which verse (0-based) this syllable belongs to; the scheduler plays one at a time. */
+  readonly verse?: number;
 }
 
 export interface MeasureEvents {
@@ -46,6 +52,8 @@ export interface GenerateOptions {
   readonly plan?: CapoPlan;
   readonly tuning?: Tuning;
   readonly metronome?: "every-beat" | "two-and-four";
+  /** Octaves to move the sung melody from the written pitch; leave out for no voice part. */
+  readonly voiceOctave?: number;
 }
 
 /** Slots per beat (the Q: beat). */
@@ -175,6 +183,60 @@ function metronomeEvents(
   return out;
 }
 
+/**
+ * The sung part: each melody note's syllable, once for every verse (A3). A verse with no words
+ * in a measure borrows the first verse that has some (a chorus printed once). A word marked to
+ * be held ("_") carries over the notes after it, and over bar lines, until a new word or a rest.
+ */
+function voiceEvents(index: SongIndex, transpose: number, octave: number): NoteEvent[][] {
+  const out: NoteEvent[][] = index.measures.map(() => []);
+  const verses = index.verses;
+  const holding: (string | null)[] = Array.from({ length: verses }, () => null);
+  index.measures.forEach((m, position) => {
+    const hasWords = (v: number) =>
+      m.melody.some((n) => n.midi !== null && (n.lyrics?.[v] ?? "") !== "");
+    const first = Array.from({ length: verses }, (_, v) => v).find(hasWords);
+    for (let v = 0; v < verses; v++) {
+      const from = hasWords(v) ? v : (first ?? v);
+      for (let i = 0; i < m.melody.length; i++) {
+        const n = m.melody[i]!;
+        if (n.midi === null) {
+          holding[v] = null;
+          continue;
+        }
+        if (n.tiedFromPrevious) continue;
+        let duration = n.duration;
+        for (let j = i + 1; j < m.melody.length && m.melody[j]!.tiedFromPrevious; j++) {
+          duration += m.melody[j]!.duration;
+        }
+        const printed = n.lyrics?.[from] ?? "";
+        let text: string;
+        let legato = false;
+        if (printed !== "") {
+          text = printed.replace(/[-_]+$/, "");
+          holding[v] = printed.endsWith("_") ? text : null;
+        } else if (holding[v] !== null) {
+          text = holding[v]!;
+          legato = true;
+        } else {
+          continue;
+        }
+        out[position]!.push({
+          part: "voice",
+          slot: n.offset / index.rollUnit,
+          duration: duration / index.rollUnit,
+          midi: n.midi + transpose + 12 * octave,
+          velocity: 0.8,
+          text,
+          legato,
+          verse: v,
+        });
+      }
+    }
+  });
+  return out;
+}
+
 /** Note events for every written measure (by position), for all parts. */
 export function generateEvents(
   index: SongIndex,
@@ -184,6 +246,10 @@ export function generateEvents(
   const tuning = opts.tuning ?? OPEN_G;
   const plan = opts.plan ?? NO_CAPO;
   let chord: Chord | null = null;
+  const sung =
+    opts.voiceOctave !== undefined && index.verses > 0
+      ? voiceEvents(index, opts.transpose, opts.voiceOctave)
+      : null;
   return index.measures.map((m, position) => {
     const { events: chordEv, last } = chordEvents(m, chord, index, opts.transpose);
     chord = last;
@@ -193,6 +259,7 @@ export function generateEvents(
       ...chordEv,
       ...(tab && tab.index === m.index ? banjoEvents(tab, tuning, plan) : []),
       ...metronomeEvents(m, index, opts.metronome ?? "every-beat"),
+      ...(sung?.[position] ?? []),
     ].sort((a, b) => a.slot - b.slot);
     return { position, slots: m.slots, events };
   });

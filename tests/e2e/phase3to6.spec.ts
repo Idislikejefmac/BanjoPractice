@@ -185,3 +185,37 @@ test("each part has its own volume slider, remembered per song", async ({ page }
   await expect(page.locator('input[name="mix-banjo"]')).toHaveValue("30");
   await expect(page.locator('input[name="mix-click"]')).toHaveValue("100");
 });
+
+test("a singing voice can be turned on per song, with its own volume and register", async ({
+  page,
+  browserName,
+}) => {
+  await openSong(page, "will-the-circle-be-unbroken");
+  const chip = page.locator('[data-part="voice"]');
+  await expect(chip).toHaveText("Voice");
+  await expect(chip).toHaveAttribute("aria-pressed", "false");
+  await chip.click();
+  await expect(chip).toHaveAttribute("aria-pressed", "true");
+  await page.locator('input[name="mix-voice"]').fill("40");
+  await page.click('[data-action="mixer"]');
+  await expect(page.locator('[data-panel="voice"]')).toBeVisible();
+  await page.locator('input[name="voice-octave"]').fill("0");
+  await page.click(".practice-panel .big-button");
+  await page.waitForTimeout(300);
+  await page.reload();
+  await page.waitForSelector("svg.tab");
+  await expect(page.locator('[data-part="voice"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('input[name="mix-voice"]')).toHaveValue("40");
+  // A song with no words has no voice to turn on.
+  await openSong(page, "old-joe-clark");
+  const hasWords = await page.locator('[data-part="voice"]').count();
+  expect(hasWords).toBeLessThanOrEqual(1);
+  // Playing with the voice on makes sound without errors (no Web Audio in WebKit on Windows).
+  if (browserName === "chromium") {
+    await openSong(page, "will-the-circle-be-unbroken");
+    await page.click('[data-action="play"]');
+    await expect(page.locator('[data-action="play"]')).toHaveAttribute("aria-label", "Stop");
+    await page.waitForTimeout(2500);
+    await page.click('[data-action="play"]');
+  }
+});

@@ -14,6 +14,9 @@ export interface ScheduledNote {
   readonly midi: number;
   readonly velocity: number;
   readonly part: Part;
+  /** Voice: the syllable to sing, and whether it carries on a held vowel. */
+  readonly text?: string;
+  readonly legato?: boolean;
 }
 
 export interface AudioOut {
@@ -50,6 +53,11 @@ export interface Program {
    * Same length as `order` when given.
    */
   readonly silent?: readonly boolean[];
+  /**
+   * Which verse (0-based) the voice sings at each entry of `order`: the first time a measure
+   * is played it sings verse 1, the second time verse 2, and so on. Missing = verse 1.
+   */
+  readonly verses?: readonly number[];
 }
 
 export interface PositionMark {
@@ -95,8 +103,15 @@ export class Scheduler {
     chords: true,
     banjo: true,
     metronome: true,
+    voice: false,
   };
-  private volume: Record<Part, number> = { melody: 1, chords: 1, banjo: 1, metronome: 1 };
+  private volume: Record<Part, number> = {
+    melody: 1,
+    chords: 1,
+    banjo: 1,
+    metronome: 1,
+    voice: 1,
+  };
   private marks: PositionMark[] = [];
   private listeners = new Set<() => void>();
   private _state: TransportState = "stopped";
@@ -254,6 +269,13 @@ export class Scheduler {
       // Count-in and gap clicks always play; in a "your turn" phrase only the click does.
       const forced = c.phase !== "song" || (yourTurn && e.part === "metronome");
       if (yourTurn && e.part !== "metronome") continue;
+      if (
+        e.part === "voice" &&
+        e.verse !== undefined &&
+        e.verse !== (program.verses?.[c.orderIndex] ?? 0)
+      ) {
+        continue;
+      }
       if (!forced && !this.enabled[e.part]) continue;
       const velocity = e.velocity * this.volume[e.part];
       if (velocity <= 0) continue;
@@ -263,6 +285,8 @@ export class Scheduler {
         midi: e.midi,
         velocity,
         part: e.part,
+        ...(e.text !== undefined ? { text: e.text } : {}),
+        ...(e.legato ? { legato: true } : {}),
       });
     }
   }

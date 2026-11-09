@@ -19,6 +19,11 @@ const PART_LABEL: Readonly<Record<PartId, string>> = {
   chords: "Chords",
   banjo: "Banjo",
 };
+const VOICE_OCTAVE_LABEL: Readonly<Record<-2 | -1 | 0, string>> = {
+  [-2]: "two octaves down",
+  [-1]: "a man's range (one octave down)",
+  0: "as written",
+};
 const METRONOME_LABEL: Readonly<Record<MetronomeMode, string>> = {
   off: "Click off",
   "count-in": "Count-in",
@@ -241,6 +246,24 @@ export function PracticeBar({ store, player }: { store: AppStore; player: Player
               onChange={(clickVolume) => set({ clickVolume })}
             />
           </div>
+          {loaded.index.verses > 0 && (
+            <div class="part-stack">
+              <button
+                class={p.voice.on ? "tool chip on" : "tool chip"}
+                data-part="voice"
+                aria-pressed={p.voice.on}
+                onClick={() => set({ voice: { ...p.voice, on: !p.voice.on } })}
+              >
+                Voice
+              </button>
+              <VolumeSlider
+                label="Voice volume"
+                name="mix-voice"
+                value={p.voice.volume}
+                onChange={(volume) => set({ voice: { ...p.voice, volume } })}
+              />
+            </div>
+          )}
         </div>
 
         <button
@@ -357,6 +380,36 @@ export function PracticeBar({ store, player }: { store: AppStore; player: Player
 
           {panel === "parts" && (
             <section>
+              {loaded.index.verses > 0 && (
+                <fieldset class="setting-row choice" data-panel="voice">
+                  <legend>Singing voice (synthesized)</legend>
+                  <label class="slider-row">
+                    <span>Register: {VOICE_OCTAVE_LABEL[p.voice.octave]}</span>
+                    <input
+                      type="range"
+                      name="voice-octave"
+                      aria-label="Voice register"
+                      min={-2}
+                      max={0}
+                      step={1}
+                      value={p.voice.octave}
+                      onInput={(e) =>
+                        set({
+                          voice: {
+                            ...p.voice,
+                            octave: Number((e.target as HTMLInputElement).value) as -2 | -1 | 0,
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                  <p class="hint">
+                    Sings the words on the notes of the tune, one verse each time round. It is a
+                    machine voice, so the words can be hard to make out. A new register applies the
+                    next time you press Play.
+                  </p>
+                </fieldset>
+              )}
               <div class="button-row">
                 <button
                   class="plain-button"

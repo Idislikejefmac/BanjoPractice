@@ -427,7 +427,8 @@ const ACTIONS: Action[] = [
       // and find the button again (seed 2 timed out here at step 249).
       await ensurePanel(ctx);
       ctx.page.once("dialog", (d) => void d.accept());
-      await ctx.page.locator(`[data-delete="${id}"]`).click();
+      // A song can be listed twice (Recently played and My songs): any one will do.
+      await ctx.page.locator(`[data-delete="${id}"]`).first().click();
       return id ?? "";
     },
   },
