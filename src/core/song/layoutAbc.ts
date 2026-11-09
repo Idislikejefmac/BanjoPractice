@@ -92,7 +92,9 @@ export interface LineAbcOptions {
 
 /**
  * The w: lines for some measures: one per verse, a syllable (or "*" for none) per sung note,
- * and "|" at each bar so a miscounted measure can't shift the words of the next one.
+ * and "|" at each bar so a miscounted measure can't shift the words of the next one. A note
+ * tied from the previous one gets "*" (or "_" inside a held word): abcjs hands a word to every
+ * note, tied or not, and the index has already moved the words off the tied-to notes.
  */
 export function lyricLines(measures: readonly IndexedMeasure[], verses: number): string[] {
   const out: string[] = [];
@@ -100,7 +102,7 @@ export function lyricLines(measures: readonly IndexedMeasure[], verses: number):
     const bars = measures.map((m) => {
       let holding = false;
       return m.melody
-        .filter((n) => n.midi !== null && !n.tiedFromPrevious)
+        .filter((n) => n.midi !== null)
         .map((n) => {
           const syl = n.lyrics?.[v] ?? "";
           if (syl === "") return holding ? "_" : "*";

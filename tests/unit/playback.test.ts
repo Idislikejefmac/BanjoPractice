@@ -4,7 +4,7 @@ import type { AudioOut, Program, ScheduledNote } from "../../src/audio/scheduler
 import { Scheduler } from "../../src/audio/scheduler.ts";
 import { capoPlan } from "../../src/core/banjo/tuning.ts";
 import { countInEvents, generateEvents, slotSeconds } from "../../src/core/playback/generators.ts";
-import { loopOrder, playbackOrder } from "../../src/core/playback/order.ts";
+import { endingPasses, loopOrder, playbackOrder } from "../../src/core/playback/order.ts";
 import { indexAbc } from "../../src/core/song/abcIndex.ts";
 import { builtinSong, loadSong } from "../../src/core/song/song.ts";
 import { createFakeClock } from "../../src/platform/fakes.ts";
@@ -16,6 +16,26 @@ describe("C9 playback order", () => {
     const idx = indexAbc(`${HEADER}|:G8|A8|[1B8:|[2c8|d8|]`);
     // positions: 0 G, 1 A, 2 B (1st ending), 3 c (2nd ending), 4 d
     expect(playbackOrder(idx)).toEqual([0, 1, 2, 0, 1, 3, 4]);
+  });
+
+  it("plays a verse three times for endings [1,2 and [3 (one verse per pass)", () => {
+    const idx = indexAbc(`${HEADER}|:G8|A8|[1,2B8:|[3c8|]`);
+    // positions: 0 G, 1 A, 2 B (endings 1 and 2), 3 c (ending 3)
+    expect(playbackOrder(idx)).toEqual([0, 1, 2, 0, 1, 2, 0, 1, 3]);
+  });
+
+  it("skips a several-measure ending on the passes it doesn't name ([1-3 … :|[4)", () => {
+    const idx = indexAbc(`${HEADER}|:G8|[1-3A8|B8:|[4c8|d8|]`);
+    // positions: 0 G, 1-2 the ending for passes 1-3, 3 c (ending 4), 4 d
+    expect(playbackOrder(idx)).toEqual([0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 3, 4]);
+  });
+
+  it("reads ending labels as the passes they name", () => {
+    expect(endingPasses("1")).toEqual([1]);
+    expect(endingPasses("1,2")).toEqual([1, 2]);
+    expect(endingPasses("1-3")).toEqual([1, 2, 3]);
+    expect(endingPasses("1,2,3")).toEqual([1, 2, 3]);
+    expect(endingPasses("?")).toEqual([1]);
   });
 
   it("repeats an AABB tune part by part", () => {

@@ -1,3 +1,4 @@
+import abcjs from "abcjs";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { indexAbc } from "../../src/core/song/abcIndex.ts";
@@ -55,6 +56,79 @@ describe("lyrics", () => {
       const music = lineAbc(ABC, idx, line, { showMeter: i === 0 }).split("\n")[6]!;
       expect(music).not.toMatch(/[A-Za-z]:/);
     }
+  });
+
+  // Regression (found with Head Over Heels, Roll in My Sweet Baby's Arms, The Long Black
+  // Veil): a verse that has words only in an ending was read as verse 1, because abcjs stops
+  // adding blanks once a w: line's words run out.
+  it("keeps a later verse's words in that verse when only an ending has them", () => {
+    const abc = [
+      "X:1",
+      "M:4/4",
+      "L:1/8",
+      "K:G",
+      "G4 A4|[1 B4 c4:|[2 d4 e4|]",
+      "w:one two|*",
+      "w:*|three four",
+    ];
+    const two = indexAbc(abc.join("\n"));
+    const sung = two.measures.map((m) => m.melody.map((n) => n.lyrics ?? null));
+    expect(sung[0]).toEqual([
+      ["one", ""],
+      ["two", ""],
+    ]);
+    expect(sung[1]).toEqual([
+      ["", "three"],
+      ["", "four"],
+    ]);
+    expect(sung[2]).toEqual([null, null]);
+  });
+
+  // Sheet music puts no word under a note tied from the previous one, and our w: lines are
+  // written that way. abcjs itself gives the tied-to note the next word (found when checking
+  // HANDOFF.md's tie rule), so the index moves the words back onto the next new note.
+  describe("tied notes take no syllable", () => {
+    const TIED = "X:1\nM:4/4\nL:1/8\nK:G\nG4 G4-|G4 A4|\nw:a b|c\n";
+    const words = (abc: string) =>
+      indexAbc(abc).measures.map((m) =>
+        m.melody.filter((n) => n.midi !== null).map((n) => n.lyrics?.[0] ?? ""),
+      );
+
+    it("puts the word after a tie on the next new note, not the tied one", () => {
+      expect(words(TIED)).toEqual([
+        ["a", "b"],
+        ["", "c"],
+      ]);
+      expect(indexAbc(TIED).measures[1]!.melody[0]!.tiedFromPrevious).toBe(true);
+    });
+
+    it("carries words past the bar when the line has no | to resync", () => {
+      const flow = "X:1\nM:4/4\nL:1/8\nK:G\nG4 G4-|G4 A4|B8|\nw:a b c d\n";
+      expect(words(flow)).toEqual([["a", "b"], ["", "c"], ["d"]]);
+    });
+
+    it("leaves every verse in step, and the rebuilt display lines agree with abcjs", () => {
+      const two = "X:1\nM:4/4\nL:1/8\nK:G\nG4 G4-|G4 A4|\nw:a b|c\nw:d e|f\n";
+      const idx = indexAbc(two);
+      expect(idx.measures[1]!.melody.map((n) => n.lyrics)).toEqual([undefined, ["c", "f"]]);
+      const lines = lyricLines(idx.measures, idx.verses);
+      expect(lines).toEqual(["w:a b | * c", "w:d e | * f"]);
+      // abcjs, which draws the rebuilt lines, puts every word on the notes the index says.
+      const rebuilt = ["X:1", "M:4/4", "L:1/8", "K:G", "G4 G4-|G4 A4|", ...lines].join("\n");
+      const parsed = abcjs.parseOnly(rebuilt) as unknown as {
+        lines: { staff?: { voices: { el_type: string; lyric?: { syllable: string }[] }[][] }[] }[];
+      }[];
+      const drawn = parsed[0]!.lines
+        .flatMap((l) => l.staff?.[0]?.voices[0] ?? [])
+        .filter((el) => el.el_type === "note")
+        .map((el) => el.lyric?.map((l) => l.syllable) ?? []);
+      expect(drawn).toEqual([
+        ["a", "d"],
+        ["b", "e"],
+        ["", ""],
+        ["c", "f"],
+      ]);
+    });
   });
 
   it("skips notes without a syllable and leaves silent verses out", () => {

@@ -4,6 +4,7 @@
 // A pickup belongs to the first part.
 
 import type { SongIndex } from "../song/abcIndex.ts";
+import { isFirstEnding } from "./order.ts";
 
 export interface SongPart {
   readonly label: string;
@@ -52,8 +53,9 @@ export function songParts(abc: string, index: SongIndex): SongPart[] {
       sections.push({ start, end: i - 1 });
       start = i;
     }
-    const nextIsSecondEnding = ms[i + 1]?.ending !== undefined && ms[i + 1]!.ending !== "1";
-    if ((m.endRepeat && !nextIsSecondEnding) || (m.ending !== undefined && m.ending !== "1")) {
+    const next = ms[i + 1];
+    const nextIsSecondEnding = next?.ending !== undefined && !isFirstEnding(next);
+    if ((m.endRepeat && !nextIsSecondEnding) || (m.ending !== undefined && !isFirstEnding(m))) {
       sections.push({ start, end: i });
       start = i + 1;
     }
