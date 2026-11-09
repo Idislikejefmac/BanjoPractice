@@ -11,6 +11,10 @@ in `sheet-music/songs/<id>.abc` (and an optional `.tab`), and `node scripts/make
 turns them into a backup file to load on the iPad with Settings → Restore from a backup. Only
 songs that are clearly public domain *and* worth sharing might ever go in this public folder.
 
+`sheet-music/` is itself a clone of a separate **private** repository (`BanjoPractice-Songs`), so
+Dad's transcriptions and the photos they came from sync between machines without ever entering
+this public one. On a new machine: `git clone <private repo URL> sheet-music` inside this folder.
+
 The drafts written from memory early on now live in `tests/fixtures/songs/` and are used only by
 the tests. They must not be shipped (the production-bundle check fails if they are).
 
