@@ -17,11 +17,13 @@ A practice app for a 5-string banjo in three-finger Scruggs style: pick a song, 
 
 | Done | Still to do in phase 0 |
 | --- | --- |
-| C1 music theory (notes, keys and modes, spelling, chords, transposition) | Run `npm install` and commit `package-lock.json` (needs a machine that can reach the public npm registry) |
-| C2 fretboard, capo and 5th-string spikes | First green CI run; enable GitHub Pages; install the placeholder on Dad's iPad |
-| C3 roll library (all 8 rolls) | Spike S0 results (Playwright WebKit on Windows) |
+| C1 music theory (notes, keys and modes, spelling, chords, transposition) | Install the placeholder on Dad's iPad (Safari → Share → Add to Home Screen) |
+| C2 fretboard, capo and 5th-string spikes | Spike S0 on Linux CI (does WebKit there have Web Audio?) |
+| C3 roll library (all 8 rolls) | |
 | C4 rule validator (H1–H9) | |
 | C5 tab text format (parser + serializer) | |
+| Lockfile committed; `npm run verify` and e2e green on Windows | |
+| Spike S0 on Windows: WebKit has no Web Audio; service worker, offline and IndexedDB work (CHAOS_TESTING.md §9) | |
 | Platform interfaces P1–P8, fakes, IndexedDB storage, offline, wake lock, pedal input, diagnostics | |
 | Chaos controller skeleton + storage fault wrapper, production-strip check | |
 | Placeholder app (installable, offline, shows the rolls checked live) | |
@@ -29,12 +31,12 @@ A practice app for a 5-string banjo in three-finger Scruggs style: pick a song, 
 
 ## Getting started
 
-You need **Node.js 24 LTS** (see `.nvmrc`) and access to the public npm registry (`.npmrc` points there).
+You need **Node.js 24 LTS** (see `.nvmrc`; on Windows `winget install OpenJS.NodeJS.LTS --version 24.22.1`) and access to the public npm registry (`.npmrc` points there).
 
 ```sh
 git clone https://github.com/idislikejefmac/<repo>.git
 cd <repo>
-npm install            # first time: creates package-lock.json, which must be committed
+npm ci                 # installs exactly what package-lock.json pins
 npx playwright install # browsers for the end-to-end tests
 npm run verify         # typecheck, lint, tests, build, production-bundle check
 npm run dev            # http://localhost:5173
@@ -44,7 +46,7 @@ npm run dev            # http://localhost:5173
 | --- | --- |
 | `npm run dev` | Dev server with hot reload |
 | `npm test` | Unit + property tests (Vitest, fast-check) |
-| `npm run typecheck` / `lint` / `format` | TypeScript, ESLint (incl. the `/src/core` purity rule), Prettier |
+| `npm run typecheck` / `lint` / `format` / `format:check` | TypeScript, ESLint (incl. the `/src/core` purity rule), Prettier |
 | `npm run build` / `preview` | Production build / serve it locally |
 | `npm run build:chaos` | Test build with the chaos hooks (`window.__banjoChaos`) |
 | `npm run check:prod-bundle` | Fails if chaos/test hooks leaked into `dist/` |

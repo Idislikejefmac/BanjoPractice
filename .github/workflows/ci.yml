@@ -25,6 +25,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
+      - run: npm run format:check
       - run: npm test
       - name: Production build (with the repo's Pages base path)
         run: npm run build
@@ -53,10 +54,15 @@ jobs:
           retention-days: 14
 
   spike-s0:
-    # Spike S0: does Web Audio / service worker / offline work in Playwright WebKit on
-    # Windows? Findings, not a gate: read the [S0] lines in the log.
-    name: Spike S0 (Windows, informational)
-    runs-on: windows-latest
+    # Spike S0: does Web Audio / service worker / offline work in Playwright WebKit?
+    # Findings, not a gate: read the [S0] lines in the log. Windows result is recorded in
+    # CHAOS_TESTING.md §9 (no Web Audio in WebKit); Linux decides whether CI covers (W) rows.
+    name: Spike S0 (${{ matrix.os }}, informational)
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
     needs: verify
     continue-on-error: true
     steps:
@@ -66,5 +72,5 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npx playwright install chromium webkit
+      - run: npx playwright install ${{ runner.os == 'Linux' && '--with-deps' || '' }} chromium webkit
       - run: npm run spike:s0
