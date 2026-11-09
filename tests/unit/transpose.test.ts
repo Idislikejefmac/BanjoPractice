@@ -7,7 +7,7 @@ import { indexAbc } from "../../src/core/song/abcIndex.ts";
 import { transposeAbc } from "../../src/core/song/transposeAbc.ts";
 
 const k = (s: string) => parseKey(s)!;
-const dir = new URL("../../songs/", import.meta.url);
+const dir = new URL("../fixtures/songs/", import.meta.url);
 const songs = readdirSync(dir)
   .filter((f) => f.endsWith(".abc"))
   .map((f) => readFileSync(new URL(f, dir), "utf8"));

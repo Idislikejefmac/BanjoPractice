@@ -10,7 +10,7 @@ import { indexAbc } from "../../src/core/song/abcIndex.ts";
 import { checkConsistency } from "../../src/core/song/song.ts";
 
 const RUNS = Number(process.env.ARRANGER_RUNS ?? 200);
-const dir = new URL("../../songs/", import.meta.url);
+const dir = new URL("../fixtures/songs/", import.meta.url);
 const builtins = readdirSync(dir)
   .filter((f) => f.endsWith(".abc"))
   .map((f) => ({ id: f, abc: readFileSync(new URL(f, dir), "utf8") }));

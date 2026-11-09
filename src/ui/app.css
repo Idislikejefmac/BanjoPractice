@@ -1200,3 +1200,10 @@ h2 {
   transform: rotate(-90deg);
   accent-color: var(--finger-t);
 }
+
+.wanted-row {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 8px;
+  color: var(--ink-soft);
+}

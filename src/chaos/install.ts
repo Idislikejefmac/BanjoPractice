@@ -20,6 +20,7 @@ declare global {
       audio(): {
         contexts: number;
         sources: number;
+        previews: number;
         buffers: number;
         lateSlots: number;
         state: string;

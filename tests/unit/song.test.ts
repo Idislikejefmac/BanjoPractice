@@ -138,13 +138,13 @@ describe("C9 notation/tab consistency", () => {
   });
 });
 
-describe("built-in songs (F5)", () => {
-  const dir = new URL("../../songs/", import.meta.url);
+describe("test-fixture songs (drafts used only by tests)", () => {
+  const dir = new URL("../fixtures/songs/", import.meta.url);
   const ids = readdirSync(dir)
     .filter((f) => f.endsWith(".abc"))
     .map((f) => f.replace(/\.abc$/, ""));
 
-  it("has the four phase-1 songs", () => {
+  it("has the four test-fixture songs", () => {
     expect(ids.sort()).toEqual([
       "cripple-creek",
       "old-joe-clark",

@@ -345,13 +345,16 @@ export class Player {
     const start = this.engine.now() + 0.03;
     const step = style === "strum" ? 0.03 : 0.3;
     midis.forEach((midi, i) =>
-      this.engine.play({
-        time: start + i * step,
-        duration: 1.5,
-        midi,
-        velocity: 0.75,
-        part: "banjo",
-      }),
+      this.engine.play(
+        {
+          time: start + i * step,
+          duration: 1.5,
+          midi,
+          velocity: 0.75,
+          part: "banjo",
+        },
+        { preview: true },
+      ),
     );
   }
 
@@ -420,13 +423,16 @@ export class Player {
     await this.engine.prepare(events);
     const now = this.engine.now() + 0.02;
     for (const e of events) {
-      this.engine.play({
-        time: now,
-        duration: 1.2,
-        midi: e.midi,
-        velocity: e.velocity,
-        part: "banjo",
-      });
+      this.engine.play(
+        {
+          time: now,
+          duration: 1.2,
+          midi: e.midi,
+          velocity: e.velocity,
+          part: "banjo",
+        },
+        { preview: true },
+      );
     }
   }
 

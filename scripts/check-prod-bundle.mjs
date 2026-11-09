@@ -4,7 +4,14 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const dir = process.argv[2] ?? "dist";
-const FORBIDDEN = ["__banjoChaos", "__banjoTest", "ChaosController", "CHAOS_SEED"];
+// "TEST FIXTURE ONLY" marks the draft songs in tests/fixtures/songs, which must never ship.
+const FORBIDDEN = [
+  "__banjoChaos",
+  "__banjoTest",
+  "ChaosController",
+  "CHAOS_SEED",
+  "TEST FIXTURE ONLY",
+];
 
 function* files(d) {
   for (const name of readdirSync(d)) {

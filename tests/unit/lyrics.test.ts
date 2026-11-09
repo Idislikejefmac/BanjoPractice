@@ -88,7 +88,10 @@ describe("lyrics", () => {
 
   it("the built-in songs with words have them on every sung note of their chorus", () => {
     const circle = indexAbc(
-      readFileSync(new URL("../../songs/will-the-circle-be-unbroken.abc", import.meta.url), "utf8"),
+      readFileSync(
+        new URL("../fixtures/songs/will-the-circle-be-unbroken.abc", import.meta.url),
+        "utf8",
+      ),
     );
     const sung = circle.measures.flatMap((m) => m.melody.filter((n) => n.midi !== null));
     expect(sung.every((n) => (n.lyrics?.[0] ?? "") !== "")).toBe(true);

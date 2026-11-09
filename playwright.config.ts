@@ -17,7 +17,8 @@ export default defineConfig({
     { name: "webkit", use: { ...devices["iPad Pro 11"] } },
   ],
   webServer: {
-    command: "npm run build && npm run preview -- --port 4173 --strictPort",
+    // The test build: it adds the draft fixture songs (tests/fixtures/songs) the suites use.
+    command: "npm run build:chaos && npx vite preview --outDir dist-chaos --port 4173 --strictPort",
     url: "http://localhost:4173",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

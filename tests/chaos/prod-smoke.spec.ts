@@ -11,7 +11,13 @@ import {
   watchErrors,
 } from "./harness.ts";
 
-const SONGS = ["cripple-creek", "old-joe-clark", "wildwood-flower", "will-the-circle-be-unbroken"];
+// Production ships no draft songs: the roll exercises are what it has to open.
+const SONGS = [
+  "exercise:forward",
+  "exercise:backward",
+  "exercise:alternating-thumb",
+  "exercise:foggy-mountain",
+];
 
 test("production build: no hooks, and the DOM invariants hold", async ({ page }) => {
   const errors: string[] = [];
@@ -36,7 +42,7 @@ test("production build: no hooks, and the DOM invariants hold", async ({ page })
     if (!(await page.locator(".song-panel").isVisible())) {
       await page.click('[data-action="toggle-songs"]');
     }
-    await page.click(`[data-song="${id}"][data-section="builtin"]`);
+    await page.click(`[data-song="${id}"][data-section="exercises"]`);
     await page.waitForSelector("svg.tab");
     if (random() < 0.3) await page.click('[data-action="toggle-view"]');
     await page.evaluate((f) => window.scrollTo(0, f * document.body.scrollHeight), random());

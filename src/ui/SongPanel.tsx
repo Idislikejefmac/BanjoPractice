@@ -2,6 +2,7 @@
 // screens it overlays the song and closes when a song is picked.
 
 import { useState } from "preact/hooks";
+import { WANTED_SONGS } from "../app/builtins.ts";
 import { daysAgo } from "./BackupSection.tsx";
 import type { AppStore } from "../app/store.ts";
 import { indexAbc } from "../core/song/abcIndex.ts";
@@ -145,6 +146,19 @@ export function SongPanel({ store }: { store: AppStore }) {
           songs={store.recent.value.filter(match)}
         />
         <Section store={store} title="Songs" id="builtin" songs={builtins} />
+        {q === "" && (
+          <section class="song-section" aria-label="Waiting for sheet music">
+            <h3>Waiting for sheet music</h3>
+            <ul>
+              {WANTED_SONGS.filter((w) => !all.some((s) => s.title === w.title)).map((w) => (
+                <li key={w.title} class="wanted-row" data-wanted={w.title}>
+                  <span class="song-title">{w.title}</span>
+                  <span class="song-row-meta">{w.note}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
         <div class="my-songs-head">
           <button
             class="plain-button"

@@ -1,4 +1,5 @@
-// Prints every problem and rule violation in the built-in songs (songs/*.abc + *.tab).
+// Prints every problem and rule violation in the built-in songs (songs/*.abc + *.tab) and
+// the test fixtures (tests/fixtures/songs). Run: node scripts/check-songs.ts
 // Run: node scripts/check-songs.ts   (Node 24 runs TypeScript directly)
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { loadSong } from "../src/core/song/song.ts";

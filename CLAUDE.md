@@ -14,6 +14,7 @@ Banjo practice PWA for Jeff's dad (Scruggs style, open G, reads mainly tab). Rea
 - Slots are 0-based in code and 1-based in the UI, the tab text format and messages.
 - Tab fret numbers are stored capo-relative and displayed as actual frets by default (DEVELOPMENT.md C2).
 - Built-in songs and licks are written fresh. Never copy from tab sites, books or recordings (DEVELOPMENT.md §10).
+- Song melodies and words come only from a real source: Dad's sheet music or a verified public-domain printing (see `songs/STATUS.md`). Never from memory or guesswork; if there's no source, list the song as waiting for one.
 - Every bug fix gets a regression test; chaos failures get a fixed-seed trace in `tests/chaos/regressions/`.
 
 ## Commands

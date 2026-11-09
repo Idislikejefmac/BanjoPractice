@@ -66,8 +66,8 @@ describe("A3 part generators", () => {
   it("banjo notes sound at the tab's pitch for the capo, melody loudest", () => {
     const song = builtinSong(
       "cc",
-      readFileSync(new URL("../../songs/cripple-creek.abc", import.meta.url), "utf8"),
-      readFileSync(new URL("../../songs/cripple-creek.tab", import.meta.url), "utf8"),
+      readFileSync(new URL("../fixtures/songs/cripple-creek.abc", import.meta.url), "utf8"),
+      readFileSync(new URL("../fixtures/songs/cripple-creek.tab", import.meta.url), "utf8"),
     );
     const loaded = loadSong(song);
     const plain = generateEvents(loaded.index, loaded.arrangement!.measures, { transpose: 0 });
@@ -236,7 +236,10 @@ describe("A1 scheduler", () => {
 describe("C9 parts (F26)", () => {
   it("finds the A and B parts of an AABB tune from its repeats", async () => {
     const { songParts } = await import("../../src/core/playback/parts.ts");
-    const abc = readFileSync(new URL("../../songs/cripple-creek.abc", import.meta.url), "utf8");
+    const abc = readFileSync(
+      new URL("../fixtures/songs/cripple-creek.abc", import.meta.url),
+      "utf8",
+    );
     expect(songParts(abc, indexAbc(abc))).toEqual([
       { label: "A", from: 1, to: 4 },
       { label: "B", from: 5, to: 8 },
@@ -260,7 +263,7 @@ describe("C9 parts (F26)", () => {
       { label: "B", from: 3, to: 4 },
     ]);
     const hymn = readFileSync(
-      new URL("../../songs/will-the-circle-be-unbroken.abc", import.meta.url),
+      new URL("../fixtures/songs/will-the-circle-be-unbroken.abc", import.meta.url),
       "utf8",
     );
     expect(songParts(hymn, indexAbc(hymn))).toEqual([]);

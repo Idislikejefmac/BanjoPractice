@@ -38,6 +38,8 @@ const PART_GAIN: Readonly<Record<Part, number>> = {
 interface Live {
   source: AudioBufferSourceNode;
   gain: GainNode;
+  /** A one-off sound (chord finder, step mode), not part of playback. */
+  preview: boolean;
 }
 
 export class AudioEngine implements AudioOut {
@@ -100,9 +102,18 @@ export class AudioEngine implements AudioOut {
     return this.audio.currentTime();
   }
 
-  /** Live sources (I11) and decoded buffers, for the test hooks. */
-  counts(): { sources: number; buffers: number } {
-    return { sources: this.live.size, buffers: this.buffers.size + this.synth.size };
+  /**
+   * Live playback sources (I4, I11), preview sources (chord finder, step mode: they ring on
+   * after Stop by design) and decoded buffers, for the test hooks.
+   */
+  counts(): { sources: number; previews: number; buffers: number } {
+    let previews = 0;
+    for (const l of this.live) if (l.preview) previews++;
+    return {
+      sources: this.live.size - previews,
+      previews,
+      buffers: this.buffers.size + this.synth.size,
+    };
   }
 
   private synthBuffer(ctx: BaseAudioContext, kind: string, midi: number): AudioBuffer {
@@ -125,7 +136,7 @@ export class AudioEngine implements AudioOut {
     return b;
   }
 
-  play(note: ScheduledNote): void {
+  play(note: ScheduledNote, opts: { preview?: boolean } = {}): void {
     const graph = this.audio.graph();
     if (!graph) return;
     const ctx = graph.context;
@@ -159,7 +170,7 @@ export class AudioEngine implements AudioOut {
     gain.connect(graph.master);
     source.start(start);
     source.stop(release + 0.6);
-    const live: Live = { source, gain };
+    const live: Live = { source, gain, preview: opts.preview === true };
     this.live.add(live);
     source.onended = () => {
       this.live.delete(live);

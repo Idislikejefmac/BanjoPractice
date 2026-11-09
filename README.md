@@ -20,7 +20,7 @@ phase-0 placeholder until the iPad checklist (CHAOS_TESTING.md §7) is done and 
 | Phase | Built | Waiting on people |
 | --- | --- | --- |
 | 0 · Core and tooling | C1–C5, P1–P8 interfaces and fakes, chaos harness, CI, staging/production deploys, spike S0 | Install on Dad's iPad |
-| 1 · Read | Library, favorites, recently played, notation + tab aligned line by line (S2), tab-only view, sizes, settings, diagnostics, session restore, offline; 4 songs | **Check the four draft melodies and tabs**; S3 on the iPad |
+| 1 · Read | Library, favorites, recently played, notation + tab aligned line by line (S2), tab-only view, sizes, settings, diagnostics, session restore, offline; roll exercises | **Songs: waiting for real sources** (see `songs/STATUS.md`; photos of Dad's sheet music); S3 on the iPad |
 | 2 · Play | One-clock scheduler, sampled banjo/guitar/fiddle/flute (S4), boom-chuck chords, metronome and count-in, tempo (±1, hold ±5), speed builder, section loops, key change with capo instruction (C8, C1 transposition), follow highlight + auto-scroll, pedal | S1 (how it sounds), S3 (silent switch, calls, Bluetooth) |
 | 2b · Practice modes | Part loops, loop pause, step mode, echo mode, finger strip, beat light, tap tempo, notation in the tab's key | |
 | 3 · Arrange | C6 arranger (rolls, half-rolls, licks, slurs, exact search; legal for 10,000 random melodies in CI), arranged tabs for keys that need new shapes, roll exercises (F15), printable tab PDF (F32) | Dad rates two generated arrangements "playable"; weight tuning against his feedback |
