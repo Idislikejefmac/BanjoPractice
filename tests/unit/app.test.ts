@@ -139,6 +139,31 @@ describe("app store", () => {
     expect(b.session.value.topMeasure).toBe(3);
   });
 
+  // Regression (chaos seed 7, I6): a session recovered from the mirror was shown but never
+  // written to storage, so storage kept an older song until the next change.
+  it("writes a session recovered from the mirror back to storage", async () => {
+    const storage = createMemoryStore();
+    const local = memoryLocal();
+    const a = new AppStore(fakeServices(storage), SONGS, local);
+    await a.load();
+    a.openSong("a-song");
+    a.flushSession();
+    await settle();
+    a.openSong("b-song");
+    a.setTopMeasure(4);
+    // Killed inside the debounce: storage still has a-song, the mirror has b-song.
+    const b = new AppStore(fakeServices(storage), SONGS, local);
+    await b.load();
+    await settle();
+    expect(b.session.value.songId).toBe("b-song");
+    const stored = (await storage.get("session", "session")) as {
+      songId: string;
+      topMeasure: number;
+    };
+    expect(stored.songId).toBe("b-song");
+    expect(stored.topMeasure).toBe(4);
+  });
+
   it("never fails a save silently: it shows a notice and retries (I6)", async () => {
     const storage = createMemoryStore();
     let failNext = 1;

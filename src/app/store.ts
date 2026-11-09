@@ -170,7 +170,8 @@ export class AppStore {
     ];
     // The localStorage mirror is newer if a reload happened before the debounced write.
     const mirrored = this.readMirror();
-    if (mirrored && (!session || mirrored.savedAt > session.savedAt)) session = mirrored;
+    const mirrorIsNewer = mirrored !== null && (!session || mirrored.savedAt > session.savedAt);
+    if (mirrored && mirrorIsNewer) session = mirrored;
     if (session?.songId && !this.songs.some((s) => s.id === session!.songId)) {
       session = { ...session, songId: null, topMeasure: 0 };
     }
@@ -180,6 +181,8 @@ export class AppStore {
       this.session.value = session ?? DEFAULT_SESSION;
     });
     for (const w of unsaved) this.write(w.store, w.key, w.value);
+    // The recovered session is saved properly now, so storage matches what is shown (I6).
+    if (mirrorIsNewer) this.write("session", "session", this.session.value);
   }
 
   private readPending(): PendingWrite[] {

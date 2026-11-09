@@ -1,0 +1,5 @@
+{
+  "seed": 7,
+  "steps": 150,
+  "note": "I6 at step 150 (Chromium): after a reload mid-save, the last song shown came from the localStorage mirror but storage still held an older session. The recovered session is now written back to storage on load."
+}
