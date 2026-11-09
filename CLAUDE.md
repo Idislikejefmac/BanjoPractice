@@ -2,6 +2,7 @@
 
 Banjo practice PWA for Jeff's dad (Scruggs style, open G, reads mainly tab). Read these before changing anything:
 
+- **`HANDOFF.md` first, if it exists**: work done on another machine, with the steps still to do.
 - `DEVELOPMENT.md`: the build spec. IDs like C4, P2 and F17 are used in code comments, tests and commits.
 - `BANJO_STYLE_GUIDE.md`: banjo rules. Read it before touching the arranger, tab, chord finder or transposition. DEVELOPMENT.md §11 lists where the spec overrides it.
 - `CHAOS_TESTING.md`: stability requirements. New platform behavior needs a fault-injection scenario there.
