@@ -12,9 +12,17 @@ export interface Tuning {
 /** Open G: g D G B D (5th → 1st). Strings 1..5 = D4 B3 G3 D3 G4. */
 export const OPEN_G: Tuning = { id: "open-g", name: "Open G", openMidi: [62, 59, 55, 50, 67] };
 /** Later options (style guide §1.1). Tunings are data so these can be added without code. */
-export const DOUBLE_C: Tuning = { id: "double-c", name: "Double C", openMidi: [62, 60, 55, 48, 67] };
+export const DOUBLE_C: Tuning = {
+  id: "double-c",
+  name: "Double C",
+  openMidi: [62, 60, 55, 48, 67],
+};
 export const OPEN_D: Tuning = { id: "open-d", name: "Open D", openMidi: [62, 57, 54, 50, 66] };
-export const G_MODAL: Tuning = { id: "g-modal", name: "G modal (sawmill)", openMidi: [62, 60, 55, 50, 67] };
+export const G_MODAL: Tuning = {
+  id: "g-modal",
+  name: "G modal (sawmill)",
+  openMidi: [62, 60, 55, 50, 67],
+};
 
 export const TUNINGS: readonly Tuning[] = [OPEN_G, DOUBLE_C, OPEN_D, G_MODAL];
 
@@ -36,14 +44,23 @@ export interface CapoPlan {
 
 export const NO_CAPO: CapoPlan = { capo: 0, fifth: { semitones: 0, by: "none" } };
 
-/** Spike frets on many Deering banjos (a, b, c). A setting, not a constant, in the app. */
-export const DEFAULT_SPIKES: readonly number[] = [7, 9, 10];
+/** Spike frets found on many Deering banjos (a, b, c). Offered as a preset in settings. */
+export const DEERING_SPIKES: readonly number[] = [7, 9, 10];
+
+/**
+ * Default spike setting: none. Dad's Goodtime Artisan isn't confirmed to have spikes, and
+ * "tune the 5th string up" always works, while naming a spike he doesn't have doesn't.
+ */
+export const DEFAULT_SPIKES: readonly number[] = [];
 
 /**
  * How to raise the 5th string for a capo: a spike at fret 5 + capo if there is one,
  * otherwise retune (style guide §1.2).
  */
-export function fifthStringPlan(capo: number, spikes: readonly number[] = DEFAULT_SPIKES): FifthRaise {
+export function fifthStringPlan(
+  capo: number,
+  spikes: readonly number[] = DEFAULT_SPIKES,
+): FifthRaise {
   if (capo === 0) return { semitones: 0, by: "none" };
   const spikeFret = FIFTH_STRING_NUT + capo;
   if (spikes.includes(spikeFret)) return { semitones: capo, by: "spike", spikeFret };
@@ -99,7 +116,11 @@ export interface FretPosition {
 }
 
 /** Every capo-relative (string, fret) that sounds `midi`. */
-export function positionsFor(tuning: Tuning, midi: number, plan: CapoPlan = NO_CAPO): FretPosition[] {
+export function positionsFor(
+  tuning: Tuning,
+  midi: number,
+  plan: CapoPlan = NO_CAPO,
+): FretPosition[] {
   const out: FretPosition[] = [];
   for (const string of [1, 2, 3, 4, 5] as const) {
     for (let fret = 0; fret <= MAX_FRET; fret++) {

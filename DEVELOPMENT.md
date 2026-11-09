@@ -116,13 +116,15 @@ This is where the style guide becomes code. Each module lists its source section
 ### C2. Tuning and fretboard model (guide §1.1, §1.2)
 
 - `Tuning` as data: `openMidi` for strings 1–5. Open G = `[62, 59, 55, 50, 67]`.
-- **Tab fret numbers are capo-relative** (a number counts frets above the capo, and `0` on the 5th string means "open at its spike or retuned pitch"), as in most tab books. *Confirm against Dad's books (§14).* Settings offer a "show actual frets" toggle.
+- **Tab fret numbers are stored capo-relative** (a number counts frets above the capo, and `0` on the 5th string means "open at its spike or retuned pitch"), so one formula covers every capo and the stored tab never changes when the capo moves.
+- **Displayed as actual frets by default** (decided Nov 8, 2026: Dad's books number actual frets). Settings offer a "number from the capo" toggle. With no capo the two are identical, so this only matters for capoed songs.
+- **The capo is a first-tier control**, not a buried setting: a capo picker sits next to the key picker in the toolbar (F11), and the tab header always shows the current capo and 5th-string instruction.
 - `pitchAt(string, fret, plan)`:
   - Strings 1–4: open + capo + fret.
   - 5th string: open + raise + (fret − 5 if fretted, else 0). Fretted 5th-string numbers are ≥ 6. With capo-relative numbers this one formula holds for both a spike and a retune.
   - Actual fret for display: strings 1–4 = fret + capo. 5th string = fret + raise when spiked, or fret when retuned.
 - `positionsFor(midi, plan)`: every (string, fret) that produces a pitch, frets 0–22 (actual).
-- 5th-string plan: `fifthRaise: { semitones, by: "spike" | "retune", spikeFret? }`. `fifthStringPlan(capo, spikes)` uses a spike at fret `5 + capo` if Dad has one, otherwise "tune the 5th string up to X". **Spikes are a setting** (default 7, 9, 10).
+- 5th-string plan: `fifthRaise: { semitones, by: "spike" | "retune", spikeFret? }`. `fifthStringPlan(capo, spikes)` uses a spike at fret `5 + capo` if Dad has one, otherwise "tune the 5th string up to X". **Spikes are a setting, default none** (Dad's Deering Goodtime Artisan isn't confirmed to have any; "tune up" always works, a missing spike doesn't). A "Deering 7, 9, 10" preset is one tap.
 
 ### C3. Roll library (guide §5)
 
@@ -496,7 +498,7 @@ graph LR
 
 **F5 Built-in songs (phase 1)**
 - 4 tunes, ABC and tab both **hand-written fresh**. Every tab passes C4 in CI, and Jeff and Dad review them musically.
-- Proposed set (pending Dad's picks): Cripple Creek, Old Joe Clark, Wildwood Flower (C position), Will the Circle Be Unbroken (1907 hymn).
+- **Confirmed set** (Nov 8, 2026): Cripple Creek (Dad's favorite, written first), Old Joe Clark, Wildwood Flower (C position), Will the Circle Be Unbroken (1907 hymn).
 - While writing them, count any H2 exceptions the music needs (§11 item 11).
 
 **F6 Playback parts and mixer**
@@ -567,10 +569,10 @@ graph LR
 
 **F20 Settings**
 - Finger colors (presets plus custom, with a contrast check) and display size.
-- Default view and spike frets.
+- Default view and spike frets (default none; "Deering 7, 9, 10" preset).
 - Melody instrument, metronome and count-in defaults.
 - Pedal mapping and wake lock.
-- Tab fret numbering (capo-relative / actual).
+- Tab fret numbering (actual, the default / from the capo).
 - Diagnostics, app version and "Check for update."
 
 **F21 Practice log**
@@ -776,10 +778,10 @@ No runtime network dependencies after install: no analytics, CDNs or web fonts.
 ## 14. Open questions
 
 For Jeff and Dad:
-1. Which songs first? (sets F5)
-2. Which 5th-string spikes does his Deering have? (default 7, 9, 10)
+1. ~~Which songs first?~~ **Resolved:** the proposed four, Cripple Creek first (F5).
+2. Which 5th-string spikes does his Deering have? He plays a **Deering Goodtime Artisan**; spikes not yet confirmed (look for small hooks beside the 5th string at frets 7, 9 and 10). Default is none until confirmed (C2).
 3. Does he have, or want, a Bluetooth page-turner pedal? Which model? (F13)
-4. Do his tab books write fret numbers relative to the capo, or as actual frets? (C2 default)
+4. ~~Capo-relative or actual frets?~~ **Resolved:** his books use actual frets, so that's the display default; capo-relative stays as a toggle (C2).
 5. Accept or cut the remaining proposed ideas in §7.
 
 The four reviewer questions from rev 1 are resolved:
