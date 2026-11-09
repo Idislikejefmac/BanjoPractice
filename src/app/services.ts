@@ -8,6 +8,7 @@ import {
   browserClock,
   createInputService,
   createOfflineService,
+  createShareService,
   createWakeLockService,
 } from "../platform/real/browser.ts";
 import { openIndexedDbStore } from "../platform/real/storage.ts";
@@ -16,6 +17,7 @@ import type {
   InputService,
   KeyValueStore,
   OfflineService,
+  ShareService,
   WakeLockService,
 } from "../platform/types.ts";
 import { StorageNewerVersionError } from "../platform/types.ts";
@@ -29,6 +31,7 @@ export interface Services {
   readonly wakeLock: WakeLockService;
   readonly input: InputService;
   readonly clock: Clock;
+  readonly share: ShareService;
   readonly diagnostics: Diagnostics;
 }
 
@@ -65,6 +68,7 @@ export async function createServices(
     wakeLock: createWakeLockService(),
     input: createInputService(),
     clock: browserClock,
+    share: createShareService(),
     diagnostics,
   };
 }

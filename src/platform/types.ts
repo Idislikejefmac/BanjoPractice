@@ -101,3 +101,9 @@ export interface Clock {
   setTimeout(fn: () => void, ms: number): number;
   clearTimeout(id: number): void;
 }
+
+/** Share sheet (iPad) or clipboard fallback, for "Share diagnostics" and later exports. */
+export interface ShareService {
+  /** "shared" via the share sheet, "copied" to the clipboard, "cancelled", or "failed". */
+  shareText(title: string, text: string): Promise<"shared" | "copied" | "cancelled" | "failed">;
+}

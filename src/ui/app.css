@@ -17,6 +17,7 @@
   --finger-m: #cc79a7;
   --finger-m-ink: #000000;
   --radius: 10px;
+  --toolbar-h: calc(56px + env(safe-area-inset-top));
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: var(--ink);
   background: var(--bg);
@@ -33,40 +34,500 @@ body {
   min-height: 100vh;
 }
 
+button {
+  font-family: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
 .shell {
   min-height: 100vh;
 }
 
-/* Fixed toolbar clear of the status bar and rounded corners (viewport-fit=cover). */
+/* F1: toolbar always on screen, clear of the status bar (viewport-fit=cover). */
 .toolbar {
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 30;
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  padding: calc(12px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 12px
-    calc(16px + env(safe-area-inset-left));
+  align-items: center;
+  gap: 8px;
+  min-height: var(--toolbar-h);
+  padding: env(safe-area-inset-top) calc(8px + env(safe-area-inset-right)) 0
+    calc(8px + env(safe-area-inset-left));
   background: var(--brand);
   color: var(--brand-ink);
 }
 
-.toolbar h1 {
+.toolbar-title {
+  flex: 1;
   margin: 0;
-  font-size: 1.4rem;
+  font-size: 1.15rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.version {
+.tool-group {
+  display: flex;
+  gap: 6px;
+}
+
+.tool {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--brand-ink);
+  font-size: 1rem;
+  white-space: nowrap;
+}
+
+.tool.on {
+  background: var(--brand-ink);
+  color: var(--brand);
+}
+
+.tool:disabled {
+  opacity: 0.4;
+}
+
+.body {
+  display: flex;
+  align-items: flex-start;
+}
+
+/* F2 song panel: a column beside the song on wide screens, an overlay on narrow ones. */
+.song-panel {
+  position: sticky;
+  top: var(--toolbar-h);
+  flex: 0 0 280px;
+  height: calc(100vh - var(--toolbar-h));
+  overflow-y: auto;
+  padding: 8px 8px calc(24px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left));
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+}
+
+.song-panel[hidden] {
+  display: none;
+}
+
+.panel-backdrop {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .song-panel {
+    position: fixed;
+    left: 0;
+    z-index: 25;
+    width: min(320px, 85vw);
+    box-shadow: 4px 0 18px rgba(0, 0, 0, 0.2);
+  }
+
+  .panel-backdrop {
+    display: block;
+    position: fixed;
+    inset: var(--toolbar-h) 0 0 0;
+    z-index: 20;
+    background: rgba(0, 0, 0, 0.25);
+  }
+}
+
+.song-section h3 {
+  margin: 14px 8px 4px;
   font-size: 0.8rem;
-  opacity: 0.8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+}
+
+.song-section ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.song-row {
+  display: flex;
+  align-items: stretch;
+  border-radius: var(--radius);
+}
+
+.song-row.current {
+  background: var(--highlight);
+}
+
+.song-open {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: 52px;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  font-size: 1.05rem;
+}
+
+.song-row-meta {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.star {
+  min-width: 44px;
+  border: none;
+  background: transparent;
+  font-size: 1.4rem;
+  color: var(--ink-soft);
+}
+
+.star.on {
+  color: #b7791f;
+}
+
+.song-search {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  font-size: 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
 }
 
 .content {
+  flex: 1;
+  min-width: 0;
+  padding: 12px calc(12px + env(safe-area-inset-right)) calc(32px + env(safe-area-inset-bottom))
+    calc(12px + env(safe-area-inset-left));
+}
+
+.welcome {
   max-width: 900px;
   margin: 0 auto;
-  padding: 16px calc(16px + env(safe-area-inset-right)) calc(32px + env(safe-area-inset-bottom))
+}
+
+/* F3/F4 song */
+.song-head h2 {
+  margin: 4px 0;
+  font-size: calc(1.4rem * var(--size, 1));
+}
+
+.song-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0 0 6px;
+  color: var(--ink-soft);
+}
+
+.capo-instruction {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.song-note {
+  margin: 4px 0;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.song-note.warn {
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  background: var(--highlight);
+  color: var(--ink);
+}
+
+.song-lines {
+  margin-top: 8px;
+}
+
+.song-line {
+  margin-bottom: calc(14px * var(--size, 1));
+}
+
+.notation svg {
+  display: block;
+  overflow: visible;
+}
+
+/* R2 tab */
+.tab {
+  display: block;
+  overflow: visible;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.tab-measure {
+  fill: transparent;
+}
+
+.tab-measure.current {
+  fill: var(--highlight);
+}
+
+.tab-string {
+  stroke: #8a7d6e;
+  stroke-width: 1;
+}
+
+.tab-bar {
+  stroke: var(--ink);
+  stroke-width: 1.2;
+}
+
+.tab-bar.thick {
+  stroke-width: 4;
+}
+
+.tab-dot {
+  fill: var(--ink);
+}
+
+.tab-clef {
+  font-size: 9px;
+  font-weight: 700;
+  fill: var(--ink-soft);
+  writing-mode: vertical-rl;
+  dominant-baseline: middle;
+  text-anchor: middle;
+  letter-spacing: 1px;
+}
+
+.tab-fret {
+  fill: var(--ink);
+  text-anchor: middle;
+  dominant-baseline: central;
+  font-variant-numeric: tabular-nums;
+  /* Knock the string line out behind the number. */
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+.tab-fret.melody {
+  font-weight: 800;
+}
+
+.tab-badge circle {
+  stroke: rgba(0, 0, 0, 0.25);
+  stroke-width: 0.75;
+}
+
+.tab-badge text {
+  text-anchor: middle;
+  dominant-baseline: central;
+  font-weight: 700;
+}
+
+.finger-T circle {
+  fill: var(--finger-t);
+}
+
+.finger-T text {
+  fill: var(--finger-t-ink);
+}
+
+.finger-I circle {
+  fill: var(--finger-i);
+}
+
+.finger-I text {
+  fill: var(--finger-i-ink);
+}
+
+.finger-M circle {
+  fill: var(--finger-m);
+}
+
+.finger-M text {
+  fill: var(--finger-m-ink);
+}
+
+/* F22: badge colors off = grey badges; the letters always stay. */
+.grey-badges .tab-badge circle {
+  fill: #d4d0c8;
+}
+
+.grey-badges .tab-badge text {
+  fill: #000;
+}
+
+.grey-badges .badge {
+  background: #d4d0c8;
+  color: #000;
+}
+
+.tab-slur {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.2;
+}
+
+.tab-slur-label,
+.tab-accent {
+  font-size: 10px;
+  font-style: italic;
+  text-anchor: middle;
+  fill: var(--ink);
+}
+
+.tab-roll {
+  font-size: 10.5px;
+  font-style: italic;
+  fill: var(--ink-soft);
+}
+
+.tab-chord {
+  font-size: 13px;
+  font-weight: 700;
+  fill: var(--ink);
+  text-anchor: middle;
+}
+
+.tab-ending,
+.tab-measure-number {
+  font-size: 10px;
+  fill: var(--ink-soft);
+}
+
+.tab-stem {
+  stroke: var(--ink);
+  stroke-width: 1.2;
+}
+
+.tab-beam {
+  fill: var(--ink);
+}
+
+.tab-rest {
+  font-size: 13px;
+  text-anchor: middle;
+  fill: var(--ink);
+}
+
+/* F20 settings: a page under the toolbar, so the toolbar stays reachable. */
+.settings-page {
+  position: fixed;
+  inset: var(--toolbar-h) 0 0 0;
+  z-index: 28;
+  overflow-y: auto;
+  padding: 12px calc(16px + env(safe-area-inset-right)) calc(32px + env(safe-area-inset-bottom))
     calc(16px + env(safe-area-inset-left));
+  background: var(--bg);
+}
+
+.settings-page > * {
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.settings-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.settings-page section {
+  margin-top: 16px;
+  padding: 8px 16px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.settings-page h3 {
+  margin: 8px 0;
+}
+
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.setting-row input[type="checkbox"] {
+  width: 28px;
+  height: 28px;
+}
+
+.setting-row.choice {
+  display: block;
+  padding: 6px 0;
+}
+
+.setting-row legend {
+  padding: 0;
+  margin-bottom: 6px;
+}
+
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.segmented button,
+.plain-button {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.segmented button.on {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--brand-ink);
+}
+
+.setting-help {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.diagnostics-list {
+  font-size: 0.8rem;
+  padding-left: 18px;
+  color: var(--ink-soft);
+}
+
+.diag-error {
+  color: var(--bad);
+}
+
+.link-button {
+  border: none;
+  background: none;
+  padding: 0 4px;
+  min-height: 32px;
+  color: inherit;
+  font-size: inherit;
+  text-decoration: underline;
 }
 
 h2 {
@@ -81,10 +542,29 @@ h2 {
   border: 1px solid #e3cf6a;
 }
 
-.status {
-  color: var(--ink-soft);
+.notices {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 40;
+  transform: translateX(-50%);
+  width: min(560px, calc(100vw - 32px));
 }
 
+.notices .notice {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 0;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+}
+
+.notice-error {
+  border-color: var(--bad);
+}
+
+/* Welcome: roll reference */
 .legend {
   display: flex;
   flex-wrap: wrap;
@@ -198,7 +678,7 @@ h2 {
 
 .big-button {
   min-height: 44px;
-  min-width: 160px;
+  min-width: 120px;
   padding: 10px 24px;
   font-size: 1.1rem;
   border-radius: var(--radius);

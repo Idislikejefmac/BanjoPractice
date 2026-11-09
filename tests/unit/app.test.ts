@@ -1,0 +1,165 @@
+import { describe, expect, it } from "vitest";
+import {
+  DEFAULT_SESSION,
+  DEFAULT_SETTINGS,
+  measuresPerLine,
+  readSession,
+  readSettings,
+  recentSongIds,
+  sessionProblems,
+  settingsProblems,
+  songPrefsProblems,
+} from "../../src/app/model.ts";
+import { AppStore } from "../../src/app/store.ts";
+import type { Services } from "../../src/app/services.ts";
+import { createDiagnostics } from "../../src/platform/diagnostics.ts";
+import {
+  createFakeClock,
+  createFakeInput,
+  createFakeOffline,
+  createFakeShare,
+  createFakeWakeLock,
+  createMemoryStore,
+} from "../../src/platform/fakes.ts";
+import type { KeyValueStore } from "../../src/platform/types.ts";
+import { builtinSong } from "../../src/core/song/song.ts";
+
+describe("persisted records (I7)", () => {
+  it("accepts the defaults", () => {
+    expect(settingsProblems(DEFAULT_SETTINGS)).toEqual([]);
+    expect(sessionProblems(DEFAULT_SESSION)).toEqual([]);
+  });
+
+  it("repairs damaged settings field by field instead of dropping them all", () => {
+    const s = readSettings({ ...DEFAULT_SETTINGS, size: 99, showRollNames: false, spikes: [3] });
+    expect(s.size).toBe(DEFAULT_SETTINGS.size);
+    expect(s.showRollNames).toBe(false);
+    expect(s.spikes).toEqual([]);
+    expect(settingsProblems(s)).toEqual([]);
+    expect(readSettings("garbage")).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it("rejects a malformed session or song preference", () => {
+    expect(readSession({ ...DEFAULT_SESSION, topMeasure: -1 })).toBeNull();
+    expect(readSession(null)).toBeNull();
+    expect(songPrefsProblems({ schemaVersion: 1, songId: "", favorite: true })).toContain("songId");
+  });
+
+  it("lists recently played songs newest first, at most 5", () => {
+    const prefs = ["a", "b", "c", "d", "e", "f"].map((id, i) => ({
+      schemaVersion: 1,
+      songId: id,
+      favorite: false,
+      lastOpenedAt: new Date(2026, 0, i + 1).toISOString(),
+    }));
+    expect(recentSongIds([...prefs, { schemaVersion: 1, songId: "x", favorite: true }])).toEqual([
+      "f",
+      "e",
+      "d",
+      "c",
+      "b",
+    ]);
+  });
+
+  it("keeps 4-bar phrases together: 1, 2, 4 or 8 measures per line", () => {
+    expect(measuresPerLine(1180, 1.1)).toBe(4);
+    expect(measuresPerLine(880, 1.1)).toBe(2);
+    expect(measuresPerLine(300, 1.1)).toBe(1);
+    expect(measuresPerLine(2400, 1)).toBe(8);
+  });
+});
+
+function fakeServices(storage: KeyValueStore): Services {
+  return {
+    storage,
+    storageMode: "ok",
+    offline: createFakeOffline(),
+    wakeLock: createFakeWakeLock(),
+    input: createFakeInput(),
+    clock: createFakeClock(),
+    share: createFakeShare(),
+    diagnostics: createDiagnostics("test", null),
+  };
+}
+
+const SONGS = [
+  builtinSong("a-song", "X:1\nT:A Song\nM:4/4\nL:1/8\nK:G\nG8|]"),
+  builtinSong("b-song", "X:1\nT:B Song\nM:4/4\nL:1/8\nK:G\nG8|]"),
+];
+
+function memoryLocal() {
+  const m = new Map<string, string>();
+  return {
+    getItem: (k: string) => m.get(k) ?? null,
+    setItem: (k: string, v: string) => void m.set(k, v),
+  };
+}
+
+const settle = () => new Promise((r) => setTimeout(r, 0));
+
+describe("app store", () => {
+  it("saves favorites, settings and the session, and loads them back", async () => {
+    const storage = createMemoryStore();
+    const local = memoryLocal();
+    const a = new AppStore(fakeServices(storage), SONGS, local);
+    await a.load();
+    a.toggleFavorite("b-song");
+    a.openSong("a-song");
+    a.updateSettings({ size: 3, showRollNames: false });
+    a.setTopMeasure(5);
+    a.flushSession();
+    await settle();
+
+    const b = new AppStore(fakeServices(storage), SONGS, memoryLocal());
+    await b.load();
+    expect(b.favorites.value.map((s) => s.id)).toEqual(["b-song"]);
+    expect(b.currentSong.value?.id).toBe("a-song");
+    expect(b.session.value.topMeasure).toBe(5);
+    expect(b.settings.value.size).toBe(3);
+    expect(b.recent.value.map((s) => s.id)).toEqual(["a-song"]);
+  });
+
+  it("restores the session from the localStorage mirror before the debounced write lands", async () => {
+    const storage = createMemoryStore();
+    const local = memoryLocal();
+    const a = new AppStore(fakeServices(storage), SONGS, local);
+    await a.load();
+    a.openSong("b-song");
+    a.setTopMeasure(3);
+    // No flush: simulate iPadOS killing the page inside the 500 ms debounce.
+    const b = new AppStore(fakeServices(storage), SONGS, local);
+    await b.load();
+    expect(b.session.value.songId).toBe("b-song");
+    expect(b.session.value.topMeasure).toBe(3);
+  });
+
+  it("never fails a save silently: it shows a notice and retries (I6)", async () => {
+    const storage = createMemoryStore();
+    let failNext = 1;
+    const flaky: KeyValueStore = {
+      ...storage,
+      async put(s, k, v) {
+        if (failNext-- > 0) throw new DOMException("full", "QuotaExceededError");
+        return storage.put(s, k, v);
+      },
+    };
+    const a = new AppStore(fakeServices(flaky), SONGS, null);
+    await a.load();
+    a.toggleFavorite("a-song");
+    await settle();
+    expect(a.notices.value.map((n) => n.text).join()).toMatch(/storage is full/);
+    expect(a.savesPending).toBe(true);
+    await new Promise((r) => setTimeout(r, 3100));
+    expect(a.savesPending).toBe(false);
+    expect(a.notices.value).toEqual([]);
+    expect(await storage.get("songPrefs", "a-song")).toMatchObject({ favorite: true });
+  });
+
+  it("ignores a saved session for a song that no longer exists", async () => {
+    const storage = createMemoryStore();
+    await storage.put("session", "session", { ...DEFAULT_SESSION, songId: "gone" });
+    const a = new AppStore(fakeServices(storage), SONGS, null);
+    await a.load();
+    expect(a.currentSong.value).toBeNull();
+  });
+});

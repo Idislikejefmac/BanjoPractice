@@ -7,6 +7,7 @@ import type {
   KeyValueStore,
   OfflineService,
   PedalAction,
+  ShareService,
   StoreName,
   WakeLockService,
 } from "./types.ts";
@@ -141,6 +142,20 @@ export function createFakeOffline(): OfflineService & {
       offlineReady = ready;
       updateWaiting = waiting;
       for (const l of listeners) l();
+    },
+  };
+}
+
+/** Share fake: records what was shared. */
+export function createFakeShare(
+  result: "shared" | "copied" | "cancelled" | "failed" = "shared",
+): ShareService & { shared: { title: string; text: string }[] } {
+  const shared: { title: string; text: string }[] = [];
+  return {
+    shared,
+    async shareText(title, text) {
+      shared.push({ title, text });
+      return result;
     },
   };
 }

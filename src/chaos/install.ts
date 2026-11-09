@@ -3,6 +3,9 @@
 // production.
 
 import type { Services } from "../app/services.ts";
+import type { AppStore } from "../app/store.ts";
+import type { StoreName } from "../platform/types.ts";
+import { STORE_NAMES } from "../platform/types.ts";
 import type { ChaosController } from "./controller.ts";
 
 declare global {
@@ -10,14 +13,35 @@ declare global {
     __banjoChaos?: ChaosController;
     __banjoTest?: {
       services: Services;
+      store: AppStore;
       version: string;
+      /** Every record in P1, by store (I6, I7). */
+      dumpStorage(): Promise<Record<string, Record<string, unknown>>>;
+      /** True while a save is in flight or waiting to retry. */
+      savesPending(): boolean;
     };
   }
 }
 
-export function installChaos(services: Services, chaos: ChaosController): void {
+export function installChaos(services: Services, chaos: ChaosController, store: AppStore): void {
   window.__banjoChaos = chaos;
-  window.__banjoTest = { services, version: __APP_VERSION__ };
+  window.__banjoTest = {
+    services,
+    store,
+    version: __APP_VERSION__,
+    async dumpStorage() {
+      const out: Record<string, Record<string, unknown>> = {};
+      for (const name of STORE_NAMES as readonly StoreName[]) {
+        const table: Record<string, unknown> = {};
+        for (const key of await services.storage.keys(name)) {
+          table[key] = await services.storage.get(name, key);
+        }
+        out[name] = table;
+      }
+      return out;
+    },
+    savesPending: () => store.savesPending,
+  };
   const seed = Number(new URLSearchParams(location.search).get("chaosSeed") ?? "1");
   chaos.seed(Number.isFinite(seed) ? seed : 1);
   console.info(`CHAOS_SEED=${seed}`);

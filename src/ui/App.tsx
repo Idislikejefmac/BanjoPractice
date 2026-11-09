@@ -1,30 +1,25 @@
-// Phase 0 placeholder: proves the app installs from Safari, opens offline, and runs the banjo
-// core. It shows the roll library, each roll checked live by the rule validator.
+// F1 app shell: toolbar always on screen, collapsible song panel, the song, settings.
+// With no song open, the welcome screen shows the roll reference (each roll checked live).
 
-import { useEffect, useState } from "preact/hooks";
+import { useSignalEffect } from "@preact/signals";
+import { useEffect } from "preact/hooks";
 import type { Services } from "../app/services.ts";
+import type { AppStore } from "../app/store.ts";
+import { SIZE_STEPS } from "../app/model.ts";
 import { ROLLS, rollMeasure } from "../core/banjo/rolls.ts";
 import type { Finger } from "../core/banjo/types.ts";
+import { FINGER_NAME } from "../core/banjo/types.ts";
 import { validate } from "../core/banjo/validator.ts";
-
-const FINGER_LABEL: Readonly<Record<Finger, string>> = { T: "Thumb", I: "Index", M: "Middle" };
-
-function useOfflineStatus(services: Services) {
-  const read = () => ({
-    ready: services.offline.offlineReady,
-    waiting: services.offline.updateWaiting,
-  });
-  const [status, setStatus] = useState(read);
-  useEffect(() => services.offline.onChange(() => setStatus(read())), [services]);
-  return status;
-}
+import { SettingsPage } from "./SettingsPage.tsx";
+import { SongPanel } from "./SongPanel.tsx";
+import { SongView } from "./SongView.tsx";
 
 function FingerBadge({ finger }: { finger: Finger }) {
   return (
     <span
       class={`badge badge-${finger}`}
-      title={FINGER_LABEL[finger]}
-      aria-label={FINGER_LABEL[finger]}
+      title={FINGER_NAME[finger]}
+      aria-label={FINGER_NAME[finger]}
     >
       {finger}
     </span>
@@ -63,53 +58,146 @@ function RollCard({ roll }: { roll: (typeof ROLLS)[number] }) {
   );
 }
 
-export function App({ services }: { services: Services }) {
-  const offline = useOfflineStatus(services);
+function Welcome({ store }: { store: AppStore }) {
   return (
-    <div class="shell">
-      <header class="toolbar">
-        <h1>Banjo Practice</h1>
-        <span class="version">
-          v{__APP_VERSION__} · {__BUILD_SHA__}
-          {__BUILD_CHANNEL__ !== "production" ? ` · ${__BUILD_CHANNEL__}` : ""}
-        </span>
-      </header>
+    <div class="welcome">
+      <section class="intro">
+        <h2>Pick a song</h2>
+        <p>
+          Choose a song from the list to see its tab and notation.{" "}
+          {!store.session.value.songPanelOpen && (
+            <button class="link-button" onClick={() => store.toggleSongPanel(true)}>
+              Show the song list
+            </button>
+          )}
+        </p>
+      </section>
+      <section>
+        <h2>Rolls</h2>
+        <p class="legend">
+          <FingerBadge finger="T" /> Thumb <FingerBadge finger="I" /> Index{" "}
+          <FingerBadge finger="M" /> Middle
+          <span class="legend-note">Underlined = accented note. Numbers = strings.</span>
+        </p>
+        <ul class="rolls">
+          {ROLLS.map((r) => (
+            <RollCard key={r.id} roll={r} />
+          ))}
+        </ul>
+      </section>
+    </div>
+  );
+}
 
-      <main class="content">
-        {services.storageMode !== "ok" && (
-          <p class="notice" role="status">
-            {services.storageMode === "read-only-newer"
-              ? "Your saved songs were made by a newer version of the app. Please update the app."
-              : "Saving isn't available right now, so changes won't be kept."}
-          </p>
+function Toolbar({ store }: { store: AppStore }) {
+  const song = store.currentSong.value;
+  const size = store.settings.value.size;
+  const tabOnly = store.view.value === "tab";
+  const panelOpen = store.session.value.songPanelOpen;
+  return (
+    <header class="toolbar">
+      <button
+        class="tool"
+        data-action="toggle-songs"
+        aria-expanded={panelOpen}
+        onClick={() => store.toggleSongPanel()}
+      >
+        ☰ Songs
+      </button>
+      <h1 class="toolbar-title">{song ? song.title : "Banjo Practice"}</h1>
+      <div class="tool-group">
+        {song && (
+          <button
+            class={tabOnly ? "tool on" : "tool"}
+            data-action="toggle-view"
+            aria-pressed={tabOnly}
+            onClick={() => store.setView(tabOnly ? "both" : "tab")}
+          >
+            Tab only
+          </button>
         )}
+        <button
+          class="tool"
+          data-action="smaller"
+          aria-label="Smaller"
+          disabled={size <= 0}
+          onClick={() => store.updateSettings({ size: size - 1 })}
+        >
+          A−
+        </button>
+        <button
+          class="tool"
+          data-action="bigger"
+          aria-label="Bigger"
+          disabled={size >= SIZE_STEPS.length - 1}
+          onClick={() => store.updateSettings({ size: size + 1 })}
+        >
+          A+
+        </button>
+        <button
+          class="tool"
+          data-action="settings"
+          aria-label="Settings"
+          onClick={() => (store.settingsOpen.value = !store.settingsOpen.value)}
+        >
+          ⚙
+        </button>
+      </div>
+    </header>
+  );
+}
 
-        <section class="intro">
-          <h2>Coming soon</h2>
-          <p>
-            This is the first build. Songs, tab and playback arrive in the next phases. For now,
-            here are the eight Scruggs rolls the app is built on, each checked by its rule checker.
-          </p>
-          <p class="status">
-            {offline.ready ? "✓ Works without Wi-Fi" : "Getting ready to work without Wi-Fi…"}
-            {offline.waiting ? " · A new version will load next time you open the app." : ""}
-          </p>
-        </section>
+function Notices({ store }: { store: AppStore }) {
+  const notices = store.notices.value;
+  if (notices.length === 0) return null;
+  return (
+    <div class="notices" role="status" aria-live="polite">
+      {notices.map((n) => (
+        <p key={n.id} class={`notice notice-${n.kind}`}>
+          <span>{n.text}</span>
+          <button class="link-button" onClick={() => store.dismiss(n.id)} aria-label="Dismiss">
+            ✕
+          </button>
+        </p>
+      ))}
+    </div>
+  );
+}
 
-        <section>
-          <h2>Rolls</h2>
-          <p class="legend">
-            <FingerBadge finger="T" /> Thumb <FingerBadge finger="I" /> Index{" "}
-            <FingerBadge finger="M" /> Middle
-            <span class="legend-note">Underlined = accented note. Numbers = strings.</span>
-          </p>
-          <ul class="rolls">
-            {ROLLS.map((r) => (
-              <RollCard key={r.id} roll={r} />
-            ))}
-          </ul>
-        </section>
-      </main>
+export function App({ services, store }: { services: Services; store: AppStore }) {
+  // F12: keep the screen awake while a song is open (re-acquired by the service on return).
+  useSignalEffect(() => {
+    const wanted = store.currentSong.value !== null && store.settings.value.keepAwake;
+    void services.wakeLock.setWanted(wanted);
+  });
+
+  useEffect(() => {
+    if (services.storageMode !== "ok") {
+      store.notify(
+        "error",
+        services.storageMode === "read-only-newer"
+          ? "Your saved songs were made by a newer version of the app. Please update the app."
+          : "Saving isn't available right now, so changes won't be kept.",
+      );
+    }
+  }, [services, store]);
+
+  const settings = store.settings.value;
+  const panelOpen = store.session.value.songPanelOpen;
+  return (
+    <div
+      class={`shell${panelOpen ? " panel-open" : ""}${settings.colorBadges ? "" : " grey-badges"}`}
+      style={{ "--size": String(SIZE_STEPS[settings.size] ?? 1) }}
+    >
+      <Toolbar store={store} />
+      <div class="body">
+        <SongPanel store={store} />
+        <main class="content">
+          {store.currentSong.value ? <SongView store={store} /> : <Welcome store={store} />}
+        </main>
+      </div>
+      {store.settingsOpen.value && <SettingsPage store={store} services={services} />}
+      <Notices store={store} />
     </div>
   );
 }

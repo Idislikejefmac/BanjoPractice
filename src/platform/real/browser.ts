@@ -7,6 +7,7 @@ import type {
   InputService,
   OfflineService,
   PedalAction,
+  ShareService,
   WakeLockService,
 } from "../types.ts";
 
@@ -145,6 +146,29 @@ export function createInputService(debounceMs = 250): InputService {
     onPedal(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
+    },
+  };
+}
+
+/** Share sheet where available (iPad Safari), otherwise the clipboard. */
+export function createShareService(): ShareService {
+  return {
+    async shareText(title, text) {
+      if (typeof navigator.share === "function") {
+        try {
+          await navigator.share({ title, text });
+          return "shared";
+        } catch (e) {
+          if (e instanceof DOMException && e.name === "AbortError") return "cancelled";
+          // Fall through to the clipboard (e.g. NotAllowedError without a user gesture).
+        }
+      }
+      try {
+        await navigator.clipboard.writeText(text);
+        return "copied";
+      } catch {
+        return "failed";
+      }
     },
   };
 }

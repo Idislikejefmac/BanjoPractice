@@ -63,6 +63,9 @@ export default defineConfig(({ mode }) => ({
   build: {
     target: "es2022",
     sourcemap: true,
+    // abcjs is most of the bundle; its own chunk caches separately from app updates.
+    rollupOptions: { output: { manualChunks: { abcjs: ["abcjs"] } } },
+    chunkSizeWarningLimit: 600,
   },
   test: {
     include: ["tests/unit/**/*.test.ts", "tests/property/**/*.test.ts"],
