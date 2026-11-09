@@ -120,6 +120,14 @@ export class Player {
     });
     effect(() => {
       this.engine.melodyInstrument = store.settings.value.melodyInstrument;
+      // Changing the instrument while a song plays: fetch its sounds now, so the melody doesn't
+      // fall back to the plucked stand-in (it sounded like a mandolin) until the next Play.
+      const playing = this.state.peek() !== "stopped" ? this.song() : null;
+      if (playing) {
+        void this.engine
+          .prepare(this.program(playing).measures.flatMap((m) => m.events))
+          .catch(() => undefined);
+      }
     });
     // A different song stops playback.
     effect(() => {

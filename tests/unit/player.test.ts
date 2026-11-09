@@ -36,6 +36,7 @@ async function rig() {
   store.openSong("t");
   store.updatePractice({ metronome: "off" });
   const player = new Player(services, store);
+  const samples = services.samples as ReturnType<typeof createFakeSamples>;
   /** Moves wall-clock and audio time together. */
   const run = async (ms: number) => {
     for (let t = 0; t < ms; t += 10) {
@@ -44,10 +45,25 @@ async function rig() {
       await new Promise((r) => setTimeout(r, 0));
     }
   };
-  return { audio, clock, input, store, player, run };
+  return { audio, clock, input, store, player, run, samples };
 }
 
 describe("player on an iPad-like audio context", () => {
+  // Regression: choosing the flute while a song played left the melody on the plucked
+  // stand-in (it sounded like the mandolin) because the flute samples were never fetched.
+  it("fetches the new instrument's sounds when it is changed during playback", async () => {
+    const { audio, player, store, run, samples } = await rig();
+    audio.tap();
+    await player.play();
+    await run(300);
+    expect(samples.loads.some((l) => l.startsWith("violin/"))).toBe(true);
+    expect(samples.loads.some((l) => l.startsWith("flute/"))).toBe(false);
+    store.updateSettings({ melodyInstrument: "flute" });
+    await run(300);
+    expect(samples.loads.some((l) => l.startsWith("flute/"))).toBe(true);
+    player.stop();
+  });
+
   it("won't play before a tap, and says so instead of showing a silent 'playing'", async () => {
     const { player, store } = await rig();
     await player.play();

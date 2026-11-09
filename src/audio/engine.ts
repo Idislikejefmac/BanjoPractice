@@ -53,6 +53,8 @@ export class AudioEngine implements AudioOut {
   private readonly buffers = new Map<string, AudioBuffer>();
   private readonly synth = new Map<string, AudioBuffer>();
   private readonly voices = new Map<string, { buffer: AudioBuffer; lead: number }>();
+  /** Samples being fetched because a note needed one that wasn't ready yet. */
+  private readonly fetching = new Set<string>();
   private readonly live = new Set<Live>();
   melodyInstrument: MelodyInstrument = "violin";
 
@@ -63,6 +65,7 @@ export class AudioEngine implements AudioOut {
       this.buffers.clear();
       this.synth.clear();
       this.voices.clear();
+      this.fetching.clear();
       this.live.clear();
     });
   }
@@ -99,6 +102,26 @@ export class AudioEngine implements AudioOut {
       }),
     );
     return missing;
+  }
+
+  /**
+   * A note needed a sample that isn't decoded yet (the instrument was changed while playing, or
+   * the first Play is still loading). Fetch it now so the next such note uses the real sound
+   * rather than the plucked stand-in.
+   */
+  private fetchLater(inst: string, midi: number): void {
+    const key = `${inst}/${midi}`;
+    if (this.fetching.has(key) || this.buffers.has(key)) return;
+    this.fetching.add(key);
+    const context = this.audio.graph()?.context;
+    this.samples
+      .load(inst, midi)
+      .then((buffer) => {
+        // Ignore a sample decoded for an audio context that has since been replaced.
+        if (this.audio.graph()?.context === context) this.buffers.set(key, buffer);
+      })
+      .catch(() => undefined)
+      .finally(() => this.fetching.delete(key));
   }
 
   private clampMidi(inst: string, midi: number): number {
@@ -205,6 +228,7 @@ export class AudioEngine implements AudioOut {
     let rate = 1;
     const sampleMidi = this.clampMidi(inst, note.midi);
     const sampled = RANGES[inst] ? this.buffers.get(`${inst}/${sampleMidi}`) : undefined;
+    if (!sampled && RANGES[inst]) this.fetchLater(inst, sampleMidi);
     if (sampled) {
       buffer = sampled;
       rate = 2 ** ((note.midi - sampleMidi) / 12); // only when outside the sampled range
