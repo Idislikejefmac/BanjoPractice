@@ -61,10 +61,16 @@ checks) compared labels with `"1"`/`"2"` the same way.
 
 ## Things learned that aren't written down elsewhere
 
-- **A note tied from the previous note takes no lyric syllable** (abcjs; `lyricLines` in
-  `layoutAbc.ts` assumes the same). In `w:` lines, don't put `_` on a tied-to note: the hold
-  moves onto the next note and every later word shifts one note late. This bit four of the
-  transcriptions until it was fixed. Worth a unit test that pins it (see Next steps).
+- **A note tied from the previous note takes no lyric syllable** in the songs' `w:` lines, as in
+  printed music. In `w:` lines, don't put `_` on a tied-to note: the hold moves onto the next
+  note and every later word shifts one note late. *(Correction, 2026-11-09: abcjs itself does
+  NOT skip tied notes; it hands them the next word. The app now moves the words back onto the
+  next note that starts a sound in `abcIndex.ts` (`skipTiedNotes`), and `lyricLines` writes an
+  explicit `*` for tied notes. Tests in `tests/unit/lyrics.test.ts`. So `tools/abccheck.py`'s
+  rule is the right one for the songs, and the app now agrees with it.)*
+- **A later verse with words only in an ending** (Head Over Heels, Roll in My Sweet Baby's Arms,
+  The Long Black Veil) used to be read as verse 1, because abcjs stops adding blank entries once
+  a `w:` line's words run out. `abcIndex.ts` now parses each verse on its own (`verseLyrics`).
 - **In `w:` lines, `|` means "move past the next bar line"**, not "one segment per bar": a pickup
   can share a segment with the bar after it, and `|||Now` puts "Now" in the fourth bar.
 - **A hyphen always splits a syllable**, even without a space (`cap-tain` is two notes; write
@@ -94,6 +100,18 @@ includes word readings and transcription choices too). The main ones:
 | Angel Band | Chorus bar 15: D or E; bar 19: F or G |
 | Rocky Top | Chorus "me." whole note: E or F |
 | Fox on the Run | The book's two printed choruses differ in two bars; both kept as printed |
+
+## Progress (2026-11-09, main machine)
+
+Steps 1–3 below are **done**: both repositories fetched, `multi-pass-endings` verified (the
+fix passed as written) and merged. While testing, the tie rule above turned out wrong in the
+app, and a verse-in-ending bug showed up; both are fixed and tested (294 unit tests, build and
+bundle check pass; Playwright and chaos suites not re-run yet). A script that compares each
+song's typed words with the placed words now shows all 17 songs in order. **Still to do: steps
+4–7** (look at each song in the app, work through `CHECKLIST.md`, build the pack for Dad).
+`node_modules` in this folder was left half-deleted by a failed `npm ci` (a leftover esbuild
+process from a stopped chaos run held a lock); until it is cleared, verify from the separate
+worktree `../BanjoPractice-verify` or fix the install after the leftover processes exit.
 
 ## Next steps (in order)
 
