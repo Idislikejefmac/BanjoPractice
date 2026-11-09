@@ -31,6 +31,33 @@ const NEXT_METRONOME: Readonly<Record<MetronomeMode, MetronomeMode>> = {
 
 type Panel = "none" | "tempo" | "parts" | "loop";
 
+/** A short vertical volume slider (0–100%) under a part's button. */
+function VolumeSlider({
+  label,
+  name,
+  value,
+  onChange,
+}: {
+  label: string;
+  name: string;
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <span class="vslider-wrap">
+      <input
+        type="range"
+        name={name}
+        aria-label={label}
+        min={0}
+        max={100}
+        value={Math.round(value * 100)}
+        onInput={(e) => onChange(Number((e.target as HTMLInputElement).value) / 100)}
+      />
+    </span>
+  );
+}
+
 function clampTempo(n: number): number {
   return Math.max(TEMPO_MIN, Math.min(TEMPO_MAX, Math.round(n)));
 }
@@ -196,27 +223,46 @@ export function PracticeBar({ store, player }: { store: AppStore; player: Player
           ))}
         </select>
 
-        <div class="parts" role="group" aria-label="Parts">
+        <div class="parts" role="group" aria-label="Parts and volumes">
           {(["melody", "chords", "banjo"] as const).map((part) => (
-            <button
-              key={part}
-              class={p.parts[part].on ? "tool chip on" : "tool chip"}
-              data-part={part}
-              aria-pressed={p.parts[part].on}
-              onClick={() =>
-                set({ parts: { ...p.parts, [part]: { ...p.parts[part], on: !p.parts[part].on } } })
-              }
-            >
-              {PART_LABEL[part]}
-            </button>
+            <div class="part-stack" key={part}>
+              <button
+                class={p.parts[part].on ? "tool chip on" : "tool chip"}
+                data-part={part}
+                aria-pressed={p.parts[part].on}
+                onClick={() =>
+                  set({
+                    parts: { ...p.parts, [part]: { ...p.parts[part], on: !p.parts[part].on } },
+                  })
+                }
+              >
+                {PART_LABEL[part]}
+              </button>
+              <VolumeSlider
+                label={`${PART_LABEL[part]} volume`}
+                name={`mix-${part}`}
+                value={p.parts[part].volume}
+                onChange={(volume) =>
+                  set({ parts: { ...p.parts, [part]: { ...p.parts[part], volume } } })
+                }
+              />
+            </div>
           ))}
-          <button
-            class={p.metronome === "off" ? "tool chip" : "tool chip on"}
-            data-action="metronome"
-            onClick={() => set({ metronome: NEXT_METRONOME[p.metronome] })}
-          >
-            {METRONOME_LABEL[p.metronome]}
-          </button>
+          <div class="part-stack">
+            <button
+              class={p.metronome === "off" ? "tool chip" : "tool chip on"}
+              data-action="metronome"
+              onClick={() => set({ metronome: NEXT_METRONOME[p.metronome] })}
+            >
+              {METRONOME_LABEL[p.metronome]}
+            </button>
+            <VolumeSlider
+              label="Click volume"
+              name="mix-click"
+              value={p.clickVolume}
+              onChange={(clickVolume) => set({ clickVolume })}
+            />
+          </div>
         </div>
 
         <button

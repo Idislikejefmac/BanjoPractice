@@ -42,12 +42,16 @@ export function lineBreaks(measures: readonly IndexedMeasure[], perLine: number)
 }
 
 function cleanMusic(text: string): string {
-  return text
-    .replace(/%[^\n]*/g, "") // comments
-    .replace(/\\\s*\n/g, " ") // line continuations
-    .replace(/\r?\n/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return (
+    text
+      // Field lines between measures (w: lyrics, P: part labels, W:, N:…) are not music.
+      .replace(/^[ \t]*[A-Za-z]:[^\n]*$/gm, "")
+      .replace(/%[^\n]*/g, "") // comments
+      .replace(/\\\s*\n/g, " ") // line continuations
+      .replace(/\r?\n/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
 }
 
 function glyph(m: IndexedMeasure): string {
@@ -82,6 +86,34 @@ function lengthSuffix(ratio: number): string {
 export interface LineAbcOptions {
   /** Show the time signature (first line only, as printed music does). */
   showMeter: boolean;
+  /** Write the lyrics (w: lines) under this line's notes. */
+  showLyrics?: boolean;
+}
+
+/**
+ * The w: lines for some measures: one per verse, a syllable (or "*" for none) per sung note,
+ * and "|" at each bar so a miscounted measure can't shift the words of the next one.
+ */
+export function lyricLines(measures: readonly IndexedMeasure[], verses: number): string[] {
+  const out: string[] = [];
+  for (let v = 0; v < verses; v++) {
+    const bars = measures.map((m) => {
+      let holding = false;
+      return m.melody
+        .filter((n) => n.midi !== null && !n.tiedFromPrevious)
+        .map((n) => {
+          const syl = n.lyrics?.[v] ?? "";
+          if (syl === "") return holding ? "_" : "*";
+          holding = syl.endsWith("_");
+          return (holding ? syl.slice(0, -1) : syl).replace(/ /g, "~");
+        })
+        .join(" ")
+        .replace(/- /g, "-");
+    });
+    if (bars.every((b) => b.split(" ").every((t) => t === "*" || t === ""))) continue;
+    out.push(`w:${bars.join(" | ")}`);
+  }
+  return out;
 }
 
 /** Hidden-voice rests: one invisible rest per slot. */
@@ -120,5 +152,18 @@ export function lineAbc(
     }
   });
 
-  return ["X:1", meter, unit, "%%score (1 2)", keyLine, "V:1", melody, "V:2", slots, ""].join("\n");
+  const words = opts.showLyrics ? lyricLines(ms, index.verses) : [];
+  return [
+    "X:1",
+    meter,
+    unit,
+    "%%score (1 2)",
+    keyLine,
+    "V:1",
+    melody,
+    ...words,
+    "V:2",
+    slots,
+    "",
+  ].join("\n");
 }

@@ -36,6 +36,13 @@ export interface TabLayoutOptions {
   readonly showMeasureNumber: boolean;
   /** Where the staff lines start, if left of the first measure (room for the TAB label). */
   readonly lineStart?: number;
+  /** Lyrics to print under the tab (tab-only view): one row per verse, at slots. */
+  readonly lyrics?: readonly {
+    readonly measure: number;
+    readonly slot: number;
+    readonly verse: number;
+    readonly text: string;
+  }[];
 }
 
 export interface TabText {
@@ -92,6 +99,7 @@ export interface TabPrimitives {
   readonly chordLabels: readonly TabText[];
   readonly endingLabels: readonly TabText[];
   readonly measureNumber: TabText | null;
+  readonly lyricTexts: readonly TabText[];
   /** Each measure's box, for highlighting and taps. */
   readonly measureBoxes: readonly { index: number; x: number; width: number }[];
   readonly fontSize: number;
@@ -301,7 +309,18 @@ export function layoutTabLine(
   const stems: Stem[] = stemXs.map((x) => ({ x, y1: stemTop, y2: stemBottom }));
   const beams = beamXs.map((b) => ({ ...b, y: stemBottom - 3 * u, h: 3 * u }));
   const rests: TabText[] = restXs.map((x) => ({ x, y: stemTop + stemLen * 0.7, text: "𝄾" }));
-  const height = stemBottom + 8 * u;
+  // Lyrics, one row per verse, under the stems (tab-only view).
+  const lyricTop = stemBottom + 14 * u;
+  const lyricTexts: TabText[] = [];
+  let verses = 0;
+  for (const l of opts.lyrics ?? []) {
+    const g = geometry.find((x) => x.index === l.measure);
+    const x = g?.slotX[l.slot];
+    if (x === undefined) continue;
+    verses = Math.max(verses, l.verse + 1);
+    lyricTexts.push({ x, y: lyricTop + l.verse * 15 * u, text: l.text });
+  }
+  const height = stemBottom + 8 * u + verses * 15 * u + (verses ? 6 * u : 0);
 
   const first = measures[0];
   return {
@@ -329,6 +348,7 @@ export function layoutTabLine(
     measureBoxes,
     fontSize,
     melodyFontSize,
+    lyricTexts,
   };
 }
 

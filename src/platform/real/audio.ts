@@ -10,8 +10,8 @@
 //   device change the context is closed and recreated before the next play.
 // - Never more than one live context (I13): the old one is always closed first.
 
-import type { AudioService, SampleLoader } from "../types.ts";
-import { AudioUnavailableError } from "../types.ts";
+import type { AudioService, MicService, SampleLoader } from "../types.ts";
+import { AudioUnavailableError, MicDeniedError } from "../types.ts";
 
 type State = AudioService["state"];
 
@@ -108,6 +108,46 @@ export function createAudioService(): AudioService {
       return () => recreateListeners.delete(listener);
     },
     liveContexts: () => live,
+    routeChanged() {
+      needsRecreate = true;
+    },
+  };
+}
+
+/** P7 microphone with Safari's voice processing off. Opening it can change the sample rate. */
+export function createMicService(audio: AudioService): MicService {
+  let stream: MediaStream | null = null;
+  return {
+    get isOpen() {
+      return stream !== null;
+    },
+    async open() {
+      if (stream) return stream;
+      if (!navigator.mediaDevices?.getUserMedia) throw new MicDeniedError("No microphone here");
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+        });
+      } catch (e) {
+        const name = e instanceof DOMException ? e.name : "";
+        if (name === "NotAllowedError" || name === "SecurityError") {
+          throw new MicDeniedError("Microphone permission was refused");
+        }
+        throw e;
+      }
+      audio.routeChanged();
+      stream.getTracks().forEach((t) =>
+        t.addEventListener("ended", () => {
+          stream = null;
+        }),
+      );
+      return stream;
+    },
+    close() {
+      stream?.getTracks().forEach((t) => t.stop());
+      stream = null;
+      audio.routeChanged();
+    },
   };
 }
 

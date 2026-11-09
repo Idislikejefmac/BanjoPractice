@@ -75,7 +75,9 @@ interface LineProps {
   readonly scale: number;
   readonly tabOnly: boolean;
   readonly arranged: readonly ArrangedMeasure[] | null;
-  readonly tabOpts: Omit<TabLayoutOptions, "scale" | "showChords" | "showMeasureNumber">;
+  readonly tabOpts: Omit<TabLayoutOptions, "scale" | "showChords" | "showMeasureNumber"> & {
+    readonly showLyrics: boolean;
+  };
 }
 
 function SongLine({
@@ -103,7 +105,10 @@ function SongLine({
       setGeometry(evenGeometry(infos, width, 34 * scale));
       return;
     }
-    const abc = lineAbc(notation.abc, notation.index, line, { showMeter: lineNo === 0 });
+    const abc = lineAbc(notation.abc, notation.index, line, {
+      showMeter: lineNo === 0,
+      showLyrics: tabOpts.showLyrics,
+    });
     let result = null;
     try {
       result = renderNotationLine(el, abc, width, NOTATION_SCALE * scale, infos, onChordTap);
@@ -112,7 +117,7 @@ function SongLine({
     }
     setGeometry(result?.geometry ?? evenGeometry(infos, width, 34 * scale));
     // `infos` is derived from `loaded` and `line`, which are the dependencies.
-  }, [loaded, notation, line, lineNo, width, scale, tabOnly]);
+  }, [loaded, notation, line, lineNo, width, scale, tabOnly, tabOpts.showLyrics]);
 
   const tab =
     geometry && arranged
@@ -121,6 +126,7 @@ function SongLine({
           scale: TAB_SCALE * scale,
           showChords: tabOnly,
           showMeasureNumber: true,
+          ...(tabOnly && tabOpts.showLyrics ? { lyrics: lyricsFor(measures) } : {}),
           ...(tabOnly ? { lineStart: 0 } : {}),
         })
       : null;
@@ -193,6 +199,7 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
     showAccents: settings.showAccents,
     fretNumbering: settings.fretNumbering,
     plan: position?.capo ?? capoPlan(0, settings.spikes),
+    showLyrics: settings.showLyrics,
   };
   const follow = player.follow.value;
   const current = follow.measure;
@@ -327,6 +334,11 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
           <span>
             {index.meter.num}/{index.meter.den}
           </span>
+          <PrintButton
+            title={song.title}
+            subtitle={`Key of ${formatKey(position?.soundingKey ?? index.key)} · ${position?.instruction ?? "No capo"}`}
+            onShare={(name, blob) => player.share(name, blob)}
+          />
           <span class="capo-instruction" data-testid="capo-instruction">
             {position?.instruction ?? "No capo"}
           </span>
@@ -383,6 +395,87 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
       </div>
     </article>
   );
+}
+
+/** F32: make a PDF of the tab (and notation) and share it. */
+function PrintButton({
+  title,
+  subtitle,
+  onShare,
+}: {
+  title: string;
+  subtitle: string;
+  onShare: (name: string, blob: Blob) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [paper, setPaper] = useState<"letter" | "a4">("letter");
+  const [withNotation, setWithNotation] = useState(true);
+  if (!open) {
+    return (
+      <button class="link-button" data-action="print" onClick={() => setOpen(true)}>
+        Print or save as PDF
+      </button>
+    );
+  }
+  return (
+    <span class="print-options">
+      <select
+        name="paper"
+        value={paper}
+        onChange={(e) => setPaper((e.target as HTMLSelectElement).value as "letter" | "a4")}
+      >
+        <option value="letter">Letter</option>
+        <option value="a4">A4</option>
+      </select>
+      <label>
+        <input
+          type="checkbox"
+          checked={withNotation}
+          onChange={(e) => setWithNotation((e.target as HTMLInputElement).checked)}
+        />{" "}
+        Notes too
+      </label>
+      <button
+        class="plain-button"
+        data-action="make-pdf"
+        disabled={busy}
+        onClick={() => {
+          setBusy(true);
+          void import("../render/printTab.ts")
+            .then(({ printTab }) =>
+              printTab([...document.querySelectorAll<HTMLElement>(".song-line")], {
+                title,
+                subtitle,
+                paper,
+                withNotation,
+              }),
+            )
+            .then((blob) => onShare(`${title}.pdf`, blob))
+            .finally(() => {
+              setBusy(false);
+              setOpen(false);
+            });
+        }}
+      >
+        {busy ? "Making the PDF…" : "Make PDF"}
+      </button>
+    </span>
+  );
+}
+
+/** Lyric syllables at their slots, for printing under the tab. */
+function lyricsFor(measures: readonly IndexedMeasure[]) {
+  const out: { measure: number; slot: number; verse: number; text: string }[] = [];
+  for (const m of measures) {
+    for (const n of m.melody) {
+      n.lyrics?.forEach((text, verse) => {
+        const clean = text.replace(/_$/, "");
+        if (clean) out.push({ measure: m.index, slot: n.slot, verse, text: clean });
+      });
+    }
+  }
+  return out;
 }
 
 function toolbarHeight(): number {

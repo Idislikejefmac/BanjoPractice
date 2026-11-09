@@ -798,3 +798,23 @@ The four reviewer questions from rev 1 are resolved:
 - **Should-fix**: per-mode capo table and C-position default; capo-relative fret convention; generalized H3; H2 provisional; C1 owns transposition; abcjs used for event expansion; R3 hidden-voice spike; iOS audio (sample-rate recreate, one context, mic processing off, mp3); iOS storage (open retry, transaction rule, separate Home Screen storage); PWA plumbing; high-contrast finger badges; production-artifact smoke tests; Playwright WebKit gate S0.
 - **Scope**: update banner removed (updates apply on next launch). Tuner, recording and the full phase 6 kept.
 - **New features**: F26–F35.
+
+---
+
+## 16. Implementation decisions (Nov 2026 build)
+
+Choices made while building, where the spec left room. Each is covered by tests.
+
+- **Notation octave (C9).** Banjo music is written an octave above where it sounds, like guitar. A tab note marked as melody must sound exactly 12 semitones under the written note; an octave further off is a warning, any other pitch an error (`checkConsistency`, run on every built-in in CI).
+- **Layout (R3).** The app chooses line breaks (1, 2, 4 or 8 measures per line so 4-bar phrases stay together) and renders abcjs one line at a time with the hidden slot voice. Element x maps to the screen as `x × scale`; a slot's center is half a notehead (4.9 units) right of its rest.
+- **Saving (P1, I6).** One write per record at a time, newest value wins, and every pending save is mirrored to localStorage first, so a save in flight when iPadOS kills the app is replayed on the next launch. Found by the chaos monkey (seed 2).
+- **Storage open.** 3 tries × 2 s (was 4 s), and `index.html` shows "Loading…" so the screen is never blank while it waits (I12).
+- **Scheduler (A1).** Slots that are already overdue (page frozen, clock jump) are skipped and counted as late, never played as a burst. Tempo changes apply from the next slot.
+- **Interruptions (P2).** An `interrupted`/`suspended` context while playing stops the transport with "Paused by the iPad. Tap Play to carry on."; the next Play resumes from the same measure.
+- **Missing samples (P3).** Playback never goes silent: a missing or undecodable sample falls back to a generated pluck, with a one-time notice and a diagnostics entry.
+- **Arranger (C6).** Weights in `DEFAULT_WEIGHTS`. Slurs cost a little (rolls should carry the tune); a missed weak-slot melody note costs 15% of a strong one. Every measure also gets melody-free backup candidates so a legal join always exists (fast-check seed −12563778).
+- **Keys (F11).** The key picker offers all 12 keys. Capo 0–5 on the song's own shapes keeps the hand-written tab; other keys use C8's table and a C6 arrangement, with "This key uses an auto-generated arrangement."
+- **Exercises (F15).** One exercise per roll: open strings (right hand only), then G–C–D, G–C–G–D and G–Em–C–D, each a P: part so the part loops work.
+- **Editor (F17).** Notes are entered in eighths (eighth to whole); chords at the start or the middle of a measure; the editor's structured form is stored with the song so it can be edited again. "Edit ABC" saves text only.
+- **Backup (F18).** `banjo-practice-backup` v1 JSON; damaged records are skipped and listed; import is one `writeAll` transaction across stores, replaced songs go to trash first.
+- **Mandolin (A2, S4).** No mandolin in FluidR3_GM; the melody's "Mandolin" is a generated pluck until a CC0/CC BY sample set is chosen.

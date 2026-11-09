@@ -6,6 +6,6 @@ m2  G          lick:2nd-string-melody   | 2:0I* 1:0M 2:0T* 1:0M 2:0I* 5:0T 1:0M 
 m3  C G@5      lick:2nd-string-melody   | 2:1I* 1:2M 2:1T* 1:2M 2:0I* 5:0T 3:0I* 1:0M |
 m4  D          forward-reverse          | 3:2T* 2:3I 1:4M 5:0T 1:4M 2:3I 4:0T* 1:4M |
 m5  G          alternating-thumb        | 3:0T* 2:0I 3:0T* 1:0M 3:0T* 2:0I 3:2T* 1:0M |
-m6  G          lick:2nd-string-melody   | 2:0I* 1:0M 2:0T* 1:0M 2:0I* 5:0T 1:0M 5:0T |
+m6  G          lick:2nd-string-melody   | 2:0I* 1:0M 2:0T* 1:0M 2:0I* 5:0T 2:0M* 5:0T |
 m7  D D7@5     lick:3rd-string-melody   | 3:2I* 1:4M 3:2T* 2:3I 3:4T* 2:1I 3:2T* 1:0M |
-m8  G          tag !end                 | 3:0T* 2:0I [5:0T,1:0M] - - - |
+m8  G          tag !end                 | 3:0T* 2:0I [3:0T*,1:0M] - - - |

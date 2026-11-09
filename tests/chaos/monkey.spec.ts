@@ -47,7 +47,24 @@ async function ensurePanel(ctx: MonkeyContext): Promise<void> {
 }
 
 async function closeSettings(ctx: MonkeyContext): Promise<void> {
-  if (await ctx.page.locator(".settings-page").isVisible()) await ctx.page.click("text=Done");
+  // Any full-screen page (settings, chord finder, editor, practice tools) is closed first.
+  for (let i = 0; i < 3; i++) {
+    const page = ctx.page.locator(".settings-page").first();
+    if (!(await page.isVisible().catch(() => false))) return;
+    if (
+      await ctx.page
+        .locator('[data-action="editor-cancel"]')
+        .isVisible()
+        .catch(() => false)
+    ) {
+      await ctx.page.click('[data-action="editor-cancel"]');
+    } else {
+      await page
+        .locator("button", { hasText: /^Done$/ })
+        .first()
+        .click();
+    }
+  }
 }
 
 const ACTIONS: Action[] = [
@@ -321,6 +338,95 @@ const ACTIONS: Action[] = [
       }
       await ctx.page.keyboard.up("PageDown");
       return "30 Hz";
+    },
+  },
+  {
+    name: "chord-finder",
+    weight: 3,
+    async run(ctx) {
+      await closeSettings(ctx);
+      if (!(await ctx.page.locator(".chord-finder").isVisible())) {
+        if (!(await clickIfVisible(ctx, '[data-action="chords"]'))) return null;
+      }
+      const roots = await ctx.page.locator('select[name="root"] option').allTextContents();
+      await ctx.page
+        .locator('select[name="root"]')
+        .selectOption({ index: Math.floor(ctx.random() * roots.length) });
+      const types = await ctx.page.locator('select[name="quality"] option').count();
+      await ctx.page
+        .locator('select[name="quality"]')
+        .selectOption({ index: Math.floor(ctx.random() * types) });
+      await clickIfVisible(ctx, '[data-action="next-voicing"]:not([disabled])');
+      if (ctx.random() < 0.3) await clickIfVisible(ctx, '[data-action="strum"]');
+      if (ctx.random() < 0.6) await clickIfVisible(ctx, ".chord-finder >> text=Done");
+      return "";
+    },
+  },
+  {
+    name: "editor",
+    weight: 3,
+    async run(ctx) {
+      await closeSettings(ctx);
+      await clickIfVisible(ctx, ".chord-finder >> text=Done");
+      if (!(await ctx.page.locator(".song-editor").isVisible())) {
+        await ensurePanel(ctx);
+        if (!(await clickIfVisible(ctx, '[data-action="new-song"]'))) return null;
+      }
+      const notes = 1 + Math.floor(ctx.random() * 6);
+      for (let i = 0; i < notes; i++) {
+        const letter = ctx.pick(["C", "D", "E", "F", "G", "A", "B", "rest"]);
+        const btn = ctx.page.locator(`[data-note="${letter}"]`);
+        if (await btn.isEnabled().catch(() => false)) await btn.click();
+      }
+      const r = ctx.random();
+      if (r < 0.3) {
+        await ctx.page
+          .fill('input[name="title"]', `Monkey ${Math.floor(ctx.random() * 1000)}`)
+          .catch(() => {});
+        await clickIfVisible(ctx, '[data-action="editor-save"]');
+        return "save";
+      }
+      if (r < 0.4) {
+        // Hostile: save twice fast.
+        await clickIfVisible(ctx, '[data-action="editor-save"]');
+        await clickIfVisible(ctx, '[data-action="editor-save"]');
+        return "save x2";
+      }
+      if (r < 0.6) {
+        await clickIfVisible(ctx, '[data-action="editor-cancel"]');
+        return "close";
+      }
+      return `${notes} notes`;
+    },
+  },
+  {
+    name: "practice-tools",
+    weight: 2,
+    async run(ctx) {
+      await closeSettings(ctx);
+      if (!(await ctx.page.locator('[data-tool="log"]').isVisible())) {
+        if (!(await clickIfVisible(ctx, '[data-action="practice-tools"]'))) return null;
+      }
+      await clickIfVisible(ctx, `[data-tool="${ctx.pick(["tuner", "log", "recordings"])}"]`);
+      await clickIfVisible(ctx, ".settings-page >> text=Done");
+      return "";
+    },
+  },
+  {
+    name: "delete-playing-song",
+    weight: 1,
+    hostile: true,
+    async run(ctx) {
+      await closeSettings(ctx);
+      await ensurePanel(ctx);
+      const del = ctx.page.locator("[data-delete]").first();
+      if (!(await del.isVisible().catch(() => false))) return null;
+      const id = await del.getAttribute("data-delete");
+      await ctx.page.click(`[data-song="${id}"][data-section="mine"]`);
+      await clickIfVisible(ctx, '[data-action="play"]');
+      ctx.page.once("dialog", (d) => void d.accept());
+      await del.click();
+      return id ?? "";
     },
   },
   {

@@ -13,16 +13,20 @@ A practice app for a 5-string banjo in three-finger Scruggs style: pick a song, 
 
 ## Status
 
-Phases 0–2b are built and run on **staging**. Production (Dad's URL) still serves the phase-0
-placeholder until the iPad checklist (CHAOS_TESTING.md §7) is done and someone runs *Promote to
-production*. Phase details: DEVELOPMENT.md §9.
+Every phase (0–6) is built and runs on **staging**. Production (Dad's URL) still serves the
+phase-0 placeholder until the iPad checklist (CHAOS_TESTING.md §7) is done and someone runs
+*Promote to production*. Phase details: DEVELOPMENT.md §9.
 
 | Phase | Built | Waiting on people |
 | --- | --- | --- |
 | 0 · Core and tooling | C1–C5, P1–P8 interfaces and fakes, chaos harness, CI, staging/production deploys, spike S0 | Install on Dad's iPad |
-| 1 · Read | Song library, favorites, recently played, notation + tab aligned line by line (spike S2), tab-only view, sizes, settings, diagnostics, session restore, offline; 4 songs; UI monkey + storage/lifecycle faults | **Jeff and Dad: check the four draft melodies and tabs**; S3 on the iPad |
-| 2 · Play | Scheduler on one audio clock, sampled banjo/guitar/fiddle/flute (S4), boom-chuck chords, metronome and count-in, tempo, speed builder, section loops, key change with capo instruction (C8, C1 transposition), follow highlight + auto-scroll, pedal | S1 (how it sounds) and S3 (silent switch, calls, Bluetooth) on the iPad |
+| 1 · Read | Library, favorites, recently played, notation + tab aligned line by line (S2), tab-only view, sizes, settings, diagnostics, session restore, offline; 4 songs | **Check the four draft melodies and tabs**; S3 on the iPad |
+| 2 · Play | One-clock scheduler, sampled banjo/guitar/fiddle/flute (S4), boom-chuck chords, metronome and count-in, tempo (±1, hold ±5), speed builder, section loops, key change with capo instruction (C8, C1 transposition), follow highlight + auto-scroll, pedal | S1 (how it sounds), S3 (silent switch, calls, Bluetooth) |
 | 2b · Practice modes | Part loops, loop pause, step mode, echo mode, finger strip, beat light, tap tempo, notation in the tab's key | |
+| 3 · Arrange | C6 arranger (rolls, half-rolls, licks, slurs, exact search; legal for 10,000 random melodies in CI), arranged tabs for keys that need new shapes, roll exercises (F15), printable tab PDF (F32) | Dad rates two generated arrangements "playable"; weight tuning against his feedback |
+| 4 · Chords | C7 voicings (every shape in the style guide, incl. D7 with no 3rd), chord finder with neck diagram and sound, opened from chord taps | |
+| 5 · Edit | Song editor (note buttons, chords per half measure, roll overrides explained, live tab, autosaved drafts, ABC view), My songs with trash, export/import backup with preview (all-or-nothing) | Dad enters a full song unaided |
+| 6 · Practice | Tuner (YIN, ±3 cents on reference tones, capo-aware targets), practice log with tempo chart, recording alone or with backing (last 20 takes) | S6: tuner on a real banjo; recording on the iPad |
 
 ## Getting started
 

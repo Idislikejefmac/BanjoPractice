@@ -12,6 +12,8 @@ import type { Finger } from "../core/banjo/types.ts";
 import { FINGER_NAME } from "../core/banjo/types.ts";
 import { validate } from "../core/banjo/validator.ts";
 import { ChordFinder } from "./ChordFinder.tsx";
+import { PracticeTools } from "./PracticeTools.tsx";
+import { SongEditor } from "./SongEditor.tsx";
 import { PracticeBar } from "./PracticeBar.tsx";
 import { SettingsPage } from "./SettingsPage.tsx";
 import { SongPanel } from "./SongPanel.tsx";
@@ -140,6 +142,15 @@ function Toolbar({ store, player }: { store: AppStore; player: Player }) {
           </button>
           <button
             class="tool"
+            data-action="practice-tools"
+            onClick={() =>
+              (store.practiceTools.value = store.practiceTools.value === null ? "tuner" : null)
+            }
+          >
+            Tuner
+          </button>
+          <button
+            class="tool"
             data-action="chords"
             onClick={() =>
               (store.chordFinder.value = store.chordFinder.value === null ? "G" : null)
@@ -240,6 +251,10 @@ export function App({
       </div>
       {store.settingsOpen.value && <SettingsPage store={store} services={services} />}
       {store.chordFinder.value !== null && <ChordFinder store={store} player={player} />}
+      {store.editing.value !== null && <SongEditor key={store.editing.value} store={store} />}
+      {store.practiceTools.value !== null && (
+        <PracticeTools store={store} services={services} player={player} />
+      )}
       <Notices store={store} />
     </div>
   );

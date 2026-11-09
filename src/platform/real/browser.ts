@@ -150,9 +150,33 @@ export function createInputService(debounceMs = 250): InputService {
   };
 }
 
-/** Share sheet where available (iPad Safari), otherwise the clipboard. */
+/** Share sheet where available (iPad Safari), otherwise the clipboard or a download. */
 export function createShareService(): ShareService {
   return {
+    async shareFile(name, data) {
+      const file = new File([data], name, { type: data.type || "application/octet-stream" });
+      if (typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: name });
+          return "shared";
+        } catch (e) {
+          if (e instanceof DOMException && e.name === "AbortError") return "cancelled";
+        }
+      }
+      try {
+        const url = URL.createObjectURL(file);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 10_000);
+        return "downloaded";
+      } catch {
+        return "failed";
+      }
+    },
     async shareText(title, text) {
       if (typeof navigator.share === "function") {
         try {

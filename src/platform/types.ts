@@ -85,6 +85,8 @@ export interface AudioService {
   onRecreate(listener: () => void): () => void;
   /** Contexts created and not yet closed (I13: never more than one). */
   liveContexts(): number;
+  /** The audio route changed (mic opened, headphones): recreate before the next play. */
+  routeChanged(): void;
 }
 
 /** P3 · Sample loader. Buffers may be dropped by the OS and reloaded transparently. */
@@ -121,8 +123,15 @@ export interface InputService {
 
 /** P7 · Microphone, processing off (echo cancellation etc. mangle a banjo's attack). */
 export interface MicService {
+  /** Rejects with MicDeniedError when permission is refused. */
   open(): Promise<MediaStream>;
   close(): void;
+  readonly isOpen: boolean;
+}
+
+/** Microphone permission was refused (or is blocked in iPad Settings). */
+export class MicDeniedError extends Error {
+  override name = "MicDeniedError";
 }
 
 /** P8 · Clock for UI timing (audio timing uses AudioService.currentTime). */
@@ -136,4 +145,6 @@ export interface Clock {
 export interface ShareService {
   /** "shared" via the share sheet, "copied" to the clipboard, "cancelled", or "failed". */
   shareText(title: string, text: string): Promise<"shared" | "copied" | "cancelled" | "failed">;
+  /** A file via the share sheet (Save to Files, AirDrop, Mail), or a download on a PC. */
+  shareFile(name: string, data: Blob): Promise<"shared" | "downloaded" | "cancelled" | "failed">;
 }

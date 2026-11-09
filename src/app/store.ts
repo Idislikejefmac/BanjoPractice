@@ -9,6 +9,8 @@
 import { batch, computed, signal } from "@preact/signals";
 import type { Song } from "../core/song/song.ts";
 import { songProblems } from "../core/song/song.ts";
+import type { LogEvent, OpenSession, PracticeSession } from "./practiceLog.ts";
+import { applyLogEvent, close as closeSession, practiceSessionProblems } from "./practiceLog.ts";
 import type { KeyValueStore, StoreName } from "../platform/types.ts";
 import type { Services } from "./services.ts";
 import type { PracticePrefs, Session, Settings, SongPrefs, ViewMode } from "./model.ts";
@@ -45,6 +47,11 @@ export class AppStore {
   private readonly builtins: readonly Song[];
   /** F18: when Dad last exported a backup (ISO), for "Last backup: N days ago". */
   readonly lastBackupAt = signal<string | null>(null);
+  /** F21: saved practice sessions, newest first. */
+  readonly practiceLog = signal<readonly PracticeSession[]>([]);
+  /** Which practice tool is open (F19, F21, F23), or null. */
+  readonly practiceTools = signal<"tuner" | "log" | "recordings" | null>(null);
+  private openSession: OpenSession | null = null;
   /** F17: the song editor is open on this song id ("new" for a new song), or null. */
   readonly editing = signal<string | null>(null);
 
@@ -129,6 +136,12 @@ export class AppStore {
             `A saved song couldn't be read and was set aside (${key})`,
           );
       }
+      const log: PracticeSession[] = [];
+      for (const key of await this.storage.keys("practiceLog")) {
+        const s = await this.storage.get<PracticeSession>("practiceLog", key);
+        if (practiceSessionProblems(s).length === 0) log.push(s!);
+      }
+      this.practiceLog.value = log.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
       const meta = await this.storage.get<{ lastBackupAt?: string }>("meta", "meta");
       if (meta?.lastBackupAt) this.lastBackupAt.value = meta.lastBackupAt;
       settings = readSettings(await this.storage.get("settings", "settings"));
@@ -397,6 +410,27 @@ export class AppStore {
 
   discardDraft(key: string): void {
     this.storage.delete("drafts", key).catch(() => {});
+  }
+
+  /** F21: a playback event for the practice log (play, tempo change, stop). */
+  logPractice(event: LogEvent): void {
+    const { open, finished } = applyLogEvent(
+      this.openSession,
+      event,
+      this.services.clock.now(),
+      new Date(),
+      () => crypto.randomUUID(),
+    );
+    this.openSession = open;
+    if (finished) this.savePracticeSession(finished);
+    if (open && (event.kind === "stop" || event.kind === "play")) {
+      this.savePracticeSession(closeSession(open, this.services.clock.now()));
+    }
+  }
+
+  private savePracticeSession(s: PracticeSession): void {
+    this.practiceLog.value = [s, ...this.practiceLog.value.filter((x) => x.id !== s.id)];
+    this.write("practiceLog", s.id, s);
   }
 
   /** Records that a backup was made (F18 "Last backup: N days ago"). */

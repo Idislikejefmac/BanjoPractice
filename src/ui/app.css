@@ -999,3 +999,204 @@ h2 {
 .notation .abcjs-chord {
   cursor: pointer;
 }
+
+/* F17 song editor */
+.text-input,
+.abc-text {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  font-size: 1.05rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.abc-text {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+
+.measure-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.note-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  padding-left: 20px;
+  min-height: 1.5em;
+}
+
+.note-pad {
+  display: grid;
+  gap: 10px;
+}
+
+.letter-pad {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 8px;
+}
+
+.big-button.letter {
+  min-width: 0;
+  min-height: 60px;
+  font-size: 1.5rem;
+}
+
+.big-button:disabled {
+  opacity: 0.35;
+}
+
+.chord-picker select,
+.song-editor select {
+  min-height: 44px;
+  font-size: 1rem;
+}
+
+.row-action {
+  min-width: 40px;
+  border: none;
+  background: transparent;
+  font-size: 1.1rem;
+}
+
+.my-songs-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 8px 0;
+}
+
+/* F18 backup */
+.file-button {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.file-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.import-preview {
+  margin-top: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+/* F19 tuner */
+.tuner-display {
+  margin: 16px 0;
+  padding: 16px;
+  text-align: center;
+  border-radius: var(--radius);
+  background: var(--bg);
+  border: 2px solid var(--line);
+}
+
+.tuner-display.in-tune {
+  border-color: var(--ok);
+  background: #e3f3e6;
+}
+
+.tuner-note {
+  font-size: 2.6rem;
+  font-weight: 800;
+}
+
+.tuner-cents {
+  font-size: 1.3rem;
+}
+
+.tuner-needle {
+  width: min(420px, 100%);
+}
+
+.needle-scale,
+.needle-center {
+  stroke: var(--ink-soft);
+  stroke-width: 1;
+}
+
+.needle {
+  stroke: var(--bad);
+  stroke-width: 2.5;
+}
+
+.in-tune .needle {
+  stroke: var(--ok);
+}
+
+/* F21 practice log */
+.tempo-chart {
+  width: min(420px, 100%);
+}
+
+.tempo-chart polyline {
+  fill: none;
+  stroke: var(--brand);
+  stroke-width: 2;
+}
+
+.tempo-chart circle {
+  fill: var(--brand);
+}
+
+.tempo-chart text {
+  font-size: 10px;
+  fill: var(--ink-soft);
+}
+
+.log-list {
+  padding-left: 18px;
+  line-height: 1.8;
+}
+
+/* F32 print */
+.print-options {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.tab-lyric {
+  font-size: 12px;
+  font-style: italic;
+  text-anchor: middle;
+  fill: var(--ink);
+}
+
+/* Mixer: a short vertical volume slider under each part chip. */
+.part-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.vslider-wrap {
+  width: 44px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+}
+
+.vslider-wrap input[type="range"] {
+  width: 60px;
+  height: 28px;
+  margin: 0;
+  transform: rotate(-90deg);
+  accent-color: var(--finger-t);
+}

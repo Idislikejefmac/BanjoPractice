@@ -1,8 +1,10 @@
 // Fakes for unit tests and the chaos harness. Fakes model observed iPad behavior, not ideal
 // behavior; extend them as spike S3 reports what the real iPad does.
 
+import { MicDeniedError } from "./types.ts";
 import type {
   AudioService,
+  MicService,
   Clock,
   InputService,
   KeyValueStore,
@@ -161,10 +163,19 @@ export function createFakeOffline(): OfflineService & {
 /** Share fake: records what was shared. */
 export function createFakeShare(
   result: "shared" | "copied" | "cancelled" | "failed" = "shared",
-): ShareService & { shared: { title: string; text: string }[] } {
+): ShareService & {
+  shared: { title: string; text: string }[];
+  files: { name: string; data: Blob }[];
+} {
   const shared: { title: string; text: string }[] = [];
+  const files: { name: string; data: Blob }[] = [];
   return {
     shared,
+    files,
+    async shareFile(name, data) {
+      files.push({ name, data });
+      return result === "copied" ? "downloaded" : result;
+    },
     async shareText(title, text) {
       shared.push({ title, text });
       return result;
@@ -250,6 +261,32 @@ export function createFakeAudio(): AudioService & {
       return () => recreateListeners.delete(listener);
     },
     liveContexts: () => live,
+    routeChanged() {
+      staleRate = true;
+    },
+  };
+}
+
+/** P7 fake: permission granted or denied; the stream is empty. */
+export function createFakeMic(granted = true): MicService & { opens: number } {
+  let open = false;
+  let opens = 0;
+  return {
+    get isOpen() {
+      return open;
+    },
+    get opens() {
+      return opens;
+    },
+    async open() {
+      opens++;
+      if (!granted) throw new MicDeniedError("denied");
+      open = true;
+      return {} as MediaStream;
+    },
+    close() {
+      open = false;
+    },
   };
 }
 

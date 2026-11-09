@@ -17,6 +17,7 @@ import {
   createFakeAudio,
   createFakeClock,
   createFakeInput,
+  createFakeMic,
   createFakeOffline,
   createFakeSamples,
   createFakeShare,
@@ -82,6 +83,7 @@ function fakeServices(storage: KeyValueStore): Services {
     share: createFakeShare(),
     audio: createFakeAudio(),
     samples: createFakeSamples(),
+    mic: createFakeMic(),
     diagnostics: createDiagnostics("test", null),
   };
 }

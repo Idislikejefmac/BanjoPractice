@@ -18,7 +18,13 @@ import type { LoadedSong } from "../core/song/song.ts";
 import { loadSong } from "../core/song/song.ts";
 import type { PracticeArrangement } from "../core/song/practiceArrangement.ts";
 import { practiceArrangement } from "../core/song/practiceArrangement.ts";
-import type { AudioService, Clock, InputService, SampleLoader } from "../platform/types.ts";
+import type {
+  AudioService,
+  Clock,
+  InputService,
+  SampleLoader,
+  ShareService,
+} from "../platform/types.ts";
 import { AudioUnavailableError } from "../platform/types.ts";
 import type { Diagnostics } from "../platform/diagnostics.ts";
 import { DEFAULT_TEMPO } from "./model.ts";
@@ -29,6 +35,7 @@ export interface PlayerDeps {
   readonly samples: SampleLoader;
   readonly clock: Clock;
   readonly input: InputService;
+  readonly share: ShareService;
   readonly diagnostics: Diagnostics;
 }
 
@@ -109,7 +116,7 @@ export class Player {
       for (const part of ["melody", "chords", "banjo"] as const) {
         this.scheduler.setPart(part, p.parts[part].on, p.parts[part].volume);
       }
-      this.scheduler.setPart("metronome", p.metronome === "throughout");
+      this.scheduler.setPart("metronome", p.metronome === "throughout", p.clickVolume);
     });
     effect(() => {
       this.engine.melodyInstrument = store.settings.value.melodyInstrument;
@@ -269,6 +276,15 @@ export class Player {
       if (i >= 0) fromOrderIndex = i;
     }
     this.state.value = "count-in";
+    const loopLabel = p.loop
+      ? `${Math.min(p.loop.from, p.loop.to)}–${Math.max(p.loop.from, p.loop.to)}`
+      : null;
+    this.store.logPractice({
+      kind: "play",
+      songId: loaded.song.id,
+      tempo: p.speedBuilder.enabled ? p.speedBuilder.startBpm : this.tempoFor(p.tempoBpm),
+      loop: loopLabel,
+    });
     this.scheduler.start(program, {
       bpm: this.tempoFor(p.tempoBpm),
       fromOrderIndex,
@@ -285,6 +301,7 @@ export class Player {
   }
 
   stop(): void {
+    if (this.state.peek() !== "stopped") this.store.logPractice({ kind: "stop" });
     this.startToken++;
     this.scheduler.stop();
     this.state.value = "stopped";
@@ -302,6 +319,12 @@ export class Player {
     this.stop();
     if (wasPlaying) void this.play();
     else this.follow.value = { ...this.follow.peek(), measure: null };
+  }
+
+  /** Shares a file (F32 PDF) through the share sheet, with a notice if it fails. */
+  async share(name: string, blob: Blob): Promise<void> {
+    const r = await this.deps.share.shareFile(name, blob);
+    if (r === "failed") this.store.notify("error", "Couldn't share the file. Try again.");
   }
 
   /** F16: sound a chord voicing on the banjo, strummed or picked low to high. */
@@ -468,6 +491,9 @@ export class Player {
       const beatKey = mark
         ? `${mark.pass}:${mark.orderIndex}:${Math.floor(mark.slot / perBeat)}`
         : "";
+      if (mark && mark.bpm > prev.bpm && mark.position >= 0) {
+        this.store.logPractice({ kind: "tempo", tempo: mark.bpm });
+      }
       if (beatKey !== this.lastBeatKey) {
         this.lastBeatKey = beatKey;
         if (mark) this.beatCount++;

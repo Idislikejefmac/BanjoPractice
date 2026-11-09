@@ -2,6 +2,7 @@
 // screens it overlays the song and closes when a song is picked.
 
 import { useState } from "preact/hooks";
+import { daysAgo } from "./BackupSection.tsx";
 import type { AppStore } from "../app/store.ts";
 import { indexAbc } from "../core/song/abcIndex.ts";
 import { formatKey } from "../core/music/keys.ts";
@@ -49,6 +50,30 @@ function SongRow({ store, song, section }: { store: AppStore; song: Song; sectio
       >
         {favorite ? "★" : "☆"}
       </button>
+      {song.source === "user" && (
+        <>
+          <button
+            class="row-action"
+            aria-label={`Edit ${song.title}`}
+            data-edit={song.id}
+            onClick={() => (store.editing.value = song.id)}
+          >
+            ✎
+          </button>
+          <button
+            class="row-action"
+            aria-label={`Delete ${song.title}`}
+            data-delete={song.id}
+            onClick={() => {
+              if (window.confirm(`Delete "${song.title}"? It's kept in the trash for 30 days.`)) {
+                void store.deleteSong(song.id);
+              }
+            }}
+          >
+            🗑
+          </button>
+        </>
+      )}
     </li>
   );
 }
@@ -120,6 +145,20 @@ export function SongPanel({ store }: { store: AppStore }) {
           songs={store.recent.value.filter(match)}
         />
         <Section store={store} title="Songs" id="builtin" songs={builtins} />
+        <div class="my-songs-head">
+          <button
+            class="plain-button"
+            data-action="new-song"
+            onClick={() => (store.editing.value = "new")}
+          >
+            + New song
+          </button>
+          {mine.length > 0 && (
+            <span class="setting-help" data-testid="panel-last-backup">
+              Last backup: {daysAgo(store.lastBackupAt.value)}
+            </span>
+          )}
+        </div>
         <Section store={store} title="My songs" id="mine" songs={mine} />
         <Section store={store} title="Roll exercises" id="exercises" songs={exercises} />
       </aside>

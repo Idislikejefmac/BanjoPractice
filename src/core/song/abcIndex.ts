@@ -26,6 +26,11 @@ export interface MelodyNote {
   readonly midi: number | null;
   /** Continues a tie from the previous note: not a new attack. */
   readonly tiedFromPrevious: boolean;
+  /**
+   * Lyric syllables under this note, one per verse (w: lines). A syllable ending in "-" joins
+   * the next one; "_" holds the word over more notes; "" means no syllable for that verse.
+   */
+  readonly lyrics?: readonly string[];
 }
 
 export interface IndexedMeasure {
@@ -67,6 +72,8 @@ export interface SongIndex {
   readonly headerLines: readonly string[];
   readonly measures: readonly IndexedMeasure[];
   readonly errors: readonly string[];
+  /** Number of lyric verses (w: lines under the same notes). */
+  readonly verses: number;
 }
 
 // Minimal shapes of the abcjs parse output we read (abcjs's own typings are looser).
@@ -84,6 +91,7 @@ interface AbcElement {
   rest?: { type: string };
   pitches?: AbcPitch[];
   chord?: { name: string; position?: string }[];
+  lyric?: { syllable: string; divider: string }[];
   type?: string;
   startEnding?: string;
   endEnding?: boolean;
@@ -184,6 +192,7 @@ export function indexAbc(abc: string, opts: { rollUnit?: number } = {}): SongInd
       headerLines: header,
       measures,
       errors,
+      verses: 0,
     };
   }
 
@@ -290,7 +299,17 @@ export function indexAbc(abc: string, opts: { rollUnit?: number } = {}): SongInd
       const tied = !isRest && tieOpen;
       tieOpen = !isRest && Boolean(top?.startTie);
       if (duration > EPS) {
-        melody.push({ offset: pos, duration, slot: slotOf(pos), midi, tiedFromPrevious: tied });
+        const lyrics = el.lyric?.map(
+          (l) => l.syllable + (l.divider === "-" ? "-" : l.divider === "_" ? "_" : ""),
+        );
+        melody.push({
+          offset: pos,
+          duration,
+          slot: slotOf(pos),
+          midi,
+          tiedFromPrevious: tied,
+          ...(lyrics && lyrics.some((l) => l !== "") ? { lyrics } : {}),
+        });
       }
       pos += duration;
     }
@@ -310,5 +329,6 @@ export function indexAbc(abc: string, opts: { rollUnit?: number } = {}): SongInd
     headerLines: header,
     measures,
     errors,
+    verses: Math.max(0, ...measures.flatMap((m) => m.melody.map((n) => n.lyrics?.length ?? 0))),
   };
 }

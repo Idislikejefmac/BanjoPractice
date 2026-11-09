@@ -5,6 +5,7 @@ import type { AppStore } from "../app/store.ts";
 import type { Services } from "../app/services.ts";
 import { SIZE_STEPS } from "../app/model.ts";
 import { DEERING_SPIKES } from "../core/banjo/tuning.ts";
+import { BackupSection } from "./BackupSection.tsx";
 
 function Toggle({
   label,
@@ -115,6 +116,12 @@ export function SettingsPage({ store, services }: { store: AppStore; services: S
           onChange={(v) => store.updateSettings({ showAccents: v })}
         />
         <Toggle
+          name="showLyrics"
+          label="Song words under the notes"
+          checked={s.showLyrics}
+          onChange={(v) => store.updateSettings({ showLyrics: v })}
+        />
+        <Toggle
           name="showFingerStrip"
           label="Big finger letters while playing"
           checked={s.showFingerStrip}
@@ -169,6 +176,8 @@ export function SettingsPage({ store, services }: { store: AppStore; services: S
           onChange={(v) => store.updateSettings({ keepAwake: v })}
         />
       </section>
+
+      <BackupSection store={store} services={services} />
 
       <section>
         <h3>About</h3>

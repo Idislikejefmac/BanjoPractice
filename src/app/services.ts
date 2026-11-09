@@ -11,13 +11,18 @@ import {
   createShareService,
   createWakeLockService,
 } from "../platform/real/browser.ts";
-import { createAudioService, createSampleLoader } from "../platform/real/audio.ts";
+import {
+  createAudioService,
+  createMicService,
+  createSampleLoader,
+} from "../platform/real/audio.ts";
 import { openIndexedDbStore } from "../platform/real/storage.ts";
 import type {
   AudioService,
   Clock,
   InputService,
   KeyValueStore,
+  MicService,
   OfflineService,
   SampleLoader,
   ShareService,
@@ -37,6 +42,7 @@ export interface Services {
   readonly share: ShareService;
   readonly audio: AudioService;
   readonly samples: SampleLoader;
+  readonly mic: MicService;
   readonly diagnostics: Diagnostics;
 }
 
@@ -77,6 +83,7 @@ export async function createServices(
     share: createShareService(),
     audio,
     samples: createSampleLoader(audio, import.meta.env.BASE_URL),
+    mic: createMicService(audio),
     diagnostics,
   };
 }

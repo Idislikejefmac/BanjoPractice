@@ -128,6 +128,11 @@ export function TabSvg({ p, highlight = null, stepAt = null, label = "Banjo tab"
       {p.beams.map((b, i) => (
         <rect key={`bm${i}`} class="tab-beam" x={b.x1} y={b.y} width={b.x2 - b.x1} height={b.h} />
       ))}
+      {p.lyricTexts.map((t, i) => (
+        <text key={`ly${i}`} class="tab-lyric" x={t.x} y={t.y}>
+          {t.text}
+        </text>
+      ))}
       {p.rests.map((r, i) => (
         <text key={`rs${i}`} class="tab-rest" x={r.x} y={r.y}>
           {r.text}

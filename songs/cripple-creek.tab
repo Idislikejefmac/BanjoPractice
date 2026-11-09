@@ -7,4 +7,4 @@ m4  G          lick:pinch-fill          | 3:0T* 2:0I 3:0T* 2:0I [3:0T*,1:0M] - -
 m5  G          index-leading+pull-off   | 2:0I* 1:0M 2:0T* 1:0M 3:2I* p3:0* 4:2T* 1:0M |
 m6  C G@5      lick:hammer-ons          | 3:0T* 2:1I 3:0T* h3:2* 2:0I* 1:0M 3:4T* 1:0M |
 m7  G D@5      index-leading+pull-off   | 2:0I* 1:0M 2:0T* 1:0M 3:2I* p3:0* 4:2T* 1:0M |
-m8  G          lick:pinch-fill          | 3:0T* 2:0I 3:0T* 2:0I [3:0T*,1:0M] - - 5:0T |
+m8  G          lick:hammer-on           | 3:0T* 2:0I 3:0T* h3:2* 2:0I* 1:0M 3:0T* 1:0M |

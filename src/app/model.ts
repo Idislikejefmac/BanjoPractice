@@ -3,6 +3,7 @@
 // make loading defensive: a corrupt record is replaced by defaults, never crashes the app.
 
 import { songProblems } from "../core/song/song.ts";
+import { practiceSessionProblems } from "./practiceLog.ts";
 
 export const MODEL_SCHEMA_VERSION = 1;
 
@@ -27,6 +28,8 @@ export interface PracticePrefs {
   readonly notationKey: "sounding" | "shape";
   readonly parts: Readonly<Record<PartId, PartPrefs>>;
   readonly metronome: MetronomeMode;
+  /** Click (count-in and metronome) volume, 0–1. */
+  readonly clickVolume: number;
   readonly countInBeats: 4 | 8;
   readonly clickPattern: "every-beat" | "two-and-four";
   readonly autoRepeat: boolean;
@@ -58,6 +61,7 @@ export const DEFAULT_PRACTICE: PracticePrefs = {
     banjo: { on: true, volume: 1 },
   },
   metronome: "count-in",
+  clickVolume: 0.8,
   countInBeats: 4,
   clickPattern: "every-beat",
   autoRepeat: false,
@@ -87,6 +91,8 @@ export interface Settings {
   readonly showFingerStrip: boolean;
   /** F31: a flashing beat light. */
   readonly visualMetronome: boolean;
+  /** Song words under the notes (and under the tab in tab-only view). */
+  readonly showLyrics: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -102,6 +108,7 @@ export const DEFAULT_SETTINGS: Settings = {
   melodyInstrument: "violin",
   showFingerStrip: true,
   visualMetronome: true,
+  showLyrics: true,
 };
 
 export const SIZE_STEPS = [0.85, 1, 1.25, 1.55] as const;
@@ -155,6 +162,7 @@ export function settingsProblems(v: unknown): string[] {
     "keepAwake",
     "showFingerStrip",
     "visualMetronome",
+    "showLyrics",
   ]) {
     if (!isBool(v[k])) p.push(k);
   }
@@ -193,6 +201,9 @@ export function practiceProblems(v: unknown): string[] {
     }
   if (!["off", "count-in", "throughout"].includes(v.metronome as string)) p.push("metronome");
   if (v.countInBeats !== 4 && v.countInBeats !== 8) p.push("countInBeats");
+  if (typeof v.clickVolume !== "number" || v.clickVolume < 0 || v.clickVolume > 1) {
+    p.push("clickVolume");
+  }
   if (v.clickPattern !== "every-beat" && v.clickPattern !== "two-and-four") p.push("clickPattern");
   if (!isBool(v.autoRepeat)) p.push("autoRepeat");
   if (![0, 1, 2, 4].includes(v.loopGapBeats as number)) p.push("loopGapBeats");
@@ -283,6 +294,17 @@ export function readSongPrefs(v: unknown): SongPrefs | null {
 /** The validator for each persisted store (I7). Stores not listed hold no records yet. */
 export const STORE_VALIDATORS: Readonly<Record<string, (v: unknown) => string[]>> = {
   songs: songProblems,
+  practiceLog: practiceSessionProblems,
+  drafts: (v) => (isObj(v) && isIso(v.savedAt) ? [] : ["draft"]),
+  trash: (v) => (isObj(v) && isIso(v.deletedAt) && isObj(v.record) ? [] : ["trash"]),
+  recordings: (v) =>
+    isObj(v) &&
+    typeof v.id === "string" &&
+    typeof v.songId === "string" &&
+    typeof v.blob === "object"
+      ? []
+      : ["recording"],
+  meta: (v) => (isObj(v) ? [] : ["meta"]),
   settings: settingsProblems,
   songPrefs: songPrefsProblems,
   session: sessionProblems,
