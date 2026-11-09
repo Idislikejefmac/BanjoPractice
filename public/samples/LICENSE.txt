@@ -1,0 +1,8 @@
+Instrument samples in this folder (banjo, acoustic_guitar_steel, violin, flute) are from the
+FluidR3_GM General MIDI soundfont by Frank Wen, rendered to per-note mp3 files by the
+midi-js-soundfonts project (Benjamin Gleitzman, https://github.com/gleitz/midi-js-soundfonts).
+
+FluidR3_GM is licensed under Creative Commons Attribution 3.0:
+https://creativecommons.org/licenses/by/3.0/us/
+
+Files were renamed to their MIDI note numbers; the audio is unchanged.
