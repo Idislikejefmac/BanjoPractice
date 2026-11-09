@@ -219,3 +219,44 @@ test("a singing voice can be turned on per song, with its own volume and registe
     await page.click('[data-action="play"]');
   }
 });
+
+// Regression: a song with a lot of words under crowded notes drew its notation wider than the
+// screen (abcjs widens the staff when the words don't fit), so the right side ran off the edge.
+test("notation with long words never runs past the right edge", async ({ page }) => {
+  const words = "won-der-ful grac-ious beau-ti-ful moun-tains glo-ri-ous riv-er-side wa-ters";
+  const bars = Array.from({ length: 8 }, () => '"G"G A B c d e f g').join("|");
+  const abc = `X:1\nT:Wide words\nM:4/4\nL:1/8\nQ:1/4=90\nK:G\n${bars}|]\nw:${words} ${words} ${words} ${words}\n`;
+  await page.waitForFunction(() => window.__banjoTest !== undefined);
+  await page.evaluate((text) => {
+    window.__banjoTest!.store.saveSong({
+      schemaVersion: 1,
+      id: "wide-words",
+      title: "Wide words",
+      source: "user",
+      abc: text,
+      tags: [],
+    });
+  }, abc);
+  for (const [w, h] of [
+    [1180, 820],
+    [820, 1180],
+  ] as const) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto("/");
+    await page.click('[data-song="wide-words"][data-section="mine"]');
+    await page.waitForSelector("svg.tab");
+    await page.waitForTimeout(800);
+    const over = await page.evaluate(() => ({
+      // The page itself never scrolls sideways...
+      page: document.documentElement.scrollWidth - window.innerWidth,
+      // ...and nothing drawn in the notation or tab goes past its column.
+      wide: [...document.querySelectorAll(".song-line")].filter((line) => {
+        const column = line.getBoundingClientRect().right + 2;
+        return [...line.querySelectorAll(".notation svg *, svg.tab *")].some(
+          (e) => e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().right > column,
+        );
+      }).length,
+    }));
+    expect(over, `${w}x${h}`).toEqual({ page: 0, wide: 0 });
+  }
+});

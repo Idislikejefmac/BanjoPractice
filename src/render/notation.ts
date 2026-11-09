@@ -16,6 +16,8 @@ export interface LineMeasureInfo {
 
 export interface NotationLayout {
   readonly width: number;
+  /** How far right the staff and words are actually drawn (px); more than `width` = crowded. */
+  readonly drawnWidth: number;
   readonly height: number;
   readonly geometry: MeasureGeometry[];
 }
@@ -76,6 +78,15 @@ export function renderNotationLine(
   // guarded by tests/e2e/alignment.spec.ts).
   const rendered = svg.getBoundingClientRect();
   const k = scale;
+  // abcjs gives the wrapper a fixed width in unscaled units, wider than the scaled staff drawn
+  // inside it, which made the page scroll sideways. The wrapper should be the column's width.
+  el.style.width = "100%";
+  el.style.maxWidth = "100%";
+  let drawnRight = rendered.left;
+  for (const node of svg.querySelectorAll("path, rect, line, circle, text")) {
+    const r = node.getBoundingClientRect();
+    if (r.width > 0 && r.right > drawnRight) drawnRight = r.right;
+  }
 
   const melody = voices[0]!;
   const hidden = voices[1]!;
@@ -117,5 +128,10 @@ export function renderNotationLine(
     left = right;
   });
 
-  return { width: rendered.width, height: rendered.height, geometry };
+  return {
+    width: rendered.width,
+    drawnWidth: drawnRight - rendered.left,
+    height: rendered.height,
+    geometry,
+  };
 }

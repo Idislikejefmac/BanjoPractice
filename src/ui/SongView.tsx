@@ -1,7 +1,7 @@
 // F3 notation view + F4 tab view, aligned line by line (R1–R3), with F22 display options and
 // F35 scroll restore (the measure at the top of the screen is saved in the session).
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { Player } from "../app/player.ts";
 import type { AppStore } from "../app/store.ts";
 import { practiceArrangement } from "../core/song/practiceArrangement.ts";
@@ -71,6 +71,8 @@ interface LineProps {
   readonly stepAt: { readonly measure: number; readonly slot: number } | null;
   /** F30: the note playing now (not while stepping). */
   readonly playAt: { readonly measure: number; readonly slot: number } | null;
+  /** The notation came out wider than the screen: use fewer measures on each line. */
+  readonly onTooWide: () => void;
   readonly line: DisplayLine;
   readonly lineNo: number;
   readonly width: number;
@@ -88,6 +90,7 @@ function SongLine({
   current,
   stepAt,
   playAt,
+  onTooWide,
   onChordTap,
   line,
   lineNo,
@@ -118,6 +121,8 @@ function SongLine({
     } catch {
       result = null;
     }
+    // Words under crowded notes can make abcjs draw the staff wider than asked for.
+    if (result && result.drawnWidth > width + 2) onTooWide();
     setGeometry(result?.geometry ?? evenGeometry(infos, width, 34 * scale));
     // `infos` is derived from `loaded` and `line`, which are the dependencies.
   }, [loaded, notation, line, lineNo, width, scale, tabOnly, tabOpts.showLyrics]);
@@ -174,11 +179,26 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
   const tabOnly = view === "tab";
 
   const loaded = useMemo(() => (song ? loadSong(song) : null), [song]);
+  // How many times the measures per line were halved because the words didn't fit. It is
+  // remembered with the song, width and size it was worked out for, so a different one starts
+  // again from the full number of measures (no reset effect: that would run after the first
+  // render and undo the very request that line makes).
+  const fitKey = `${song?.id}|${width}|${scale}|${view}|${settings.showLyrics}`;
+  const [squeezed, setSqueezed] = useState({ key: fitKey, times: 0 });
+  const squeeze = squeezed.key === fitKey ? squeezed.times : 0;
+  const tooWide = useCallback(
+    () =>
+      setSqueezed((s) => ({
+        key: fitKey,
+        times: Math.min(3, (s.key === fitKey ? s.times : 0) + 1),
+      })),
+    [fitKey],
+  );
   const lines = useMemo(() => {
     if (!loaded || width <= 0) return [];
-    const per = measuresPerLine(width, TAB_SCALE * scale);
+    const per = Math.max(1, measuresPerLine(width, TAB_SCALE * scale) >> squeeze);
     return lineBreaks(loaded.index.measures, per);
-  }, [loaded, width, scale]);
+  }, [loaded, width, scale, squeeze]);
 
   const keyShift = store.practice.value.keyShift;
   const rolls = store.practice.value.rolls;
@@ -397,6 +417,7 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
               current={current}
               stepAt={stepAt}
               playAt={playAt}
+              onTooWide={tooWide}
               onChordTap={openChord}
               line={line}
               lineNo={i}
