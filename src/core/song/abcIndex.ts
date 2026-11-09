@@ -161,6 +161,99 @@ function splitHeader(abc: string): { header: string[]; bodyStart: number } {
 
 const EPS = 1e-9;
 
+type Lyric = { syllable: string; divider: string };
+
+/**
+ * Words for each verse, found by parsing the tune once per verse with only that verse's w: line
+ * kept from each run of w: lines (the others become same-length comments, so every note keeps
+ * its position in the text). abcjs's own per-note arrays go out of step when a later verse has
+ * words only in an ending, because it stops adding blanks once a line's words run out.
+ */
+function verseLyrics(abc: string, main: AbcTune): Map<number, Lyric>[] {
+  const lines = abc.split("\n");
+  const runs: number[][] = [];
+  let run: number[] = [];
+  lines.forEach((line, i) => {
+    if (/^w:/.test(line)) run.push(i);
+    else if (run.length > 0) {
+      runs.push(run);
+      run = [];
+    }
+  });
+  if (run.length > 0) runs.push(run);
+  const verses = Math.max(0, ...runs.map((r) => r.length));
+  const out: Map<number, Lyric>[] = [];
+  for (let v = 0; v < verses; v++) {
+    const keep = new Set(runs.flatMap((r) => (r[v] !== undefined ? [r[v]!] : [])));
+    let tune: AbcTune | undefined = main;
+    if (verses > 1) {
+      const text = lines.map((line, i) =>
+        /^w:/.test(line) && !keep.has(i) ? `%${line.slice(1)}` : line,
+      );
+      try {
+        tune = (abcjs.parseOnly(text.join("\n")) as unknown as AbcTune[])[0];
+      } catch {
+        tune = undefined;
+      }
+    }
+    const words = new Map<number, Lyric>();
+    for (const line of tune?.lines ?? []) {
+      for (const el of line.staff?.[0]?.voices?.[0] ?? []) {
+        if (el.lyric?.[0]) words.set(el.startChar, el.lyric[0]);
+      }
+    }
+    out.push(words);
+  }
+  return out;
+}
+
+/**
+ * Sheet music puts no word under a note that is tied from the previous one, and the w: lines in
+ * our songs are written that way. abcjs doesn't know: it hands the next word to the tied-to
+ * note, so every later word in the bar lands one note late. This moves each word back onto the
+ * next note that starts a sound. Words that run past the end of a bar (a w: line with no "|")
+ * carry into the next bar; blanks left over at the end of a bar are abcjs's bar-skip filler.
+ */
+function skipTiedNotes(measures: IndexedMeasure[]): IndexedMeasure[] {
+  const tiedTo = (n: MelodyNote) => n.midi !== null && n.tiedFromPrevious;
+  if (!measures.some((m) => m.melody.some(tiedTo))) return measures;
+  const verses = Math.max(
+    0,
+    ...measures.flatMap((m) => m.melody.map((n) => n.lyrics?.length ?? 0)),
+  );
+  const moved = measures.map((m) => m.melody.map((n) => (n.lyrics ? [...n.lyrics] : [])));
+  for (let v = 0; v < verses; v++) {
+    let carry: string[] = [];
+    measures.forEach((m, mi) => {
+      const sung = m.melody.flatMap((n, i) => (n.midi !== null ? [i] : []));
+      const targets = sung.filter((i) => !m.melody[i]!.tiedFromPrevious);
+      const words = [...carry, ...sung.map((i) => m.melody[i]!.lyrics?.[v] ?? "")];
+      targets.forEach((i, k) => {
+        moved[mi]![i]![v] = words[k] ?? "";
+      });
+      sung.forEach((i) => {
+        if (m.melody[i]!.tiedFromPrevious) moved[mi]![i]![v] = "";
+      });
+      const overflow = words.slice(targets.length);
+      carry = overflow.some((w) => w !== "") ? overflow : [];
+    });
+  }
+  return measures.map((m, mi) => ({
+    ...m,
+    melody: m.melody.map((n, i) => {
+      const lyrics = Array.from({ length: verses }, (_, v) => moved[mi]![i]![v] ?? "");
+      const plain: MelodyNote = {
+        offset: n.offset,
+        duration: n.duration,
+        slot: n.slot,
+        midi: n.midi,
+        tiedFromPrevious: n.tiedFromPrevious,
+      };
+      return lyrics.some((l) => l !== "") ? { ...plain, lyrics } : plain;
+    }),
+  }));
+}
+
 export function indexAbc(abc: string, opts: { rollUnit?: number } = {}): SongIndex {
   const errors: string[] = [];
   const { header, bodyStart } = splitHeader(abc);
@@ -195,6 +288,8 @@ export function indexAbc(abc: string, opts: { rollUnit?: number } = {}): SongInd
       verses: 0,
     };
   }
+
+  const verseWords = verseLyrics(abc, tune);
 
   // Key signature accidentals per letter, updated by inline key changes.
   let keyAcc: Record<string, number> = {};
@@ -299,16 +394,17 @@ export function indexAbc(abc: string, opts: { rollUnit?: number } = {}): SongInd
       const tied = !isRest && tieOpen;
       tieOpen = !isRest && Boolean(top?.startTie);
       if (duration > EPS) {
-        const lyrics = el.lyric?.map(
-          (l) => l.syllable + (l.divider === "-" ? "-" : l.divider === "_" ? "_" : ""),
-        );
+        const lyrics = verseWords.map((words) => {
+          const l = words.get(el.startChar);
+          return l ? l.syllable + (l.divider === "-" ? "-" : l.divider === "_" ? "_" : "") : "";
+        });
         melody.push({
           offset: pos,
           duration,
           slot: slotOf(pos),
           midi,
           tiedFromPrevious: tied,
-          ...(lyrics && lyrics.some((l) => l !== "") ? { lyrics } : {}),
+          ...(lyrics.some((l) => l !== "") ? { lyrics } : {}),
         });
       }
       pos += duration;
@@ -316,6 +412,8 @@ export function indexAbc(abc: string, opts: { rollUnit?: number } = {}): SongInd
   }
   // Music that doesn't end with a bar line still forms a last measure.
   if (pos > EPS) close(abc.length, null);
+
+  const finalMeasures = skipTiedNotes(measures);
 
   return {
     title: tune.metaText.title ?? headerField(header, "T") ?? "",
@@ -327,8 +425,11 @@ export function indexAbc(abc: string, opts: { rollUnit?: number } = {}): SongInd
     tempoBeat: parseTempoBeat(headerField(header, "Q")),
     bodyStart,
     headerLines: header,
-    measures,
+    measures: finalMeasures,
     errors,
-    verses: Math.max(0, ...measures.flatMap((m) => m.melody.map((n) => n.lyrics?.length ?? 0))),
+    verses: Math.max(
+      0,
+      ...finalMeasures.flatMap((m) => m.melody.map((n) => n.lyrics?.length ?? 0)),
+    ),
   };
 }
