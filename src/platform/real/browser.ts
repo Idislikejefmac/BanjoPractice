@@ -2,7 +2,13 @@
 // input and P8 clock.
 
 import { registerSW } from "virtual:pwa-register";
-import type { Clock, InputService, OfflineService, PedalAction, WakeLockService } from "../types.ts";
+import type {
+  Clock,
+  InputService,
+  OfflineService,
+  PedalAction,
+  WakeLockService,
+} from "../types.ts";
 
 /** P8 */
 export const browserClock: Clock = {
@@ -120,7 +126,11 @@ export function createInputService(debounceMs = 250): InputService {
     if (!action) return;
     sawHardwareKey = true;
     const target = e.target as HTMLElement | null;
-    if (target && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))) return;
+    if (
+      target &&
+      (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
+    )
+      return;
     e.preventDefault();
     const now = performance.now();
     if (e.repeat || now - last < debounceMs) return;

@@ -17,7 +17,15 @@
 // The parser never throws: malformed input yields errors with line and column.
 
 import { parseChord } from "../music/chords.ts";
-import type { ArrangedMeasure, Finger, MeasureChord, MeasureSource, StringNo, TabNote, Technique } from "../banjo/types.ts";
+import type {
+  ArrangedMeasure,
+  Finger,
+  MeasureChord,
+  MeasureSource,
+  StringNo,
+  TabNote,
+  Technique,
+} from "../banjo/types.ts";
 
 export interface TabParseError {
   readonly line: number;
@@ -73,7 +81,11 @@ export function parseTab(text: string): TabParseResult {
   try {
     lines = String(text).split(/\r?\n/);
   } catch {
-    return { ok: false, errors: [{ line: 1, column: 1, message: "Tab text is not a string" }], measures };
+    return {
+      ok: false,
+      errors: [{ line: 1, column: 1, message: "Tab text is not a string" }],
+      measures,
+    };
   }
 
   lines.forEach((raw, i) => {
@@ -98,7 +110,10 @@ export function parseTab(text: string): TabParseResult {
   return errors.length === 0 ? { ok: true, measures } : { ok: false, errors, measures };
 }
 
-function parseLine(raw: string, err: (column: number, message: string) => void): ArrangedMeasure | null {
+function parseLine(
+  raw: string,
+  err: (column: number, message: string) => void,
+): ArrangedMeasure | null {
   const open = raw.indexOf("|");
   if (open < 0) {
     err(1, "Expected '|' before the notes");
@@ -162,7 +177,10 @@ function parseLine(raw: string, err: (column: number, message: string) => void):
   body.forEach((tok, slot) => {
     if (tok.text === "-") {
       if (!lastGroup) {
-        err(tok.col, slot === 0 ? "A hold (-) can't start a measure" : "A hold (-) must follow a note");
+        err(
+          tok.col,
+          slot === 0 ? "A hold (-) can't start a measure" : "A hold (-) must follow a note",
+        );
         ok = false;
         return;
       }
@@ -300,7 +318,9 @@ export function serializeTab(measures: readonly ArrangedMeasure[]): string {
 
 export function serializeMeasure(m: ArrangedMeasure): string {
   const chords = m.chords.map((c) => (c.atSlot === 0 ? c.chord : `${c.chord}@${c.atSlot + 1}`));
-  const flags = [m.phraseEnd ? "!end" : "", m.source === "hand" ? "" : `!${m.source}`].filter(Boolean);
+  const flags = [m.phraseEnd ? "!end" : "", m.source === "hand" ? "" : `!${m.source}`].filter(
+    Boolean,
+  );
   const header = [`m${m.index}`, ...chords, m.rollName, ...flags].join(" ");
 
   const tokens: string[] = [];

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { chordPitchClasses, formatChord, parseChord, requiredPitchClasses, transposeChord } from "../../src/core/music/chords.ts";
+import {
+  chordPitchClasses,
+  formatChord,
+  parseChord,
+  requiredPitchClasses,
+  transposeChord,
+} from "../../src/core/music/chords.ts";
 import { formatKey, keySignature, parseKey, toAbcKey } from "../../src/core/music/keys.ts";
 import type { Key } from "../../src/core/music/keys.ts";
 import { formatNoteName, parseNoteName, pitchClass } from "../../src/core/music/notes.ts";

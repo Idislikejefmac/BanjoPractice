@@ -97,7 +97,13 @@ export interface RollMeasureOptions {
   frets?: readonly number[];
 }
 
-function noteFor(slot: number, finger: Finger, string: StringNo, fret: number, accent: boolean): TabNote {
+function noteFor(
+  slot: number,
+  finger: Finger,
+  string: StringNo,
+  fret: number,
+  accent: boolean,
+): TabNote {
   return {
     slot,
     durationSlots: 1,
@@ -121,7 +127,13 @@ export function rollMeasure(roll: RollTemplate, opts: RollMeasureOptions = {}): 
     rollName: roll.id,
     source: "generated",
     notes: roll.fingers.map((finger, slot) =>
-      noteFor(slot, finger, strings[slot] as StringNo, frets[slot] ?? 0, roll.accents.includes(slot)),
+      noteFor(
+        slot,
+        finger,
+        strings[slot] as StringNo,
+        frets[slot] ?? 0,
+        roll.accents.includes(slot),
+      ),
     ),
   };
 }

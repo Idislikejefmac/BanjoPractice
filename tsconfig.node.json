@@ -1,0 +1,9 @@
+{
+  // Build and test config files run in Node, not the browser, so they get Node types.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "types": ["node"]
+  },
+  "include": ["vite.config.ts", "playwright.config.ts"]
+}

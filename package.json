@@ -12,7 +12,7 @@
     "build": "vite build",
     "build:chaos": "vite build --mode chaos --outDir dist-chaos",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -22,7 +22,7 @@
     "e2e": "playwright test --grep-invert @spike",
     "spike:s0": "playwright test --grep @spike",
     "icons": "node scripts/make-icons.mjs",
-    "verify": "npm run typecheck && npm run lint && npm test && npm run build && npm run check:prod-bundle"
+    "verify": "npm run typecheck && npm run lint && npm run format:check && npm test && npm run build && npm run check:prod-bundle"
   },
   "dependencies": {
     "@preact/signals": "^2.0.0",
@@ -34,6 +34,7 @@
     "@eslint/js": "^9.29.0",
     "@playwright/test": "^1.53.0",
     "@preact/preset-vite": "^2.10.0",
+    "@types/node": "24.19.2",
     "eslint": "^9.29.0",
     "fast-check": "^4.1.0",
     "globals": "^16.2.0",

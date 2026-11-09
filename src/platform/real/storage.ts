@@ -22,7 +22,10 @@ export interface OpenOptions {
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const t = setTimeout(() => reject(new StorageUnavailableError(`Opening storage took over ${ms} ms`)), ms);
+    const t = setTimeout(
+      () => reject(new StorageUnavailableError(`Opening storage took over ${ms} ms`)),
+      ms,
+    );
     p.then(
       (v) => {
         clearTimeout(t);
@@ -60,7 +63,10 @@ async function openOnce(name: string, timeoutMs: number): Promise<IDBPDatabase> 
   }
 }
 
-export async function openIndexedDbStore(base: string, opts: OpenOptions = {}): Promise<KeyValueStore> {
+export async function openIndexedDbStore(
+  base: string,
+  opts: OpenOptions = {},
+): Promise<KeyValueStore> {
   const name = dbNameForBase(base);
   const retries = opts.retries ?? 2;
   let lastError: unknown;

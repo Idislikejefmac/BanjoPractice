@@ -10,7 +10,10 @@ import { validate } from "../core/banjo/validator.ts";
 const FINGER_LABEL: Readonly<Record<Finger, string>> = { T: "Thumb", I: "Index", M: "Middle" };
 
 function useOfflineStatus(services: Services) {
-  const read = () => ({ ready: services.offline.offlineReady, waiting: services.offline.updateWaiting });
+  const read = () => ({
+    ready: services.offline.offlineReady,
+    waiting: services.offline.updateWaiting,
+  });
   const [status, setStatus] = useState(read);
   useEffect(() => services.offline.onChange(() => setStatus(read())), [services]);
   return status;
@@ -18,7 +21,11 @@ function useOfflineStatus(services: Services) {
 
 function FingerBadge({ finger }: { finger: Finger }) {
   return (
-    <span class={`badge badge-${finger}`} title={FINGER_LABEL[finger]} aria-label={FINGER_LABEL[finger]}>
+    <span
+      class={`badge badge-${finger}`}
+      title={FINGER_LABEL[finger]}
+      aria-label={FINGER_LABEL[finger]}
+    >
       {finger}
     </span>
   );
@@ -80,8 +87,8 @@ export function App({ services }: { services: Services }) {
         <section class="intro">
           <h2>Coming soon</h2>
           <p>
-            This is the first build. Songs, tab and playback arrive in the next phases. For now, here are the
-            eight Scruggs rolls the app is built on, each checked by its rule checker.
+            This is the first build. Songs, tab and playback arrive in the next phases. For now,
+            here are the eight Scruggs rolls the app is built on, each checked by its rule checker.
           </p>
           <p class="status">
             {offline.ready ? "✓ Works without Wi-Fi" : "Getting ready to work without Wi-Fi…"}
@@ -92,7 +99,8 @@ export function App({ services }: { services: Services }) {
         <section>
           <h2>Rolls</h2>
           <p class="legend">
-            <FingerBadge finger="T" /> Thumb <FingerBadge finger="I" /> Index <FingerBadge finger="M" /> Middle
+            <FingerBadge finger="T" /> Thumb <FingerBadge finger="I" /> Index{" "}
+            <FingerBadge finger="M" /> Middle
             <span class="legend-note">Underlined = accented note. Numbers = strings.</span>
           </p>
           <ul class="rolls">

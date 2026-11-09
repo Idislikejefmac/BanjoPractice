@@ -12,7 +12,11 @@ describe("validator: legal music", () => {
   });
 
   it("accepts a thumb–pinch fill on strong beats", () => {
-    expect(rules("m1 G thumb-pinch | 3:0T [2:0I,1:0M] 4:0T [2:0I,1:0M] 3:0T [2:0I,1:0M] 4:0T [2:0I,1:0M] |")).toEqual([]);
+    expect(
+      rules(
+        "m1 G thumb-pinch | 3:0T [2:0I,1:0M] 4:0T [2:0I,1:0M] 3:0T [2:0I,1:0M] 4:0T [2:0I,1:0M] |",
+      ),
+    ).toEqual([]);
   });
 
   it("accepts a thumb note followed by a thumb pinch on a strong beat (tag ending)", () => {
@@ -35,7 +39,11 @@ describe("validator: one known-bad measure per rule", () => {
   });
 
   it("H1: across a bar line", () => {
-    const v = validate(tab("m1 G forward | 3:0T 2:0I 1:0M 5:0T 2:0I 1:0M 5:0T 1:0M |\nm2 G backward | 1:0M 2:0I 5:0T 1:0M 2:0I 5:0T 1:0M 2:0I |"));
+    const v = validate(
+      tab(
+        "m1 G forward | 3:0T 2:0I 1:0M 5:0T 2:0I 1:0M 5:0T 1:0M |\nm2 G backward | 1:0M 2:0I 5:0T 1:0M 2:0I 5:0T 1:0M 2:0I |",
+      ),
+    );
     expect(v.map((x) => x.rule)).toContain("H1");
     expect(v.find((x) => x.rule === "H1")?.measure).toBe(2);
   });
@@ -62,16 +70,26 @@ describe("validator: one known-bad measure per rule", () => {
 
   it("H5: fretting the 5th string outside a lick", () => {
     expect(rules("m1 G forward | 3:0T 2:0I 1:0M 5:7T 2:0I 1:0M 5:0T 1:0M |")).toContain("H5");
-    expect(rules("m1 G lick:fifth | 3:0T 2:0I 1:0M 5:7T 2:0I 1:0M 5:0T 1:0M |")).not.toContain("H5");
+    expect(rules("m1 G lick:fifth | 3:0T 2:0I 1:0M 5:7T 2:0I 1:0M 5:0T 1:0M |")).not.toContain(
+      "H5",
+    );
   });
 
   it("H6: a silent slot in the middle of a piece", () => {
-    const v = validate(tab("m1 G forward | 3:0T 2:0I . 5:0T 2:0I 1:0M 5:0T 1:0M |\nm2 G forward | 3:0T 2:0I 1:0M 5:0T 2:0I 1:0M 5:0T 1:0M |"));
+    const v = validate(
+      tab(
+        "m1 G forward | 3:0T 2:0I . 5:0T 2:0I 1:0M 5:0T 1:0M |\nm2 G forward | 3:0T 2:0I 1:0M 5:0T 2:0I 1:0M 5:0T 1:0M |",
+      ),
+    );
     expect(v.map((x) => x.rule)).toContain("H6");
   });
 
   it("H6: rests are fine at a phrase end", () => {
-    const v = validate(tab("m1 G forward !end | 3:0T 2:0I 1:0M 5:0T 2:0I 1:0M . . |\nm2 G forward | 3:0T 2:0I 1:0M 5:0T 2:0I 1:0M 5:0T 1:0M |"));
+    const v = validate(
+      tab(
+        "m1 G forward !end | 3:0T 2:0I 1:0M 5:0T 2:0I 1:0M . . |\nm2 G forward | 3:0T 2:0I 1:0M 5:0T 2:0I 1:0M 5:0T 1:0M |",
+      ),
+    );
     expect(v).toEqual([]);
   });
 
@@ -83,7 +101,11 @@ describe("validator: one known-bad measure per rule", () => {
 
   it("H8: a fret that doesn't exist", () => {
     expect(rules("m1 G x | 3:0T 2:0I 1:0M 5:3T 2:0I 1:0M 5:0T 1:0M |")).toContain("H8");
-    expect(validate(tab("m1 G x | 3:0T 2:0I 1:21M 5:0T 2:0I 1:0M 5:0T 1:0M |"), { plan: capoPlan(5) }).map((v) => v.rule)).toContain("H8");
+    expect(
+      validate(tab("m1 G x | 3:0T 2:0I 1:21M 5:0T 2:0I 1:0M 5:0T 1:0M |"), {
+        plan: capoPlan(5),
+      }).map((v) => v.rule),
+    ).toContain("H8");
   });
 
   it("H9: a pinch reusing the finger that just picked (not a thumb on a strong beat)", () => {
@@ -97,7 +119,9 @@ describe("validator: one known-bad measure per rule", () => {
 
 describe("validator: joins and robustness", () => {
   it("reports repeat joins as warnings, not errors", () => {
-    const ms = tab("m1 G backward | 1:0M 2:0I 5:0T 1:0M 2:0I 5:0T 1:0M 2:0I |\nm2 G forward | 3:0T 2:0I 1:0M 5:0T 2:0I 1:0M 5:0T 1:0M |");
+    const ms = tab(
+      "m1 G backward | 1:0M 2:0I 5:0T 1:0M 2:0I 5:0T 1:0M 2:0I |\nm2 G forward | 3:0T 2:0I 1:0M 5:0T 2:0I 1:0M 5:0T 1:0M |",
+    );
     expect(validate(ms)).toEqual([]);
     // Repeat m2 → m1: middle finger on the 1st string twice across the repeat.
     const v = validate(ms, { extraEdges: [{ from: 1, to: 0 }] });
@@ -109,7 +133,9 @@ describe("validator: joins and robustness", () => {
   });
 
   it("never throws on malformed data", () => {
-    const junk = [{ index: 1, slots: 8, chords: null, rollName: "x", source: "hand", notes: [null] }];
+    const junk = [
+      { index: 1, slots: 8, chords: null, rollName: "x", source: "hand", notes: [null] },
+    ];
     expect(() => validate(junk as never)).not.toThrow();
     expect(validate(junk as never)[0]?.rule).toBe("STRUCT");
   });

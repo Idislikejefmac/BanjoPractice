@@ -38,8 +38,16 @@ function colorAt(x, y, scale) {
     return NECK;
   }
   // Tuning pegs at the top of the neck, and the 5th-string peg partway up.
-  if (Math.hypot(u - (neckL - 0.03), v - 0.1) < 0.022 || Math.hypot(u - (neckR + 0.03), v - 0.1) < 0.022) return PEG;
-  if (Math.hypot(u - (neckL - 0.03), v - 0.17) < 0.022 || Math.hypot(u - (neckR + 0.03), v - 0.17) < 0.022) return PEG;
+  if (
+    Math.hypot(u - (neckL - 0.03), v - 0.1) < 0.022 ||
+    Math.hypot(u - (neckR + 0.03), v - 0.1) < 0.022
+  )
+    return PEG;
+  if (
+    Math.hypot(u - (neckL - 0.03), v - 0.17) < 0.022 ||
+    Math.hypot(u - (neckR + 0.03), v - 0.17) < 0.022
+  )
+    return PEG;
   if (Math.hypot(u - (neckR + 0.03), v - 0.3) < 0.02) return PEG;
   return BG;
 }

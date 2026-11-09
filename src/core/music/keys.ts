@@ -20,7 +20,15 @@ const RELATIVE_MAJOR: Readonly<Record<Mode, { letters: number; semitones: number
   mixolydian: { letters: 3, semitones: 5 }, // A Mixolydian → D major
 };
 
-const LETTER_FIFTHS: Readonly<Record<string, number>> = { F: -1, C: 0, G: 1, D: 2, A: 3, E: 4, B: 5 };
+const LETTER_FIFTHS: Readonly<Record<string, number>> = {
+  F: -1,
+  C: 0,
+  G: 1,
+  D: 2,
+  A: 3,
+  E: 4,
+  B: 5,
+};
 
 export function relativeMajorTonic(key: Key): NoteName {
   const r = RELATIVE_MAJOR[key.mode];
@@ -90,6 +98,8 @@ export function toAbcKey(key: Key): string {
 
 export function sameKey(a: Key, b: Key): boolean {
   return (
-    a.mode === b.mode && a.tonic.letter === b.tonic.letter && a.tonic.accidental === b.tonic.accidental
+    a.mode === b.mode &&
+    a.tonic.letter === b.tonic.letter &&
+    a.tonic.accidental === b.tonic.accidental
   );
 }

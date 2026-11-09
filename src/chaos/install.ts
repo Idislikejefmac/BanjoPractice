@@ -3,7 +3,7 @@
 // production.
 
 import type { Services } from "../app/services.ts";
-import { ChaosController } from "./controller.ts";
+import type { ChaosController } from "./controller.ts";
 
 declare global {
   interface Window {

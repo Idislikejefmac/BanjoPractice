@@ -24,12 +24,17 @@ const keyArb: fc.Arbitrary<Key> = fc
 describe("C1 transposition", () => {
   it("transposing a canonically spelled note up then down is the identity", () => {
     fc.assert(
-      fc.property(keyArb, fc.integer({ min: 0, max: 11 }), fc.integer({ min: -11, max: 11 }), (key, pc, n) => {
-        const original = spellInKey(pc, key);
-        const there = transposeKey(key, n);
-        const back = transposeNote(transposeNote(original, n, there), -n, key);
-        expect(back).toEqual(original);
-      }),
+      fc.property(
+        keyArb,
+        fc.integer({ min: 0, max: 11 }),
+        fc.integer({ min: -11, max: 11 }),
+        (key, pc, n) => {
+          const original = spellInKey(pc, key);
+          const there = transposeKey(key, n);
+          const back = transposeNote(transposeNote(original, n, there), -n, key);
+          expect(back).toEqual(original);
+        },
+      ),
       RUNS,
     );
   });
@@ -68,20 +73,27 @@ const legalMeasureArb: fc.Arbitrary<ArrangedMeasure> = fc
 describe("C5 tab text", () => {
   it("parse(serialize(m)) round-trips any legal measure list", () => {
     fc.assert(
-      fc.property(fc.uniqueArray(legalMeasureArb, { minLength: 1, maxLength: 8, selector: (m) => m.index }), (ms) => {
-        const parsed = parseTab(serializeTab(ms));
-        expect(parsed.ok).toBe(true);
-        expect(parsed.measures).toEqual(ms);
-      }),
+      fc.property(
+        fc.uniqueArray(legalMeasureArb, { minLength: 1, maxLength: 8, selector: (m) => m.index }),
+        (ms) => {
+          const parsed = parseTab(serializeTab(ms));
+          expect(parsed.ok).toBe(true);
+          expect(parsed.measures).toEqual(ms);
+        },
+      ),
       RUNS,
     );
   });
 
   it("never throws on mutated input", () => {
-    const valid = "m1 G forward | 3:0T* 2:0I 1:0M 5:0T> 2:0I 1:0M* 5:0T> 1:0M |\nm2 G tag | 3:0T 2:0I [5:0T,1:0M] - 3:0T . [5:0T,1:0M] - |";
+    const valid =
+      "m1 G forward | 3:0T* 2:0I 1:0M 5:0T> 2:0I 1:0M* 5:0T> 1:0M |\nm2 G tag | 3:0T 2:0I [5:0T,1:0M] - 3:0T . [5:0T,1:0M] - |";
     fc.assert(
       fc.property(
-        fc.array(fc.record({ at: fc.nat(valid.length), ch: fc.string({ maxLength: 3 }), del: fc.nat(3) }), { maxLength: 6 }),
+        fc.array(
+          fc.record({ at: fc.nat(valid.length), ch: fc.string({ maxLength: 3 }), del: fc.nat(3) }),
+          { maxLength: 6 },
+        ),
         (edits) => {
           let text = valid;
           for (const e of edits) text = text.slice(0, e.at) + e.ch + text.slice(e.at + e.del);
@@ -124,7 +136,9 @@ describe("C4 validator", () => {
         const a = m.notes[i] as TabNote;
         const broken: ArrangedMeasure = {
           ...m,
-          notes: m.notes.map((n, j) => (j === i + 1 ? { ...n, string: a.string as StringNo, fret: a.fret } : n)),
+          notes: m.notes.map((n, j) =>
+            j === i + 1 ? { ...n, string: a.string as StringNo, fret: a.fret } : n,
+          ),
         };
         expect(validate([broken]).some((v) => v.rule === "H2")).toBe(true);
       }),

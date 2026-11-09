@@ -81,8 +81,19 @@ function validateInto(
 
   const eventsByMeasure: Event[][] = [];
   measures.forEach((m, pos) => {
-    const push = (rule: RuleId, slot: number, message: string, severity: "error" | "warning" = "error") =>
-      out.push({ rule, severity, measure: m.index, slot, message: `${message} (${where(m.index, slot)})` });
+    const push = (
+      rule: RuleId,
+      slot: number,
+      message: string,
+      severity: "error" | "warning" = "error",
+    ) =>
+      out.push({
+        rule,
+        severity,
+        measure: m.index,
+        slot,
+        message: `${message} (${where(m.index, slot)})`,
+      });
     eventsByMeasure.push(checkMeasure(m, pos, pos === measures.length - 1, plan, push));
   });
 
@@ -92,7 +103,13 @@ function validateInto(
   measures.forEach((m, pos) => {
     for (const ev of eventsByMeasure[pos] ?? []) {
       const push = (rule: RuleId, message: string) =>
-        out.push({ rule, severity: "error", measure: m.index, slot: ev.slot, message: `${message} (${where(m.index, ev.slot)})` });
+        out.push({
+          rule,
+          severity: "error",
+          measure: m.index,
+          slot: ev.slot,
+          message: `${message} (${where(m.index, ev.slot)})`,
+        });
       if (ev.kind === "slur") {
         checkSlur(ev, lastAny, push);
       } else {
@@ -108,7 +125,8 @@ function validateInto(
     const from = measures[edge.from];
     const to = measures[edge.to];
     if (!from || !to) continue;
-    const prev = [...(eventsByMeasure[edge.from] ?? [])].reverse().find((e) => e.kind !== "slur") ?? null;
+    const prev =
+      [...(eventsByMeasure[edge.from] ?? [])].reverse().find((e) => e.kind !== "slur") ?? null;
     const next = (eventsByMeasure[edge.to] ?? []).find((e) => e.kind !== "slur");
     if (!next) continue;
     checkTransition(prev, next, (rule, message) =>
@@ -148,10 +166,15 @@ function checkMeasure(
       push("STRUCT", 0, `Note is outside the measure (slot ${n.slot + 1} of ${m.slots})`);
       continue;
     }
-    if (!Number.isInteger(n.durationSlots) || n.durationSlots < 1 || n.slot + n.durationSlots > m.slots) {
+    if (
+      !Number.isInteger(n.durationSlots) ||
+      n.durationSlots < 1 ||
+      n.slot + n.durationSlots > m.slots
+    ) {
       push("STRUCT", n.slot, "Note duration runs past the end of the measure");
     }
-    for (let s = n.slot; s < Math.min(m.slots, n.slot + Math.max(1, n.durationSlots)); s++) covered[s] = true;
+    for (let s = n.slot; s < Math.min(m.slots, n.slot + Math.max(1, n.durationSlots)); s++)
+      covered[s] = true;
 
     if (!isPlayableFret(n.string, n.fret, plan)) {
       push("H8", n.slot, `String ${n.string} has no fret ${n.fret}`);
@@ -160,10 +183,18 @@ function checkMeasure(
       if (n.finger === null) {
         push("H4", n.slot, "A picked note needs a finger (T, I or M)");
       } else if (!ALLOWED_STRINGS[n.finger].includes(n.string)) {
-        push("H4", n.slot, `${FINGER_NAME[n.finger]} doesn't play string ${n.string} in Scruggs style`);
+        push(
+          "H4",
+          n.slot,
+          `${FINGER_NAME[n.finger]} doesn't play string ${n.string} in Scruggs style`,
+        );
       }
     } else if (n.finger !== null) {
-      push("H7", n.slot, "A slurred note (hammer-on, pull-off, slide, choke) isn't picked, so it has no finger");
+      push(
+        "H7",
+        n.slot,
+        "A slurred note (hammer-on, pull-off, slide, choke) isn't picked, so it has no finger",
+      );
     }
     const list = bySlot.get(n.slot) ?? [];
     list.push(n);
@@ -174,7 +205,12 @@ function checkMeasure(
   const restsAllowed = m.rollName.startsWith("tag") || m.phraseEnd === true || isLast;
   if (!restsAllowed) {
     covered.forEach((c, slot) => {
-      if (!c) push("H6", slot, "Every note of the roll must be filled (rests only at phrase ends and in tags)");
+      if (!c)
+        push(
+          "H6",
+          slot,
+          "Every note of the roll must be filled (rests only at phrase ends and in tags)",
+        );
     });
   }
 
@@ -185,7 +221,8 @@ function checkMeasure(
     const notes = bySlot.get(slot) ?? [];
     const slurs = notes.filter((n) => n.technique !== "pick");
     if (slurs.length > 0) {
-      if (notes.length > 1) push("STRUCT", slot, "A slurred note can't share its slot with other notes");
+      if (notes.length > 1)
+        push("STRUCT", slot, "A slurred note can't share its slot with other notes");
       const first = slurs[0];
       if (first) events.push({ kind: "slur", pos, slot, note: first });
       continue;
@@ -212,7 +249,8 @@ function checkPinchShape(
   push: (rule: RuleId, slot: number, message: string) => void,
 ): void {
   const fingers = notes.map((n) => n.finger);
-  if (new Set(fingers).size !== fingers.length) push("H3", slot, "A pinch uses the same finger twice");
+  if (new Set(fingers).size !== fingers.length)
+    push("H3", slot, "A pinch uses the same finger twice");
   if (new Set(notes.map((n) => n.string)).size !== notes.length) {
     push("H3", slot, "A pinch strikes the same string twice");
   }
@@ -221,19 +259,28 @@ function checkPinchShape(
     const hi = ranked[i - 1];
     const lo = ranked[i];
     if (hi && lo && hi.string <= lo.string) {
-      push("H3", slot, "Fingers cross in this pinch (thumb must be on a higher-numbered string than index, index than middle)");
+      push(
+        "H3",
+        slot,
+        "Fingers cross in this pinch (thumb must be on a higher-numbered string than index, index than middle)",
+      );
     }
   }
 }
 
 /** H5: fretted notes in one chord segment fit in four adjacent frets; 5th string only in licks. */
-function checkReach(m: ArrangedMeasure, push: (rule: RuleId, slot: number, message: string) => void): void {
+function checkReach(
+  m: ArrangedMeasure,
+  push: (rule: RuleId, slot: number, message: string) => void,
+): void {
   const starts = [...m.chords].map((c) => c.atSlot).sort((a, b) => a - b);
   if (starts[0] !== 0) starts.unshift(0);
   for (let i = 0; i < starts.length; i++) {
     const from = starts[i] ?? 0;
     const to = starts[i + 1] ?? m.slots;
-    const fretted = m.notes.filter((n) => n.slot >= from && n.slot < to && n.fret > 0 && n.string !== 5);
+    const fretted = m.notes.filter(
+      (n) => n.slot >= from && n.slot < to && n.fret > 0 && n.string !== 5,
+    );
     if (fretted.length === 0) continue;
     const frets = fretted.map((n) => n.fret);
     if (Math.max(...frets) - Math.min(...frets) > MAX_REACH) {
@@ -243,7 +290,8 @@ function checkReach(m: ArrangedMeasure, push: (rule: RuleId, slot: number, messa
   }
   if (!m.rollName.startsWith("lick:")) {
     for (const n of m.notes) {
-      if (n.string === 5 && n.fret > 0) push("H5", n.slot, "Fretting the 5th string is only used inside specific licks");
+      if (n.string === 5 && n.fret > 0)
+        push("H5", n.slot, "Fretting the 5th string is only used inside specific licks");
     }
   }
 }
@@ -275,7 +323,10 @@ function checkTransition(
   if (p.finger !== c.finger) {
     const [hi, lo] = RANK[p.finger] > RANK[c.finger] ? [p, c] : [c, p];
     if (hi.string < lo.string) {
-      push("H3", `Fingers cross: ${FINGER_NAME[hi.finger ?? "T"].toLowerCase()} on string ${hi.string} next to ${FINGER_NAME[lo.finger ?? "M"].toLowerCase()} on string ${lo.string}`);
+      push(
+        "H3",
+        `Fingers cross: ${FINGER_NAME[hi.finger ?? "T"].toLowerCase()} on string ${hi.string} next to ${FINGER_NAME[lo.finger ?? "M"].toLowerCase()} on string ${lo.string}`,
+      );
     }
   }
 }

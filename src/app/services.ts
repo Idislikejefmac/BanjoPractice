@@ -4,9 +4,20 @@
 import type { Diagnostics } from "../platform/diagnostics.ts";
 import { createDiagnostics } from "../platform/diagnostics.ts";
 import { createMemoryStore } from "../platform/fakes.ts";
-import { browserClock, createInputService, createOfflineService, createWakeLockService } from "../platform/real/browser.ts";
+import {
+  browserClock,
+  createInputService,
+  createOfflineService,
+  createWakeLockService,
+} from "../platform/real/browser.ts";
 import { openIndexedDbStore } from "../platform/real/storage.ts";
-import type { Clock, InputService, KeyValueStore, OfflineService, WakeLockService } from "../platform/types.ts";
+import type {
+  Clock,
+  InputService,
+  KeyValueStore,
+  OfflineService,
+  WakeLockService,
+} from "../platform/types.ts";
 import { StorageNewerVersionError } from "../platform/types.ts";
 
 export type StorageMode = "ok" | "read-only-newer" | "unavailable";

@@ -12,7 +12,9 @@ import type {
 } from "./types.ts";
 
 /** P1 fake: an in-memory store with the same semantics as the IndexedDB one. */
-export function createMemoryStore(): KeyValueStore & { dump(): Record<string, Record<string, unknown>> } {
+export function createMemoryStore(): KeyValueStore & {
+  dump(): Record<string, Record<string, unknown>>;
+} {
   const data = new Map<StoreName, Map<string, unknown>>();
   const table = (s: StoreName) => {
     let t = data.get(s);
@@ -68,7 +70,9 @@ export function createFakeClock(start = 0): Clock & { advance(ms: number): void 
     advance(ms) {
       const end = now + ms;
       for (;;) {
-        const due = [...timers.entries()].filter(([, t]) => t.at <= end).sort((a, b) => a[1].at - b[1].at)[0];
+        const due = [...timers.entries()]
+          .filter(([, t]) => t.at <= end)
+          .sort((a, b) => a[1].at - b[1].at)[0];
         if (!due) break;
         timers.delete(due[0]);
         now = due[1].at;
@@ -113,7 +117,9 @@ export function createFakeInput(): InputService & { press(action: PedalAction): 
 }
 
 /** P4 fake. */
-export function createFakeOffline(): OfflineService & { set(ready: boolean, waiting: boolean): void } {
+export function createFakeOffline(): OfflineService & {
+  set(ready: boolean, waiting: boolean): void;
+} {
   let offlineReady = false;
   let updateWaiting = false;
   const listeners = new Set<() => void>();

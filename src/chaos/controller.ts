@@ -1,7 +1,8 @@
 // Chaos controller (CHAOS_TESTING.md §3.1). Seeded and deterministic: with the same seed and
 // the same sequence of operations, the same faults fire. Test builds only.
 
-export type ServiceName = "storage" | "audio" | "samples" | "offline" | "wakeLock" | "input" | "mic" | "clock";
+export type ServiceName =
+  "storage" | "audio" | "samples" | "offline" | "wakeLock" | "input" | "mic" | "clock";
 
 export interface FaultSpec {
   readonly service: ServiceName;

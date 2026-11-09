@@ -4,11 +4,16 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("@spike S0 platform capabilities", () => {
-  test("Web Audio: context starts, time advances, output is measurable", async ({ page, browserName }) => {
+  test("Web Audio: context starts, time advances, output is measurable", async ({
+    page,
+    browserName,
+  }) => {
     await page.goto("/");
     await page.locator("body").click(); // a user gesture, in case the engine needs one
     const result = await page.evaluate(async () => {
-      const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      const Ctx =
+        window.AudioContext ??
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!Ctx) return { exists: false } as const;
       const ctx = new Ctx();
       await ctx.resume().catch(() => undefined);
@@ -25,7 +30,13 @@ test.describe("@spike S0 platform capabilities", () => {
       const t1 = ctx.currentTime;
       osc.stop();
       await ctx.close();
-      return { exists: true, state: ctx.state, advanced: t1 - t0, rms, sampleRate: ctx.sampleRate } as const;
+      return {
+        exists: true,
+        state: ctx.state,
+        advanced: t1 - t0,
+        rms,
+        sampleRate: ctx.sampleRate,
+      } as const;
     });
     console.log(`[S0] ${browserName} Web Audio:`, JSON.stringify(result));
     expect(result.exists).toBe(true);
@@ -50,7 +61,11 @@ test.describe("@spike S0 platform capabilities", () => {
     expect(rms).toBeGreaterThan(0);
   });
 
-  test("Service worker registers and the app reloads offline", async ({ page, context, browserName }) => {
+  test("Service worker registers and the app reloads offline", async ({
+    page,
+    context,
+    browserName,
+  }) => {
     await page.goto("/");
     const registered = await page.evaluate(async () => {
       if (!("serviceWorker" in navigator)) return false;

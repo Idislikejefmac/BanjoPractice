@@ -5,7 +5,9 @@ import { parseTab } from "../../src/core/tab/tabText.ts";
 export function tab(text: string): ArrangedMeasure[] {
   const result = parseTab(text);
   if (!result.ok) {
-    const details = result.errors.map((e) => `  line ${e.line}, col ${e.column}: ${e.message}`).join("\n");
+    const details = result.errors
+      .map((e) => `  line ${e.line}, col ${e.column}: ${e.message}`)
+      .join("\n");
     throw new Error(`Test tab failed to parse:\n${details}`);
   }
   return result.measures;

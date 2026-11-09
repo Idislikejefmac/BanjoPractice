@@ -47,7 +47,9 @@ describe("tab text format", () => {
   });
 
   it("skips comments and blank lines", () => {
-    expect(tab("# Cripple Creek, A part\n\nm1 G forward | 3:0T 2:0I 1:0M 5:0T 2:0I 1:0M 5:0T 1:0M |\n")).toHaveLength(1);
+    expect(
+      tab("# Cripple Creek, A part\n\nm1 G forward | 3:0T 2:0I 1:0M 5:0T 2:0I 1:0M 5:0T 1:0M |\n"),
+    ).toHaveLength(1);
   });
 
   it("round-trips the fixture through serialize and parse", () => {
@@ -83,7 +85,14 @@ describe("tab text format", () => {
   });
 
   it("survives garbage input", () => {
-    for (const junk of ["|||", "[[[", "m1 | [ |", "m1 x | [1:0T, |", "\u0000\u0001", "m99999 G f | . |"]) {
+    for (const junk of [
+      "|||",
+      "[[[",
+      "m1 | [ |",
+      "m1 x | [1:0T, |",
+      "\u0000\u0001",
+      "m99999 G f | . |",
+    ]) {
       expect(() => parseTab(junk)).not.toThrow();
     }
   });

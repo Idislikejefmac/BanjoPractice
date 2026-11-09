@@ -18,7 +18,9 @@ export default defineConfig(({ mode }) => ({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
     __BUILD_SHA__: JSON.stringify((process.env.GITHUB_SHA ?? "dev").slice(0, 7)),
-    __BUILD_CHANNEL__: JSON.stringify(isStaging ? "staging" : mode === "chaos" ? "chaos" : "production"),
+    __BUILD_CHANNEL__: JSON.stringify(
+      isStaging ? "staging" : mode === "chaos" ? "chaos" : "production",
+    ),
   },
   plugins: [
     preact(),
@@ -41,7 +43,12 @@ export default defineConfig(({ mode }) => ({
         icons: [
           { src: "icon-192.png", sizes: "192x192", type: "image/png" },
           { src: "icon-512.png", sizes: "512x512", type: "image/png" },
-          { src: "icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+          {
+            src: "icon-maskable-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
+          },
         ],
       },
       workbox: {
