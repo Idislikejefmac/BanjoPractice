@@ -19,6 +19,7 @@ import { parseChord } from "../music/chords.ts";
 import { parseTab } from "../tab/tabText.ts";
 import type { IndexedMeasure, SongIndex } from "./abcIndex.ts";
 import { indexAbc } from "./abcIndex.ts";
+import { isFirstEnding } from "../playback/order.ts";
 
 export const SONG_SCHEMA_VERSION = 1;
 
@@ -240,8 +241,8 @@ export function repeatEdges(index: SongIndex): { from: number; to: number }[] {
       edges.push({ from: i, to: sectionStart });
       // Second ending: the measure before the first ending jumps to it.
       const next = ms[i + 1];
-      if (next?.ending === "2") {
-        const first = ms.findIndex((x, j) => j >= sectionStart && x.ending === "1");
+      if (next?.ending !== undefined && !isFirstEnding(next)) {
+        const first = ms.findIndex((x, j) => j >= sectionStart && isFirstEnding(x));
         if (first > 0) edges.push({ from: first - 1, to: i + 1 });
       }
     }
