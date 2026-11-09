@@ -424,8 +424,11 @@ const ACTIONS: Action[] = [
       const id = await del.getAttribute("data-delete");
       await ctx.page.click(`[data-song="${id}"][data-section="mine"]`);
       await clickIfVisible(ctx, '[data-action="play"]');
+      // On a narrow (portrait) screen, opening a song closes the song list, so reopen it
+      // and find the button again (seed 2 timed out here at step 249).
+      await ensurePanel(ctx);
       ctx.page.once("dialog", (d) => void d.accept());
-      await del.click();
+      await ctx.page.locator(`[data-delete="${id}"]`).click();
       return id ?? "";
     },
   },

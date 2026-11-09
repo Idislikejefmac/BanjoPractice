@@ -1,5 +1,5 @@
 {
   "seed": 2,
   "steps": 400,
-  "note": "I16/I6 at steps 78 (Chromium) and 337 (WebKit): a slow save landed after a newer one, and a star tapped just before a hard reload was lost. Fixed by one-write-per-record (last write wins) and a localStorage write-ahead copy of pending saves. Later (phase 4): I4 fired at step 9 because a chord-finder strum rang on after Stop; previews are now counted separately from playback."
+  "note": "I16/I6 at steps 78 (Chromium) and 337 (WebKit): a slow save landed after a newer one, and a star tapped just before a hard reload was lost. Fixed by one-write-per-record (last write wins) and a localStorage write-ahead copy of pending saves. Later (phase 4): I4 fired at step 9 because a chord-finder strum rang on after Stop; previews are now counted separately from playback. Later (2026-11-09): the monkey itself timed out at step 249 (Chromium, 744px portrait): opening the song to play it closed the song list, hiding the delete button. The monkey now reopens the list and clicks the delete for that song id."
 }
