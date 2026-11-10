@@ -215,8 +215,6 @@ export function melodyTargets(
 
 interface Option {
   readonly notes: readonly TabNote[];
-  /** The picked fingers/strings in order (for rule checks inside the search). */
-  readonly picks: readonly { finger: Finger; string: StringNo }[];
   readonly cost: number;
   readonly usedSlur: boolean;
 }
@@ -277,26 +275,31 @@ function fretForPitch(
   return fret >= 0 && fret <= MAX_FIRST_POSITION_FRET ? fret : null;
 }
 
+type Pick = { readonly finger: Finger; readonly string: StringNo };
+
 /** Fingers don't cross between consecutive picks (H3), and no repeated finger/string (H1, H2). */
-function pickOk(
-  prev: { finger: Finger; string: StringNo } | null,
-  f: Finger,
-  s: StringNo,
-): boolean {
+function pickOk(prev: Pick | null, f: Finger, s: StringNo): boolean {
   if (!prev) return true;
   if (prev.finger === f || prev.string === s) return false;
-  const hi = RANK[prev.finger] > RANK[f] ? prev : { finger: f, string: s };
-  const lo = hi === prev ? { finger: f, string: s } : prev;
-  return hi.string >= lo.string;
+  // The higher-ranked finger (T > I > M) stays on the higher-numbered string.
+  return RANK[prev.finger] > RANK[f] ? prev.string >= s : s >= prev.string;
+}
+
+/** The notes placed so far, newest first. Shared between states, so adding one copies nothing. */
+interface NoteCell {
+  readonly note: TabNote;
+  readonly prev: NoteCell | null;
 }
 
 interface SlotState {
   cost: number;
-  notes: TabNote[];
-  picks: { finger: Finger; string: StringNo }[];
+  notes: NoteCell | null;
+  /** Slurred notes so far. */
+  slurs: number;
+  /** The last single pick. */
+  pick: Pick | null;
   /** Last sounding single note (for slurs). */
   last: { string: StringNo; fret: number } | null;
-  usedSlur: boolean;
   /** The last pick was a pinch: the hand resets, so the next single note is unrestricted. */
   reset: boolean;
   /** Lowest and highest fretted note under the current chord (H5), or null if none yet. */
@@ -312,13 +315,34 @@ type Span = readonly [lo: number, hi: number];
  */
 function widen(span: Span | null, string: StringNo, fret: number): Span | null | undefined {
   if (fret === 0 || string === 5) return span;
-  const lo = Math.min(span?.[0] ?? fret, fret);
-  const hi = Math.max(span?.[1] ?? fret, fret);
+  if (!span) return [fret, fret];
+  if (fret >= span[0] && fret <= span[1]) return span;
+  const lo = Math.min(span[0], fret);
+  const hi = Math.max(span[1], fret);
   return hi - lo > MAX_REACH ? undefined : [lo, hi];
 }
 
-function measureOptions(
-  tpl: Template,
+const STRINGS: readonly StringNo[] = [1, 2, 3, 4, 5];
+
+/**
+ * What a slot of a measure offers, whatever the roll: worked out once per measure and shared
+ * by all its templates (about 70 of them), which only differ in the fingers.
+ */
+interface SlotInfo {
+  readonly target: Target | undefined;
+  /** Cost of not playing the target here (0 without one). */
+  readonly miss: number;
+  /** A chord starts here: a new left-hand shape, so the reach is counted afresh (C4 H5). */
+  readonly newChord: boolean;
+  /** The open 5th string clashes with the chord or the key here. */
+  readonly droneClash: boolean;
+  /** By string number: the first-position fret of a chord tone, or null. */
+  readonly filler: readonly (number | null)[];
+  /** By string number: the first-position fret of the target, or null. */
+  readonly melody: readonly (number | null)[];
+}
+
+function slotInfos(
   m: IndexedMeasure,
   targets: readonly Target[],
   chords: readonly { atSlot: number; chord: Chord }[],
@@ -327,70 +351,113 @@ function measureOptions(
   plan: CapoPlan,
   w: ArrangeWeights,
   scale: ReadonlySet<number>,
+): SlotInfo[] {
+  const targetAt = new Map(targets.map((t) => [t.slot, t]));
+  const chordStarts = new Set(m.chords.map((c) => c.atSlot));
+  const drone = pitchAt(tuning, 5, 0, plan);
+  const none: (number | null)[] = [null, null, null, null, null, null];
+  const out: SlotInfo[] = [];
+  let lastChord: Chord | null | undefined;
+  let lastFiller: (number | null)[] = none;
+  let lastClash = false;
+  for (let slot = 0; slot < m.slots; slot++) {
+    const chord = chordAt(chords, slot, startChord);
+    if (chord !== lastChord) {
+      const pcs = chord ? chordPitchClasses(chord) : new Set<number>();
+      lastFiller = [null, ...STRINGS.map((s) => fretFor(tuning, plan, s, pcs))];
+      lastClash = droneClashes(drone, pcs, scale);
+      lastChord = chord;
+    }
+    const target = targetAt.get(slot);
+    out.push({
+      target,
+      miss: target ? w.missingMelody * (target.strong ? 1 : w.weakSlotMelody) : 0,
+      newChord: chordStarts.has(slot),
+      droneClash: lastClash,
+      filler: lastFiller,
+      melody: target
+        ? [null, ...STRINGS.map((s) => fretForPitch(tuning, plan, s, target.midi))]
+        : none,
+    });
+  }
+  return out;
+}
+
+/** States kept per slot. */
+const SLOT_BEAM = 24;
+
+function measureOptions(
+  tpl: Template,
+  m: IndexedMeasure,
+  info: readonly SlotInfo[],
+  w: ArrangeWeights,
 ): Option[] {
   const slots = m.slots;
   const tokens =
     slots === tpl.tokens.length ? tpl.tokens : tpl.tokens.slice(tpl.tokens.length - slots);
   if (tokens.length !== slots) return [];
-  const targetAt = new Map(targets.map((t) => [t.slot, t]));
-  const miss = (t: Target) => w.missingMelody * (t.strong ? 1 : w.weakSlotMelody);
-  const accentSlots = tpl.name.startsWith("forward") ? new Set([0, 3, 6]) : new Set([0, 2, 4, 6]);
+  const forward = tpl.name.startsWith("forward");
+  const pinchCost = w.pinchFill * (tpl.kind === "fill" ? 0.3 : 1);
 
-  // Beam over partial states, keyed by the last pick and last note.
+  // Beam over partial states, keyed by the last pick, the last note and the hand's span. Only
+  // the cheapest state per key is ever built: most of the search's time went on building the
+  // ones that were thrown away.
   let states: SlotState[] = [
-    { cost: 0, notes: [], picks: [], last: null, usedSlur: false, reset: false, span: null },
+    { cost: 0, notes: null, slurs: 0, pick: null, last: null, reset: false, span: null },
   ];
-  const chordStarts = new Set(m.chords.map((c) => c.atSlot));
   for (let slot = 0; slot < slots; slot++) {
-    // A new chord is a new left-hand shape: the reach is counted afresh (as C4 H5 does).
-    if (chordStarts.has(slot)) states = states.map((st) => ({ ...st, span: null }));
     const tok = tokens[slot]!;
-    const chord = chordAt(chords, slot, startChord);
-    const pcs = chord ? chordPitchClasses(chord) : new Set<number>();
-    const target = targetAt.get(slot);
-    const droneClash = droneClashes(pitchAt(tuning, 5, 0, plan), pcs, scale);
-    const next: SlotState[] = [];
+    const { target, miss, droneClash, filler, melody } = info[slot]!;
+    const onAccent = forward ? slot === 0 || slot === 3 || slot === 6 : slot % 2 === 0;
+    const best = new Map<number, SlotState>();
+    /** True if a state with this key and cost would be kept (so it is worth building). */
+    const wanted = (key: number, cost: number): boolean => {
+      const cur = best.get(key);
+      return !cur || cost < cur.cost;
+    };
     for (const st of states) {
-      const prevPick = st.reset ? null : (st.picks[st.picks.length - 1] ?? null);
-      const prevSingle = st.picks[st.picks.length - 1] ?? null;
+      const span0 = info[slot]!.newChord ? null : st.span;
+      const prevPick = st.reset ? null : st.pick;
 
       if (tok === "-") {
         // Hold: extend the previous note(s); a melody attack here can't be placed.
-        const lastNotes = st.notes.filter(
-          (n) => n.slot === Math.max(...st.notes.map((x) => x.slot)),
-        );
-        if (lastNotes.length === 0) continue;
-        const notes = st.notes.map((n) =>
-          lastNotes.includes(n) ? { ...n, durationSlots: n.durationSlots + 1 } : n,
-        );
-        next.push({ ...st, notes, cost: st.cost + (target ? miss(target) : 0) });
+        if (!st.notes) continue;
+        const cost = st.cost + miss;
+        const key = stateKey(st.reset, st.pick, st.last, span0);
+        if (!wanted(key, cost)) continue;
+        const lastSlot = st.notes.note.slot;
+        const held: TabNote[] = [];
+        let rest: NoteCell | null = st.notes;
+        while (rest && rest.note.slot === lastSlot) {
+          held.push({ ...rest.note, durationSlots: rest.note.durationSlots + 1 });
+          rest = rest.prev;
+        }
+        let notes = rest;
+        for (let i = held.length - 1; i >= 0; i--) notes = { note: held[i]!, prev: notes };
+        best.set(key, { ...st, notes, cost, span: span0 });
         continue;
       }
 
       if (tok.length > 1) {
         // Pinch (e.g. "TM"): thumb on 5/4/3, middle on 1; melody on the middle's string if it fits.
         const fingers = [...tok] as Finger[];
-        // The thumb takes the 4th string where the open 5th would clash with the chord or key.
-        const strings: StringNo[] = fingers.map(
-          (f) => (f === "M" ? 1 : f === "I" ? 2 : droneClash ? 4 : 5) as StringNo,
-        );
         // H9: no pinch containing the previous single note's finger, except T on a strong slot.
         if (
-          prevSingle &&
+          st.pick &&
           !st.reset &&
-          fingers.includes(prevSingle.finger) &&
-          !(prevSingle.finger === "T" && slot % 2 === 0)
+          fingers.includes(st.pick.finger) &&
+          !(st.pick.finger === "T" && slot % 2 === 0)
         )
           continue;
-        let cost = st.cost + w.pinchFill * (tpl.kind === "fill" ? 0.3 : 1);
         const notes: TabNote[] = [];
         let melodyPlaced = false;
-        fingers.forEach((f, i) => {
-          let s = strings[i]!;
+        for (const f of fingers) {
+          // The thumb takes the 4th string where the open 5th would clash with the chord or key.
+          let s: StringNo = f === "M" ? 1 : f === "I" ? 2 : droneClash ? 4 : 5;
           let fret: number | null = null;
           if (target && !melodyPlaced) {
             for (const cand of STRINGS_FOR[f]) {
-              const fr = fretForPitch(tuning, plan, cand, target.midi);
+              const fr = melody[cand] ?? null;
               if (fr !== null) {
                 s = cand;
                 fret = fr;
@@ -399,7 +466,7 @@ function measureOptions(
               }
             }
           }
-          if (fret === null) fret = fretFor(tuning, plan, s, pcs) ?? 0;
+          if (fret === null) fret = filler[s] ?? 0;
           notes.push({
             slot,
             durationSlots: 1,
@@ -407,153 +474,152 @@ function measureOptions(
             fret,
             finger: f,
             technique: "pick",
-            isMelody: melodyPlaced && fret === fretForPitch(tuning, plan, s, target?.midi ?? -1),
+            isMelody: melodyPlaced && fret === melody[s],
             isAccent: false,
             pinchGroup: slot,
           });
-        });
+        }
         // Pinch strings must be ordered T > I > M and distinct.
         const ordered = notes.slice().sort((a, b) => RANK[b.finger!] - RANK[a.finger!]);
         if (ordered.some((n, i) => i > 0 && n.string >= ordered[i - 1]!.string)) continue;
-        let span: Span | null | undefined = st.span;
+        let span: Span | null | undefined = span0;
         for (const n of notes) if (span !== undefined) span = widen(span, n.string, n.fret);
         if (span === undefined) continue;
-        if (target && !melodyPlaced) cost += miss(target);
-        next.push({
-          cost,
-          notes: [...st.notes, ...notes],
-          picks: st.picks,
-          last: null,
-          span,
-          usedSlur: st.usedSlur,
-          // A pinch resets the hand: the next single note isn't restricted by H1 (C4 H9).
-          reset: true,
-        });
+        const cost = st.cost + pinchCost + (target && !melodyPlaced ? miss : 0);
+        // A pinch resets the hand: the next single note isn't restricted by H1 (C4 H9).
+        const key = stateKey(true, st.pick, null, span);
+        if (!wanted(key, cost)) continue;
+        let cells = st.notes;
+        for (const note of notes) cells = { note, prev: cells };
+        best.set(key, { ...st, cost, notes: cells, last: null, span, reset: true });
         continue;
       }
 
       const f = tok as Finger;
       // Melody by slur from the previous note (hammer up, pull down, slide up a fret or two).
-      if (target && st.last && slot > 0) {
-        const fr = fretForPitch(tuning, plan, st.last.string, target.midi);
-        const span = fr === null ? undefined : widen(st.span, st.last.string, fr);
-        if (fr !== null && fr !== st.last.fret && st.last.string !== 5 && span !== undefined) {
-          const technique: Technique =
-            fr > st.last.fret
-              ? fr - st.last.fret <= 2 && st.last.fret > 0
-                ? "slide-up"
-                : "hammer"
-              : "pull";
-          const slurs = st.notes.filter((n) => n.technique !== "pick").length;
-          next.push({
-            cost: st.cost + w.slurCost + (slurs >= 2 ? w.extraSlurs : 0),
-            notes: [
-              ...st.notes,
-              {
-                slot,
-                durationSlots: 1,
-                string: st.last.string,
-                fret: fr,
-                finger: null,
-                technique,
-                isMelody: true,
-                isAccent: false,
-              },
-            ],
-            picks: st.picks,
-            last: { string: st.last.string, fret: fr },
-            span,
-            usedSlur: true,
-            reset: st.reset,
-          });
-        }
-      }
-      // Picked notes: melody if the finger can reach it, otherwise a filler chord tone.
-      const choices: { s: StringNo; fret: number; melody: boolean; cost: number }[] = [];
-      for (const s of STRINGS_FOR[f]) {
-        if (!pickOk(prevPick, f, s)) continue;
-        if (target) {
-          const fr = fretForPitch(tuning, plan, s, target.midi);
-          if (fr !== null) {
-            let c = 0;
-            if (s === 4) c += w.melodyOnString4;
-            if (fr > 4) c += w.highFret * (fr - 4);
-            if (!accentSlots.has(slot)) c += w.melodyOffAccent;
-            choices.push({ s, fret: fr, melody: true, cost: c });
-          }
-        }
-        const filler = fretFor(tuning, plan, s, pcs);
-        const homeRank = HOME[f].indexOf(s);
-        if (filler !== null) {
-          choices.push({
-            s,
-            fret: filler,
-            melody: false,
-            cost: (target ? miss(target) : 0) + homeRank * 0.15,
-          });
-        } else if (s === 5 || s === 1 || s === 2 || s === 3 || s === 4) {
-          // An open string that isn't a chord tone: allowed, but costs.
-          if (s === 5 || !target) {
-            choices.push({
-              s,
-              fret: 0,
-              melody: false,
-              cost:
-                (target ? miss(target) : 0) +
-                (s !== 5 ? w.nonChordFiller : droneClash ? w.clashingDrone : 0.2),
+      if (target && st.last && slot > 0 && st.last.string !== 5) {
+        const fr = melody[st.last.string] ?? null;
+        const span = fr === null ? undefined : widen(span0, st.last.string, fr);
+        if (fr !== null && fr !== st.last.fret && span !== undefined) {
+          const cost = st.cost + w.slurCost + (st.slurs >= 2 ? w.extraSlurs : 0);
+          const last = { string: st.last.string, fret: fr };
+          const key = stateKey(st.reset, st.pick, last, span);
+          if (wanted(key, cost)) {
+            const technique: Technique =
+              fr > st.last.fret
+                ? fr - st.last.fret <= 2 && st.last.fret > 0
+                  ? "slide-up"
+                  : "hammer"
+                : "pull";
+            const note: TabNote = {
+              slot,
+              durationSlots: 1,
+              string: st.last.string,
+              fret: fr,
+              finger: null,
+              technique,
+              isMelody: true,
+              isAccent: false,
+            };
+            best.set(key, {
+              ...st,
+              cost,
+              notes: { note, prev: st.notes },
+              slurs: st.slurs + 1,
+              last,
+              span,
             });
           }
         }
       }
-      for (const c of choices) {
-        const span = widen(st.span, c.s, c.fret);
-        if (span === undefined) continue;
+      // Picked notes: melody if the finger can reach it, otherwise a filler chord tone.
+      const pickNote = (s: StringNo, fret: number, isMelody: boolean, noteCost: number) => {
+        const span = widen(span0, s, fret);
+        if (span === undefined) return;
         const handMove =
-          st.last && c.fret > 0 && st.last.fret > 0
-            ? Math.abs(c.fret - st.last.fret) * w.handMove
-            : 0;
-        next.push({
-          cost: st.cost + c.cost + handMove,
-          notes: [
-            ...st.notes,
-            {
-              slot,
-              durationSlots: 1,
-              string: c.s,
-              fret: c.fret,
-              finger: f,
-              technique: "pick",
-              isMelody: c.melody,
-              isAccent: false,
-            },
-          ],
-          picks: [...st.picks, { finger: f, string: c.s }],
-          last: { string: c.s, fret: c.fret },
+          st.last && fret > 0 && st.last.fret > 0 ? Math.abs(fret - st.last.fret) * w.handMove : 0;
+        const cost = st.cost + noteCost + handMove;
+        const pick = { finger: f, string: s };
+        const last = { string: s, fret };
+        const key = stateKey(false, pick, last, span);
+        if (!wanted(key, cost)) return;
+        const note: TabNote = {
+          slot,
+          durationSlots: 1,
+          string: s,
+          fret,
+          finger: f,
+          technique: "pick",
+          isMelody,
+          isAccent: false,
+        };
+        best.set(key, {
+          cost,
+          notes: { note, prev: st.notes },
+          slurs: st.slurs,
+          pick,
+          last,
           span,
-          usedSlur: st.usedSlur,
           reset: false,
         });
+      };
+      const home = HOME[f];
+      for (const s of STRINGS_FOR[f]) {
+        if (!pickOk(prevPick, f, s)) continue;
+        const fr = melody[s] ?? null;
+        if (fr !== null) {
+          let c = 0;
+          if (s === 4) c += w.melodyOnString4;
+          if (fr > 4) c += w.highFret * (fr - 4);
+          if (!onAccent) c += w.melodyOffAccent;
+          pickNote(s, fr, true, c);
+        }
+        const chordTone = filler[s] ?? null;
+        if (chordTone !== null) {
+          pickNote(s, chordTone, false, miss + home.indexOf(s) * 0.15);
+        } else if (s === 5 || !target) {
+          // An open string that isn't a chord tone: allowed, but costs.
+          const open = s !== 5 ? w.nonChordFiller : droneClash ? w.clashingDrone : 0.2;
+          pickNote(s, 0, false, miss + open);
+        }
       }
     }
-    // Keep the best few states per (last pick, last note).
-    const best = new Map<string, SlotState>();
-    for (const st of next) {
-      const p = st.picks[st.picks.length - 1];
-      const key = `${st.reset ? "R" : `${p?.finger}${p?.string}`}:${st.last?.string}/${st.last?.fret}:${st.span?.join("-")}`;
-      const cur = best.get(key);
-      if (!cur || st.cost < cur.cost) best.set(key, st);
-    }
-    states = [...best.values()].sort((a, b) => a.cost - b.cost).slice(0, 24);
+    // Keep the best few states.
+    states = [...best.values()].sort((x, y) => x.cost - y.cost).slice(0, SLOT_BEAM);
     if (states.length === 0) return [];
   }
-  return states.map((st) => ({
-    notes: st.notes,
-    picks: st.picks,
-    cost:
-      st.cost +
-      (tpl.kind === "roll" && !st.usedSlur ? w.namedRoll : tpl.kind === "halves" ? w.halfRolls : 0),
-    usedSlur: st.usedSlur,
-  }));
+  return states.map((st) => {
+    const notes: TabNote[] = [];
+    for (let c = st.notes; c; c = c.prev) notes.push(c.note);
+    notes.reverse();
+    const usedSlur = st.slurs > 0;
+    return {
+      notes,
+      cost:
+        st.cost +
+        (tpl.kind === "roll" && !usedSlur ? w.namedRoll : tpl.kind === "halves" ? w.halfRolls : 0),
+      usedSlur,
+    };
+  });
+}
+
+const FINGER_CODE: Readonly<Record<Finger, number>> = { T: 1, I: 2, M: 3 };
+
+/**
+ * One number for what the rest of the measure can depend on: the last pick (or that the hand
+ * was reset by a pinch), the last sounding note, and the left hand's span. Frets here are
+ * first-position ones (0–5), so three bits each are enough.
+ */
+function stateKey(
+  reset: boolean,
+  pick: Pick | null,
+  last: { string: StringNo; fret: number } | null,
+  span: Span | null,
+): number {
+  const hand = reset ? 31 : pick ? FINGER_CODE[pick.finger] * 6 + pick.string : 0;
+  const note = last ? last.string * 8 + last.fret + 1 : 0;
+  const reach = span ? span[0] * 8 + span[1] + 1 : 0;
+  return (hand * 64 + note) * 64 + reach;
 }
 
 function measureChords(m: IndexedMeasure): {
@@ -644,32 +710,34 @@ export function arrange(index: SongIndex, opts: ArrangeOptions = {}): ArrangeRes
     const templates = override
       ? TEMPLATES.filter((t) => t.name === override)
       : allowed.filter((t) => t.name !== "tag" || isLast);
-    const cands: Candidate[] = [];
+    const info = slotInfos(m, targets, parsed, startChord, tuning, plan, w, scale);
+    const found: { tpl: Template; o: Option; cost: number }[] = [];
     for (const tpl of templates) {
-      for (const o of measureOptions(tpl, m, targets, parsed, startChord, tuning, plan, w, scale)) {
-        const measure: ArrangedMeasure = {
-          index: m.index,
-          slots: m.slots,
-          chords: raw,
-          rollName: rollNameFor(tpl, o.usedSlur),
-          source: override ? "override" : "generated",
-          ...(isLast && tpl.kind === "fill" ? { phraseEnd: true } : {}),
-          notes: o.notes.slice().sort((a, b) => a.slot - b.slot || b.string - a.string),
-        };
-        if (validate([measure], { tuning, plan }).some((v) => v.severity === "error")) continue;
-        cands.push({ measure, cost: o.cost + (isLast && tpl.name === "tag" ? -1 : 0) });
+      for (const o of measureOptions(tpl, m, info, w)) {
+        found.push({ tpl, o, cost: o.cost + (isLast && tpl.name === "tag" ? -1 : 0) });
       }
     }
-    cands.sort((a, b) => a.cost - b.cost);
+    // Cheapest first, and only as many are built and checked with C4 as the search keeps: a
+    // measure has over a thousand options, and checking them all took most of the time.
+    found.sort((a, b) => a.cost - b.cost);
     const unique: Candidate[] = [];
     const seen = new Set<string>();
-    for (const c of cands) {
-      const key = c.measure.notes
-        .map((n) => `${n.slot}${n.string}${n.fret}${n.finger}${n.technique}`)
-        .join();
+    for (const { tpl, o, cost } of found) {
+      const notes = o.notes.slice().sort((a, b) => a.slot - b.slot || b.string - a.string);
+      const key = notes.map((n) => `${n.slot}${n.string}${n.fret}${n.finger}${n.technique}`).join();
       if (seen.has(key)) continue;
+      const measure: ArrangedMeasure = {
+        index: m.index,
+        slots: m.slots,
+        chords: raw,
+        rollName: rollNameFor(tpl, o.usedSlur),
+        source: override ? "override" : "generated",
+        ...(isLast && tpl.kind === "fill" ? { phraseEnd: true } : {}),
+        notes,
+      };
+      if (validate([measure], { tuning, plan }).some((v) => v.severity === "error")) continue;
       seen.add(key);
-      unique.push(c);
+      unique.push({ measure, cost });
       if (unique.length >= beam) break;
     }
     if (unique.length === 0) {
@@ -688,12 +756,13 @@ export function arrange(index: SongIndex, opts: ArrangeOptions = {}): ArrangeRes
     // join the measure before legally (otherwise the search could be left with only illegal
     // joins). They cost a lot, so they're only used when nothing else fits.
     const firstFingers = new Set<string>();
+    const noMelody = slotInfos(m, [], parsed, startChord, tuning, plan, w, scale);
     // The allowed rolls come first; the others only fill in so a legal join always exists.
     for (const tpl of [...allowed, ...TEMPLATES.filter((t) => !allowed.includes(t))]) {
       if (tpl.kind === "fill" || firstFingers.size >= 3) continue;
       const first = tpl.tokens[tpl.tokens.length - m.slots] ?? "";
       if (firstFingers.has(first)) continue;
-      const opt = measureOptions(tpl, m, [], parsed, startChord, tuning, plan, w, scale)[0];
+      const opt = measureOptions(tpl, m, noMelody, w)[0];
       if (!opt) continue;
       const measure: ArrangedMeasure = {
         index: m.index,
