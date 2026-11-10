@@ -14,7 +14,7 @@ import { capoPlan } from "../core/banjo/tuning.ts";
 import { formatKey } from "../core/music/keys.ts";
 import type { IndexedMeasure } from "../core/song/abcIndex.ts";
 import type { DisplayLine } from "../core/song/layoutAbc.ts";
-import { lineAbc, lineBreaks } from "../core/song/layoutAbc.ts";
+import { lineAbc, lineBreaks, splitLines } from "../core/song/layoutAbc.ts";
 import type { LoadedSong } from "../core/song/song.ts";
 import { loadSong, songNotes } from "../core/song/song.ts";
 import type { LineMeasureInfo } from "../render/notation.ts";
@@ -25,6 +25,7 @@ import { TabSvg } from "../render/TabSvg.tsx";
 
 /** Notation is drawn a little smaller than the tab: Dad reads mainly tab (F4). */
 const NOTATION_SCALE = 0.9;
+const NO_CUTS: readonly number[] = [];
 const TAB_SCALE = 1.1;
 
 function info(m: IndexedMeasure): LineMeasureInfo {
@@ -72,7 +73,7 @@ interface LineProps {
   /** F30: the note playing now (not while stepping). */
   readonly playAt: { readonly measure: number; readonly slot: number } | null;
   /** The notation came out wider than the screen: use fewer measures on each line. */
-  readonly onTooWide: () => void;
+  readonly onTooWide: (from: number, to: number) => void;
   readonly line: DisplayLine;
   readonly lineNo: number;
   readonly width: number;
@@ -122,7 +123,7 @@ function SongLine({
       result = null;
     }
     // Words under crowded notes can make abcjs draw the staff wider than asked for.
-    if (result && result.drawnWidth > width + 2) onTooWide();
+    if (result && result.drawnWidth > width + 2) onTooWide(line.from, line.to);
     setGeometry(result?.geometry ?? evenGeometry(infos, width, 34 * scale));
     // `infos` is derived from `loaded` and `line`, which are the dependencies.
   }, [loaded, notation, line, lineNo, width, scale, tabOnly, tabOpts.showLyrics]);
@@ -179,26 +180,31 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
   const tabOnly = view === "tab";
 
   const loaded = useMemo(() => (song ? loadSong(song) : null), [song]);
-  // How many times the measures per line were halved because the words didn't fit. It is
-  // remembered with the song, width and size it was worked out for, so a different one starts
-  // again from the full number of measures (no reset effect: that would run after the first
-  // render and undo the very request that line makes).
+  // Words under crowded notes can make abcjs draw a line wider than the screen. A line that
+  // does reports its measures here and is cut in two; every other line is left as it was. The
+  // cuts are remembered with the song, width and size they were found for, so a different one
+  // starts afresh (no reset effect: it would run after the first render and undo them).
   const fitKey = `${song?.id}|${width}|${scale}|${view}|${settings.showLyrics}`;
-  const [squeezed, setSqueezed] = useState({ key: fitKey, times: 0 });
-  const squeeze = squeezed.key === fitKey ? squeezed.times : 0;
+  const [fit, setFit] = useState<{ key: string; cuts: readonly number[] }>({
+    key: fitKey,
+    cuts: [],
+  });
+  const cuts = fit.key === fitKey ? fit.cuts : NO_CUTS;
   const tooWide = useCallback(
-    () =>
-      setSqueezed((s) => ({
-        key: fitKey,
-        times: Math.min(3, (s.key === fitKey ? s.times : 0) + 1),
-      })),
+    (from: number, to: number) =>
+      setFit((s) => {
+        const have = s.key === fitKey ? s.cuts : NO_CUTS;
+        const mid = from + Math.ceil((to - from) / 2);
+        if (to - from < 2 || have.includes(mid)) return s;
+        return { key: fitKey, cuts: [...have, mid] };
+      }),
     [fitKey],
   );
   const lines = useMemo(() => {
     if (!loaded || width <= 0) return [];
-    const per = Math.max(1, measuresPerLine(width, TAB_SCALE * scale) >> squeeze);
-    return lineBreaks(loaded.index.measures, per);
-  }, [loaded, width, scale, squeeze]);
+    const per = measuresPerLine(width, TAB_SCALE * scale);
+    return splitLines(lineBreaks(loaded.index.measures, per), cuts);
+  }, [loaded, width, scale, cuts]);
 
   const keyShift = store.practice.value.keyShift;
   const rolls = store.practice.value.rolls;

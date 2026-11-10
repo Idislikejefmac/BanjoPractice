@@ -41,6 +41,20 @@ export function lineBreaks(measures: readonly IndexedMeasure[], perLine: number)
   return lines;
 }
 
+/**
+ * Splits display lines at the given measure positions (a line that came out too wide is cut
+ * in two); positions at or outside a line's ends are ignored.
+ */
+export function splitLines(lines: readonly DisplayLine[], cuts: readonly number[]): DisplayLine[] {
+  return lines.flatMap((line) => {
+    const inside = [...new Set(cuts)]
+      .filter((c) => c > line.from && c < line.to)
+      .sort((a, b) => a - b);
+    const points = [line.from, ...inside, line.to];
+    return points.slice(1).map((to, i) => ({ from: points[i]!, to }));
+  });
+}
+
 function cleanMusic(text: string): string {
   return (
     text

@@ -171,3 +171,28 @@ describe("lyrics", () => {
     expect(sung.every((n) => (n.lyrics?.[0] ?? "") !== "")).toBe(true);
   });
 });
+
+describe("splitting a line that came out too wide", () => {
+  it("cuts only the line asked for, at its middle, and leaves the others alone", async () => {
+    const { splitLines } = await import("../../src/core/song/layoutAbc.ts");
+    const lines = [
+      { from: 0, to: 3 },
+      { from: 3, to: 5 },
+      { from: 5, to: 7 },
+    ];
+    expect(splitLines(lines, [])).toEqual(lines);
+    expect(splitLines(lines, [2])).toEqual([
+      { from: 0, to: 2 },
+      { from: 2, to: 3 },
+      { from: 3, to: 5 },
+      { from: 5, to: 7 },
+    ]);
+    // Cuts at a line's own ends or outside it change nothing; repeated cuts count once.
+    expect(splitLines(lines, [3, 5, 0, 99, 4, 4])).toEqual([
+      { from: 0, to: 3 },
+      { from: 3, to: 4 },
+      { from: 4, to: 5 },
+      { from: 5, to: 7 },
+    ]);
+  });
+});
