@@ -391,7 +391,40 @@ button {
   color: #b7791f;
 }
 
+.panel-head {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.panel-collapse,
+.panel-handle {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--ink-soft);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+/* The tab at the left edge that brings the song list back: slim, so the music keeps the width. */
+.panel-handle {
+  position: sticky;
+  top: calc(var(--toolbar-h) + 8px);
+  flex: 0 0 28px;
+  min-width: 28px;
+  width: 28px;
+  min-height: 64px;
+  margin: 8px 0 0 2px;
+}
+
 .song-search {
+  flex: 1;
   width: 100%;
   min-height: 44px;
   padding: 0 12px;

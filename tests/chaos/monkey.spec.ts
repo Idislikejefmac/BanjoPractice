@@ -132,7 +132,14 @@ const ACTIONS: Action[] = [
     name: "setting",
     weight: 6,
     async run(ctx) {
-      if (!(await ctx.page.locator(".settings-page").isVisible())) {
+      // The song editor, chord finder and practice tools share the settings page's frame, so
+      // look for a Settings control itself; close anything else first (seed 21, step 122).
+      const onSettings = await ctx.page
+        .locator('input[name="colorBadges"]')
+        .isVisible()
+        .catch(() => false);
+      if (!onSettings) {
+        await closeSettings(ctx);
         await ctx.page.click('[data-action="settings"]');
       }
       const name = ctx.pick(["showRollNames", "showAccents", "colorBadges", "keepAwake"]);

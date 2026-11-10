@@ -150,3 +150,34 @@ test("WebKit on Windows says sound isn't available instead of failing", async ({
   await expect(page.locator(".notices")).toContainText("Sound isn't available");
   await expect(page.locator('[data-action="play"]')).toHaveAttribute("aria-label", "Play");
 });
+
+test("the song list steps aside when playback starts, and a tab brings it back", async ({
+  page,
+  browserName,
+}) => {
+  test.skip(noAudio(browserName), "no Web Audio in Playwright WebKit on Windows");
+  await openSong(page, "old-joe-clark");
+  const list = page.locator(".song-panel");
+  const content = page.locator("main.content");
+  await expect(list).toBeVisible();
+  const narrow = (await content.boundingBox())!.width;
+  await page.click('[data-action="play"]');
+  await expect(list).toBeHidden();
+  await expect(page.locator('[data-action="show-songs"]')).toBeVisible();
+  // The music gets the width the list had (less the slim tab).
+  expect((await content.boundingBox())!.width).toBeGreaterThan(narrow + 200);
+  // Opened again during playback, it stays open (it only steps aside when playback starts).
+  await page.click('[data-action="show-songs"]');
+  await expect(list).toBeVisible();
+  await page.waitForTimeout(900);
+  await expect(list).toBeVisible();
+  await page.click('[data-action="hide-songs"]');
+  await expect(list).toBeHidden();
+  // Stopped, then played again: it steps aside again.
+  await page.click('[data-action="play"]');
+  await page.click('[data-action="toggle-songs"]');
+  await expect(list).toBeVisible();
+  await page.click('[data-action="play"]');
+  await expect(list).toBeHidden();
+  await page.click('[data-action="play"]');
+});

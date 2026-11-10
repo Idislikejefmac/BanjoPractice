@@ -1,0 +1,5 @@
+{
+  "seed": 21,
+  "steps": 150,
+  "note": "Test-harness fix (2026-11-10): the monkey timed out at step 122 waiting for a Settings checkbox while the song editor, which shares the settings page frame, was open. The setting step now looks for the Settings controls and closes any other full-screen page first. No app change."
+}

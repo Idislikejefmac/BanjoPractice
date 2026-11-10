@@ -123,15 +123,26 @@ export function SongPanel({ store }: { store: AppStore }) {
         />
       )}
       <aside class={open ? "song-panel open" : "song-panel"} aria-label="Songs" hidden={!open}>
-        {all.length > SEARCH_THRESHOLD && (
-          <input
-            class="song-search"
-            type="search"
-            placeholder="Find a song"
-            value={query}
-            onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
-          />
-        )}
+        <div class="panel-head">
+          {all.length > SEARCH_THRESHOLD && (
+            <input
+              class="song-search"
+              type="search"
+              placeholder="Find a song"
+              value={query}
+              onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
+            />
+          )}
+          <button
+            class="panel-collapse"
+            data-action="hide-songs"
+            aria-label="Hide the song list"
+            title="Hide the song list"
+            onClick={() => store.toggleSongPanel(false)}
+          >
+            ‹
+          </button>
+        </div>
         <Section
           store={store}
           title="Favorites"

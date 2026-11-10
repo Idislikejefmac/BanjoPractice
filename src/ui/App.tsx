@@ -2,7 +2,7 @@
 // With no song open, the welcome screen shows the roll reference (each roll checked live).
 
 import { useSignalEffect } from "@preact/signals";
-import { useEffect } from "preact/hooks";
+import { useEffect, useRef } from "preact/hooks";
 import type { Player } from "../app/player.ts";
 import type { Services } from "../app/services.ts";
 import type { AppStore } from "../app/store.ts";
@@ -216,6 +216,18 @@ export function App({
     }
   }, [services, store]);
 
+  // Playing is what the screen is for: when playback starts the song list steps aside so the
+  // music gets the whole width. It can be opened again (the › tab) and stays open until the next
+  // time playback starts.
+  const wasPlaying = useRef(false);
+  useSignalEffect(() => {
+    const playing = player.state.value !== "stopped";
+    if (playing && !wasPlaying.current && store.session.peek().songPanelOpen) {
+      store.toggleSongPanel(false);
+    }
+    wasPlaying.current = playing;
+  });
+
   // The toolbar's height changes (practice row, wrapping): panels below it follow.
   useEffect(() => {
     const bar = document.querySelector(".toolbar");
@@ -241,6 +253,17 @@ export function App({
       <Toolbar store={store} player={player} />
       <div class="body">
         <SongPanel store={store} />
+        {!panelOpen && store.currentSong.value && (
+          <button
+            class="panel-handle"
+            data-action="show-songs"
+            aria-label="Show the song list"
+            title="Show the song list"
+            onClick={() => store.toggleSongPanel(true)}
+          >
+            ›
+          </button>
+        )}
         <main class="content">
           {store.currentSong.value ? (
             <SongView store={store} player={player} />
