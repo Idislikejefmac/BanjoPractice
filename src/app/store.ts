@@ -170,7 +170,9 @@ export class AppStore {
     ];
     // The localStorage mirror is newer if a reload happened before the debounced write.
     const mirrored = this.readMirror();
-    const mirrorIsNewer = mirrored !== null && (!session || mirrored.savedAt > session.savedAt);
+    // On a tie (the same millisecond) the mirror wins: it is written on every change, while the
+    // stored copy lags behind it.
+    const mirrorIsNewer = mirrored !== null && (!session || mirrored.savedAt >= session.savedAt);
     if (mirrored && mirrorIsNewer) session = mirrored;
     if (session?.songId && !this.songs.some((s) => s.id === session!.songId)) {
       session = { ...session, songId: null, topMeasure: 0 };

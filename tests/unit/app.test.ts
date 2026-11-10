@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_SESSION,
   DEFAULT_SETTINGS,
@@ -146,22 +146,34 @@ describe("app store", () => {
     const local = memoryLocal();
     const a = new AppStore(fakeServices(storage), SONGS, local);
     await a.load();
+    const stored = async () =>
+      (await storage.get("session", "session")) as { songId: string; topMeasure: number };
     a.openSong("a-song");
     a.flushSession();
-    await settle();
+    // Writes land a moment later: wait for it, or a late a-song write could land after b's.
+    await vi.waitFor(async () => expect((await stored())?.songId).toBe("a-song"));
     a.openSong("b-song");
     a.setTopMeasure(4);
     // Killed inside the debounce: storage still has a-song, the mirror has b-song.
     const b = new AppStore(fakeServices(storage), SONGS, local);
     await b.load();
-    await settle();
     expect(b.session.value.songId).toBe("b-song");
-    const stored = (await storage.get("session", "session")) as {
-      songId: string;
-      topMeasure: number;
-    };
-    expect(stored.songId).toBe("b-song");
-    expect(stored.topMeasure).toBe(4);
+    await vi.waitFor(async () => expect((await stored()).songId).toBe("b-song"));
+    expect((await stored()).topMeasure).toBe(4);
+  });
+
+  // Regression (found as a flaky test): with the same timestamp in storage and in the mirror
+  // the older stored session won. The mirror is written on every change, so it wins a tie.
+  it("prefers the localStorage mirror when its timestamp ties the stored session's", async () => {
+    const storage = createMemoryStore();
+    const local = memoryLocal();
+    const at = "2026-11-10T00:00:00.000Z";
+    const session = (songId: string) => ({ ...DEFAULT_SESSION, songId, savedAt: at });
+    await storage.put("session", "session", session("a-song"));
+    local.setItem("banjo.session", JSON.stringify(session("b-song")));
+    const store = new AppStore(fakeServices(storage), SONGS, local);
+    await store.load();
+    expect(store.session.value.songId).toBe("b-song");
   });
 
   it("never fails a save silently: it shows a notice and retries (I6)", async () => {
