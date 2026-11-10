@@ -87,7 +87,7 @@ Notes for the arranger:
 - **Melody on strings 1–3**, picked by M, I or T as the roll dictates. Thumb-lead melody on strings 3 and 4 is idiomatic too.
 - **Prefer open strings and first position** (frets 0–4) for "down-the-neck" arrangements. Up-the-neck arrangements use the movable shapes in §8.
 - **Filler notes are chord tones** from the current chord shape, plus the open 5th-string drone.
-- **The 5th-string drone (g) is acceptable over almost any chord in G-family keys**, including C and D. That clash is part of the sound. Use it freely in filler slots.
+- **The 5th-string drone (g) is acceptable over almost any chord in G-family keys**, including C and D. That clash is part of the sound. Use it freely in filler slots. The exceptions: a drone that is **outside the key** (open g in B major, where the key has G♯; that is what the capo and the raised 5th string are for, §9), and a drone a semitone from a chord's out-of-key note (g under an E or E7 chord in G, against its G♯). There the thumb plays the 4th or 3rd string instead.
 - **Change rolls to follow the melody.** Players switch roll patterns phrase by phrase so the strings they hit line up with the melody.
 
 ---

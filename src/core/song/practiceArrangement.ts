@@ -3,13 +3,19 @@
 // - The song's own (hand-written) tab, with a capo, when the key keeps the same shapes.
 // - Otherwise, C6 arranges the melody in the new shape key (e.g. D position for D major) and
 //   the UI says "This key uses an auto-generated arrangement."
-// - Songs with no tab, or a stale one, always get a generated arrangement.
+// - Songs with no tab, or a stale one, always get a generated arrangement, and it is always
+//   made in the shapes C8 gives for the sounding key: a song printed in B major is arranged in
+//   G shapes and played with a capo at 4, never as "B shapes" on open strings. (The key a song
+//   is printed in says nothing about banjo shapes; only a hand-written tab does. Arranging in
+//   the printed key put the open 5th string, g, under B major's G♯ all through the song.)
 
 import type { ArrangeResult } from "../banjo/arranger.ts";
 import { arrange } from "../banjo/arranger.ts";
 import type { PositionPlan } from "../banjo/position.ts";
 import { planFor } from "../banjo/position.ts";
+import type { CapoPlan } from "../banjo/tuning.ts";
 import type { ArrangedMeasure } from "../banjo/types.ts";
+import { formatKey } from "../music/keys.ts";
 import { mod12, pitchClass } from "../music/notes.ts";
 import { transposeKey } from "../music/spelling.ts";
 import type { SongIndex } from "./abcIndex.ts";
@@ -30,8 +36,6 @@ export interface PracticeArrangement {
   readonly arrangeResult: ArrangeResult | null;
 }
 
-const cache = new Map<string, ArrangeResult>();
-
 /** djb2: a quick text hash, so an edited song never reuses a stale arrangement. */
 function hash(text: string): string {
   let h = 5381;
@@ -39,25 +43,103 @@ function hash(text: string): string {
   return (h >>> 0).toString(36);
 }
 
-function arrangeCached(
-  key: string,
+/**
+ * The plan as the arranger sees it. It works in the shape key, where the capo is the nut, so
+ * the capo is 0 and the 5th string keeps only what the shapes themselves raise it by (a for D
+ * position). Tab frets are capo-relative (C2), so the result plays with the real plan as is.
+ */
+export function shapePlan(plan: PositionPlan): CapoPlan {
+  const semitones = plan.capo.fifth.semitones - plan.capo.capo;
+  return { capo: 0, fifth: { semitones, by: semitones === 0 ? "none" : "retune" } };
+}
+
+export interface ShapeArrangement {
+  /** The song in the plan's shape key (the song's own ABC if it is already in it). */
+  readonly abc: string;
+  readonly index: SongIndex;
+  readonly result: ArrangeResult;
+}
+
+/**
+ * C6's arrangement of a song for a plan: the melody is moved into the plan's shape key and
+ * arranged there, so the tab's frets count from the plan's capo.
+ */
+export function arrangeForPlan(
+  abc: string,
   index: SongIndex,
-  overrides: Readonly<Record<string, string>> | undefined,
+  plan: PositionPlan,
+  opts: {
+    readonly overrides?: ReadonlyMap<number, string>;
+    readonly rolls?: readonly string[] | null;
+  } = {},
+): ShapeArrangement {
+  const toShape = mod12(pitchClass(plan.shapeKey.tonic) - pitchClass(index.key.tonic));
+  // Move the melody the short way round (up to 6 semitones either way).
+  const semis = toShape > 6 ? toShape - 12 : toShape;
+  // A song already in its shape key is arranged as written.
+  const movedAbc = semis === 0 ? abc : transposeAbc(abc, semis, plan.shapeKey).abc;
+  const moved = semis === 0 ? index : indexAbc(movedAbc);
+  const result = arrange(moved, {
+    plan: shapePlan(plan),
+    ...(opts.rolls ? { rolls: opts.rolls } : {}),
+    ...(opts.overrides ? { overrides: opts.overrides } : {}),
+  });
+  return { abc: movedAbc, index: moved, result };
+}
+
+const cache = new Map<string, ShapeArrangement>();
+
+function arrangeCached(
+  loaded: LoadedSong,
+  plan: PositionPlan,
   rolls: readonly string[] | null,
-): ArrangeResult {
-  const fullKey = `${key}:${JSON.stringify(overrides ?? {})}:${rolls ? [...rolls].sort().join(",") : "all"}`;
-  let r = cache.get(fullKey);
+): ShapeArrangement {
+  const { song } = loaded;
+  const key = [
+    song.id,
+    hash(song.abc),
+    formatKey(plan.shapeKey, "ascii"),
+    shapePlan(plan).fifth.semitones,
+    JSON.stringify(song.overrides ?? {}),
+    rolls ? [...rolls].sort().join(",") : "all",
+  ].join(":");
+  let r = cache.get(key);
   if (!r) {
-    r = arrange(index, {
-      ...(rolls ? { rolls } : {}),
-      ...(overrides
-        ? { overrides: new Map(Object.entries(overrides).map(([m, roll]) => [Number(m), roll])) }
+    r = arrangeForPlan(song.abc, loaded.index, plan, {
+      rolls,
+      ...(song.overrides
+        ? {
+            overrides: new Map(
+              Object.entries(song.overrides).map(([m, roll]) => [Number(m), roll]),
+            ),
+          }
         : {}),
     });
     if (cache.size > 40) cache.clear();
-    cache.set(fullKey, r);
+    cache.set(key, r);
   }
   return r;
+}
+
+/** The song's hand-written tab, if it has one that matches its notation. */
+function handTab(loaded: LoadedSong): readonly ArrangedMeasure[] | null {
+  return loaded.arrangement && !loaded.stale ? loaded.arrangement.measures : null;
+}
+
+/**
+ * The capo plan for the open song, `keyShift` semitones above its printed key (F11).
+ * A hand-written tab fixes the shapes: a capo of 0–5 on them keeps the tab. A song without one
+ * has no shapes of its own, so C8's table picks them for the sounding key.
+ */
+export function practicePlan(
+  loaded: LoadedSong,
+  keyShift: number,
+  spikes: readonly number[],
+): PositionPlan {
+  const sounding = transposeKey(loaded.index.key, keyShift);
+  return handTab(loaded)
+    ? planFor(sounding, { arrangementShape: loaded.index.key, spikes })
+    : planFor(sounding, { spikes });
 }
 
 export function practiceArrangement(
@@ -67,55 +149,26 @@ export function practiceArrangement(
   /** Roll ids the auto-arranger may use; null = all. Hand-written tabs are left as they are. */
   rolls: readonly string[] | null = null,
 ): PracticeArrangement {
-  const songKey = loaded.index.key;
-  const sounding = transposeKey(songKey, keyShift);
-  const hand = loaded.arrangement && !loaded.stale ? loaded.arrangement.measures : null;
-  const plan = planFor(sounding, { arrangementShape: songKey, spikes });
+  const hand = handTab(loaded);
+  const plan = practicePlan(loaded, keyShift, spikes);
 
-  if (plan.keepsTab) {
-    if (hand)
-      return {
-        plan,
-        measures: hand,
-        index: loaded.index,
-        abc: loaded.song.abc,
-        generated: false,
-        arrangeResult: null,
-      };
-    const r = arrangeCached(
-      `${loaded.song.id}:${hash(loaded.song.abc)}:0`,
-      loaded.index,
-      loaded.song.overrides,
-      rolls,
-    );
+  if (hand && plan.keepsTab)
     return {
       plan,
-      measures: r.arrangement.measures,
+      measures: hand,
       index: loaded.index,
       abc: loaded.song.abc,
-      generated: true,
-      arrangeResult: r,
+      generated: false,
+      arrangeResult: null,
     };
-  }
 
-  // Different shapes: arrange the melody in the plan's shape key, played with its capo.
-  const toShape = mod12(pitchClass(plan.shapeKey.tonic) - pitchClass(songKey.tonic));
-  // Move the melody the short way round (up to 6 semitones either way).
-  const semis = toShape > 6 ? toShape - 12 : toShape;
-  const moved = transposeAbc(loaded.song.abc, semis, plan.shapeKey);
-  const index = indexAbc(moved.abc);
-  const r = arrangeCached(
-    `${loaded.song.id}:${hash(loaded.song.abc)}:${semis}`,
-    index,
-    loaded.song.overrides,
-    rolls,
-  );
+  const r = arrangeCached(loaded, plan, rolls);
   return {
     plan,
-    measures: r.arrangement.measures,
-    index,
-    abc: moved.abc,
+    measures: r.result.arrangement.measures,
+    index: r.index,
+    abc: r.abc,
     generated: true,
-    arrangeResult: r,
+    arrangeResult: r.result,
   };
 }

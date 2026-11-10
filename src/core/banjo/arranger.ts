@@ -14,6 +14,7 @@
 
 import type { Chord } from "../music/chords.ts";
 import { chordPitchClasses, parseChord } from "../music/chords.ts";
+import { scalePitchClasses } from "../music/keys.ts";
 import { mod12 } from "../music/notes.ts";
 import type { IndexedMeasure, SongIndex } from "../song/abcIndex.ts";
 import { ROLLS } from "./rolls.ts";
@@ -34,6 +35,8 @@ import { ARRANGEMENT_SCHEMA_VERSION } from "./types.ts";
 /** Written melody sounds 12 semitones lower on the banjo (C9). */
 const NOTATION_OCTAVE = 12;
 const MAX_FIRST_POSITION_FRET = 5;
+/** Fretted notes under one chord fit in four adjacent frets (C4 H5). */
+const MAX_REACH = 3;
 
 /** Finger → strings it may pick (guide §3 usual + occasionally; C4 H4). */
 const STRINGS_FOR: Readonly<Record<Finger, readonly StringNo[]>> = {
@@ -55,6 +58,8 @@ export interface ArrangeWeights {
   melodyOnString4: number;
   highFret: number;
   nonChordFiller: number;
+  /** The open 5th string where it clashes with the key or the chord (see droneClashes). */
+  clashingDrone: number;
   namedRoll: number;
   halfRolls: number;
   sameRollAsBefore: number;
@@ -75,6 +80,7 @@ export const DEFAULT_WEIGHTS: ArrangeWeights = {
   melodyOnString4: 0.8,
   highFret: 0.6,
   nonChordFiller: 2.5,
+  clashingDrone: 6,
   namedRoll: -2,
   halfRolls: -1,
   sameRollAsBefore: -0.4,
@@ -239,6 +245,26 @@ function fretFor(
   return null;
 }
 
+/**
+ * Whether the open 5th string sounds wrong over a chord it isn't part of. The drone is welcome
+ * over almost any chord of its key (guide §4.2: g over C and D in G is part of the sound), but
+ * not when it is outside the key (open g in B major, against the key's G♯), nor when the chord
+ * has an out-of-key note a semitone from it (g against the G♯ of an E7 in the key of G).
+ */
+export function droneClashes(
+  drone: number,
+  chord: ReadonlySet<number>,
+  scale: ReadonlySet<number>,
+): boolean {
+  const pc = mod12(drone);
+  if (chord.has(pc)) return false;
+  if (!scale.has(pc)) return true;
+  for (const c of chord) {
+    if (!scale.has(c) && (mod12(c - pc) === 1 || mod12(pc - c) === 1)) return true;
+  }
+  return false;
+}
+
 /** Where a pitch sits in first position on a string, if anywhere. */
 function fretForPitch(
   tuning: Tuning,
@@ -273,6 +299,22 @@ interface SlotState {
   usedSlur: boolean;
   /** The last pick was a pinch: the hand resets, so the next single note is unrestricted. */
   reset: boolean;
+  /** Lowest and highest fretted note under the current chord (H5), or null if none yet. */
+  span: Span | null;
+}
+
+type Span = readonly [lo: number, hi: number];
+
+/**
+ * The left hand's span after adding a note, or undefined if it would stretch past four frets
+ * (H5). Checked inside the search so that a melody note out of reach is left out, rather than
+ * every candidate for the measure failing C4 afterwards.
+ */
+function widen(span: Span | null, string: StringNo, fret: number): Span | null | undefined {
+  if (fret === 0 || string === 5) return span;
+  const lo = Math.min(span?.[0] ?? fret, fret);
+  const hi = Math.max(span?.[1] ?? fret, fret);
+  return hi - lo > MAX_REACH ? undefined : [lo, hi];
 }
 
 function measureOptions(
@@ -284,6 +326,7 @@ function measureOptions(
   tuning: Tuning,
   plan: CapoPlan,
   w: ArrangeWeights,
+  scale: ReadonlySet<number>,
 ): Option[] {
   const slots = m.slots;
   const tokens =
@@ -295,13 +338,17 @@ function measureOptions(
 
   // Beam over partial states, keyed by the last pick and last note.
   let states: SlotState[] = [
-    { cost: 0, notes: [], picks: [], last: null, usedSlur: false, reset: false },
+    { cost: 0, notes: [], picks: [], last: null, usedSlur: false, reset: false, span: null },
   ];
+  const chordStarts = new Set(m.chords.map((c) => c.atSlot));
   for (let slot = 0; slot < slots; slot++) {
+    // A new chord is a new left-hand shape: the reach is counted afresh (as C4 H5 does).
+    if (chordStarts.has(slot)) states = states.map((st) => ({ ...st, span: null }));
     const tok = tokens[slot]!;
     const chord = chordAt(chords, slot, startChord);
     const pcs = chord ? chordPitchClasses(chord) : new Set<number>();
     const target = targetAt.get(slot);
+    const droneClash = droneClashes(pitchAt(tuning, 5, 0, plan), pcs, scale);
     const next: SlotState[] = [];
     for (const st of states) {
       const prevPick = st.reset ? null : (st.picks[st.picks.length - 1] ?? null);
@@ -323,8 +370,9 @@ function measureOptions(
       if (tok.length > 1) {
         // Pinch (e.g. "TM"): thumb on 5/4/3, middle on 1; melody on the middle's string if it fits.
         const fingers = [...tok] as Finger[];
+        // The thumb takes the 4th string where the open 5th would clash with the chord or key.
         const strings: StringNo[] = fingers.map(
-          (f) => (f === "M" ? 1 : f === "I" ? 2 : 5) as StringNo,
+          (f) => (f === "M" ? 1 : f === "I" ? 2 : droneClash ? 4 : 5) as StringNo,
         );
         // H9: no pinch containing the previous single note's finger, except T on a strong slot.
         if (
@@ -367,12 +415,16 @@ function measureOptions(
         // Pinch strings must be ordered T > I > M and distinct.
         const ordered = notes.slice().sort((a, b) => RANK[b.finger!] - RANK[a.finger!]);
         if (ordered.some((n, i) => i > 0 && n.string >= ordered[i - 1]!.string)) continue;
+        let span: Span | null | undefined = st.span;
+        for (const n of notes) if (span !== undefined) span = widen(span, n.string, n.fret);
+        if (span === undefined) continue;
         if (target && !melodyPlaced) cost += miss(target);
         next.push({
           cost,
           notes: [...st.notes, ...notes],
           picks: st.picks,
           last: null,
+          span,
           usedSlur: st.usedSlur,
           // A pinch resets the hand: the next single note isn't restricted by H1 (C4 H9).
           reset: true,
@@ -384,7 +436,8 @@ function measureOptions(
       // Melody by slur from the previous note (hammer up, pull down, slide up a fret or two).
       if (target && st.last && slot > 0) {
         const fr = fretForPitch(tuning, plan, st.last.string, target.midi);
-        if (fr !== null && fr !== st.last.fret && st.last.string !== 5) {
+        const span = fr === null ? undefined : widen(st.span, st.last.string, fr);
+        if (fr !== null && fr !== st.last.fret && st.last.string !== 5 && span !== undefined) {
           const technique: Technique =
             fr > st.last.fret
               ? fr - st.last.fret <= 2 && st.last.fret > 0
@@ -409,6 +462,7 @@ function measureOptions(
             ],
             picks: st.picks,
             last: { string: st.last.string, fret: fr },
+            span,
             usedSlur: true,
             reset: st.reset,
           });
@@ -444,12 +498,16 @@ function measureOptions(
               s,
               fret: 0,
               melody: false,
-              cost: (target ? miss(target) : 0) + (s === 5 ? 0.2 : w.nonChordFiller),
+              cost:
+                (target ? miss(target) : 0) +
+                (s !== 5 ? w.nonChordFiller : droneClash ? w.clashingDrone : 0.2),
             });
           }
         }
       }
       for (const c of choices) {
+        const span = widen(st.span, c.s, c.fret);
+        if (span === undefined) continue;
         const handMove =
           st.last && c.fret > 0 && st.last.fret > 0
             ? Math.abs(c.fret - st.last.fret) * w.handMove
@@ -471,6 +529,7 @@ function measureOptions(
           ],
           picks: [...st.picks, { finger: f, string: c.s }],
           last: { string: c.s, fret: c.fret },
+          span,
           usedSlur: st.usedSlur,
           reset: false,
         });
@@ -480,7 +539,7 @@ function measureOptions(
     const best = new Map<string, SlotState>();
     for (const st of next) {
       const p = st.picks[st.picks.length - 1];
-      const key = `${st.reset ? "R" : `${p?.finger}${p?.string}`}:${st.last?.string}/${st.last?.fret}`;
+      const key = `${st.reset ? "R" : `${p?.finger}${p?.string}`}:${st.last?.string}/${st.last?.fret}:${st.span?.join("-")}`;
       const cur = best.get(key);
       if (!cur || st.cost < cur.cost) best.set(key, st);
     }
@@ -523,6 +582,7 @@ function fallbackMeasure(
   startChord: Chord | null,
   tuning: Tuning,
   plan: CapoPlan,
+  scale: ReadonlySet<number>,
 ): ArrangedMeasure {
   const roll = ROLLS[0]!;
   const fingers = roll.fingers.slice(roll.fingers.length - m.slots);
@@ -530,7 +590,9 @@ function fallbackMeasure(
   const notes: TabNote[] = fingers.map((f, i) => {
     const chord = chordAt(parsed, i, startChord);
     const pcs = chord ? chordPitchClasses(chord) : new Set<number>();
-    const s = strings[i]!;
+    // The thumb moves to the 4th string where the open 5th would clash.
+    const drone = pitchAt(tuning, 5, 0, plan);
+    const s = strings[i] === 5 && droneClashes(drone, pcs, scale) ? 4 : strings[i]!;
     return {
       slot: i,
       durationSlots: 1,
@@ -565,6 +627,7 @@ export function arrange(index: SongIndex, opts: ArrangeOptions = {}): ArrangeRes
   const w = { ...DEFAULT_WEIGHTS, ...opts.weights };
   const beam = opts.beam ?? 16;
   const allowed = allowedTemplates(opts.rolls);
+  const scale = scalePitchClasses(index.key);
   const problems: ArrangeProblem[] = [];
   const dropped = new Map<number, number>();
 
@@ -583,7 +646,7 @@ export function arrange(index: SongIndex, opts: ArrangeOptions = {}): ArrangeRes
       : allowed.filter((t) => t.name !== "tag" || isLast);
     const cands: Candidate[] = [];
     for (const tpl of templates) {
-      for (const o of measureOptions(tpl, m, targets, parsed, startChord, tuning, plan, w)) {
+      for (const o of measureOptions(tpl, m, targets, parsed, startChord, tuning, plan, w, scale)) {
         const measure: ArrangedMeasure = {
           index: m.index,
           slots: m.slots,
@@ -617,7 +680,7 @@ export function arrange(index: SongIndex, opts: ArrangeOptions = {}): ArrangeRes
           : "Couldn't fit the melody into a roll here, so this measure is a plain roll on the chord",
       });
       unique.push({
-        measure: fallbackMeasure(m, raw, parsed, startChord, tuning, plan),
+        measure: fallbackMeasure(m, raw, parsed, startChord, tuning, plan, scale),
         cost: 100,
       });
     }
@@ -630,7 +693,7 @@ export function arrange(index: SongIndex, opts: ArrangeOptions = {}): ArrangeRes
       if (tpl.kind === "fill" || firstFingers.size >= 3) continue;
       const first = tpl.tokens[tpl.tokens.length - m.slots] ?? "";
       if (firstFingers.has(first)) continue;
-      const opt = measureOptions(tpl, m, [], parsed, startChord, tuning, plan, w)[0];
+      const opt = measureOptions(tpl, m, [], parsed, startChord, tuning, plan, w, scale)[0];
       if (!opt) continue;
       const measure: ArrangedMeasure = {
         index: m.index,

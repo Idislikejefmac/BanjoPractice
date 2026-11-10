@@ -11,7 +11,7 @@ import { transposeAbc } from "../core/song/transposeAbc.ts";
 import { SIZE_STEPS } from "../app/model.ts";
 import type { ArrangedMeasure } from "../core/banjo/types.ts";
 import { capoPlan } from "../core/banjo/tuning.ts";
-import { formatKey } from "../core/music/keys.ts";
+import { formatKey, sameKey } from "../core/music/keys.ts";
 import type { IndexedMeasure } from "../core/song/abcIndex.ts";
 import type { DisplayLine } from "../core/song/layoutAbc.ts";
 import { fitLines, leadInAbc, lineAbc, lineNeed, splitLines } from "../core/song/layoutAbc.ts";
@@ -422,11 +422,13 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
         <h2>{song.title}</h2>
         <p class="song-meta">
           <span>Key of {formatKey(position?.soundingKey ?? index.key)}</span>
-          {keyShift > 0 && shapeNotation && practiceTab && (
-            <span data-testid="notation-key">
-              Notes shown in {formatKey(practiceTab.index.key)}, as the tab
-            </span>
-          )}
+          {shapeNotation &&
+            practiceTab &&
+            !sameKey(practiceTab.index.key, position!.soundingKey) && (
+              <span data-testid="notation-key">
+                Notes shown in {formatKey(practiceTab.index.key)}, as the tab
+              </span>
+            )}
           <span>
             {index.meter.num}/{index.meter.den}
           </span>

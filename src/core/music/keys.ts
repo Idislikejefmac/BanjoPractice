@@ -1,7 +1,7 @@
 // C1 · Keys, modes and key signatures.
 
 import type { AccidentalStyle, NoteName } from "./notes.ts";
-import { formatNoteName, noteAt, parseNoteName } from "./notes.ts";
+import { formatNoteName, mod12, noteAt, parseNoteName, pitchClass } from "./notes.ts";
 
 export type Mode = "major" | "minor" | "dorian" | "mixolydian";
 
@@ -102,4 +102,12 @@ export function sameKey(a: Key, b: Key): boolean {
     a.tonic.letter === b.tonic.letter &&
     a.tonic.accidental === b.tonic.accidental
   );
+}
+
+const MAJOR_SCALE: readonly number[] = [0, 2, 4, 5, 7, 9, 11];
+
+/** The seven pitch classes of a key (its key signature's notes). */
+export function scalePitchClasses(key: Key): Set<number> {
+  const tonic = pitchClass(relativeMajorTonic(key));
+  return new Set(MAJOR_SCALE.map((step) => mod12(tonic + step)));
 }

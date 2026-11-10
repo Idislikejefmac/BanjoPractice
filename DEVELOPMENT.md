@@ -237,7 +237,7 @@ Performance: a 32-measure tune arranges in under 300 ms on the iPad. The arrange
 
 Given a sounding key (tonic + mode), the arrangement's shape key and Dad's spikes, C8 returns a `PositionPlan`.
 
-**When the key isn't changed**, the plan uses the arrangement's own shape key: a tune arranged in C position plays in C position, uncapoed.
+**When the key isn't changed**, the plan uses the arrangement's own shape key: a tune arranged in C position plays in C position, uncapoed. This holds only for a **hand-written** tab, which is what fixes the shapes. A song with no tab (or a stale one) has no shapes of its own: the key it is printed in is only its sounding key, so the table below picks the shapes and capo even at the printed key (a song printed in B major is arranged in G shapes, capo 4).
 
 **When Dad changes the key**, plans are keyed on the **key signature** (the pitch collection), not just the tonic, through a per-mode table:
 
@@ -813,6 +813,8 @@ Choices made while building, where the spec left room. Each is covered by tests.
 - **Scheduler (A1).** Slots that are already overdue (page frozen, clock jump) are skipped and counted as late, never played as a burst. Tempo changes apply from the next slot.
 - **Interruptions (P2).** An `interrupted`/`suspended` context while playing stops the transport with "Paused by the iPad. Tap Play to carry on."; the next Play resumes from the same measure.
 - **Missing samples (P3).** Playback never goes silent: a missing or undecodable sample falls back to a generated pluck, with a one-time notice and a diagnostics entry.
+- **Generated tabs follow C8's table (C6, C8; 2026-11-10).** `practicePlan` gives the plan for the open song: a hand-written tab keeps its shapes (capo 0–5), and a song without one always takes the table's shapes for the sounding key, so B major is G shapes with capo 4 and E major is D shapes with capo 2. `arrangeForPlan` moves the melody into the shape key and arranges it there with the shape's own 5th string (a for D position), so a melody note on the 5th string sounds what is printed. Before this, an untabbed song was arranged in its printed key with no capo, and the open 5th string (g) rang against the G♯ of B and E major: 124 such notes across Dad's 17 songs, 76 of them in Fox on the Run. The song editor's preview uses the same plan, and the "notation key" choice (F34) is offered whenever the shape key differs from the sounding key.
+- **The drone must fit (C6).** The open 5th string as a filler is free over any chord of its key (guide §4.2), but costs `clashingDrone` when it is outside the key, or a semitone from an out-of-key chord tone (g against the G♯ of an E7 in G); the thumb then takes the 4th or 3rd string (`droneClashes`). The search also keeps the left hand within four frets per chord (H5) as it goes, so a melody note out of reach is left out instead of every candidate for the measure failing C4.
 - **Arranger (C6).** Weights in `DEFAULT_WEIGHTS`. Slurs cost a little (rolls should carry the tune); a missed weak-slot melody note costs 15% of a strong one. Every measure also gets melody-free backup candidates so a legal join always exists (fast-check seed −12563778).
 - **Keys (F11).** The key picker offers all 12 keys. Capo 0–5 on the song's own shapes keeps the hand-written tab; other keys use C8's table and a C6 arrangement, with "This key uses an auto-generated arrangement."
 - **Exercises (F15).** One exercise per roll: open strings (right hand only), then G–C–D, G–C–G–D and G–Em–C–D, each a P: part so the part loops work.

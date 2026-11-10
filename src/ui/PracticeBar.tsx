@@ -8,11 +8,10 @@ import type { AppStore } from "../app/store.ts";
 import type { MetronomeMode, PartId, PracticePrefs } from "../app/model.ts";
 import { DEFAULT_TEMPO, TEMPO_MAX, TEMPO_MIN } from "../app/model.ts";
 import { MELODY_INSTRUMENTS } from "../audio/engine.ts";
-import { planFor } from "../core/banjo/position.ts";
 import { ROLLS } from "../core/banjo/rolls.ts";
-import { transposeKey } from "../core/music/spelling.ts";
 import { songParts } from "../core/playback/parts.ts";
-import { formatKey } from "../core/music/keys.ts";
+import { practicePlan } from "../core/song/practiceArrangement.ts";
+import { formatKey, sameKey } from "../core/music/keys.ts";
 
 const PART_LABEL: Readonly<Record<PartId, string>> = {
   melody: "Melody",
@@ -104,16 +103,16 @@ export function PracticeBar({ store, player }: { store: AppStore; player: Player
   // Measures the arranger couldn't fit into the chosen rolls (shown in the Rolls panel).
   const unfitted = panel === "rolls" ? (player.tab()?.arrangeResult?.problems.length ?? 0) : 0;
   const allKeys = Array.from({ length: 12 }, (_, shift) => {
-    const plan = planFor(transposeKey(loaded.index.key, shift), {
-      arrangementShape: loaded.index.key,
-      spikes: settings.spikes,
-    });
+    const plan = practicePlan(loaded, shift, settings.spikes);
     const name = formatKey(plan.soundingKey).replace(" major", "");
     const position = `${formatKey(plan.shapeKey).replace(" major", "")} position`;
     const capo = plan.capo.capo > 0 ? `capo ${plan.capo.capo}` : "";
     const where = plan.keepsTab ? capo : [position, capo].filter(Boolean).join(", ");
     return { shift, label: where ? `${name} (${where})` : name };
   });
+  // The key the tab's shapes are in differs from the key it sounds in whenever there's a capo
+  // (a song printed in B is tabbed in G shapes), so the notation can be shown in either (F34).
+  const tabPlan = practicePlan(loaded, p.keyShift, settings.spikes);
   const measures = loaded.index.measures.map((m) => m.index);
   const toggle = (which: Panel) => setPanel(panel === which ? "none" : which);
   const step = player.step.value;
@@ -509,7 +508,7 @@ export function PracticeBar({ store, player }: { store: AppStore; player: Player
                   ))}
                 </div>
               </fieldset>
-              {p.keyShift > 0 && (
+              {!sameKey(tabPlan.shapeKey, tabPlan.soundingKey) && (
                 <fieldset class="setting-row choice">
                   <legend>Notation key with a capo</legend>
                   <div class="segmented">
@@ -517,11 +516,11 @@ export function PracticeBar({ store, player }: { store: AppStore; player: Player
                       [
                         [
                           "sounding",
-                          `As it sounds (${formatKey(transposeKey(loaded.index.key, p.keyShift)).replace(" major", "")})`,
+                          `As it sounds (${formatKey(tabPlan.soundingKey).replace(" major", "")})`,
                         ],
                         [
                           "shape",
-                          `As the tab (${formatKey(loaded.index.key).replace(" major", "")})`,
+                          `As the tab (${formatKey(tabPlan.shapeKey).replace(" major", "")})`,
                         ],
                       ] as const
                     ).map(([v, label]) => (

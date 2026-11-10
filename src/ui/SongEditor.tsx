@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { AppStore } from "../app/store.ts";
-import { arrange } from "../core/banjo/arranger.ts";
+import { planFor } from "../core/banjo/position.ts";
 import { ROLLS } from "../core/banjo/rolls.ts";
 import type { Key, Mode } from "../core/music/keys.ts";
 import { formatKey, parseKey } from "../core/music/keys.ts";
@@ -21,6 +21,7 @@ import {
   toAbc,
   usedEighths,
 } from "../core/song/editorModel.ts";
+import { arrangeForPlan } from "../core/song/practiceArrangement.ts";
 import type { Song } from "../core/song/song.ts";
 import { SONG_SCHEMA_VERSION } from "../core/song/song.ts";
 import { evenGeometry, layoutTabLine } from "../render/tabLayout.ts";
@@ -156,18 +157,24 @@ export function SongEditor({ store }: { store: AppStore }) {
   };
   const [length, setLength] = useState<Eighths>(2);
 
-  // Live arrangement (C6) for the preview and to explain roll overrides.
+  // Live arrangement (C6) for the preview and to explain roll overrides: the same tab the song
+  // view will show, in the shapes and capo C8 gives for the song's key.
   const abc = abcMode ? abcText : toAbc(song);
+  const spikes = store.settings.value.spikes;
   const live = useMemo(() => {
     try {
       const idx = indexAbc(abc);
-      if (idx.errors.length > 0) return { idx, result: null, error: idx.errors[0]! };
-      const result = arrange(idx, { overrides: abcMode ? new Map() : overridesOf(song) });
-      return { idx, result, error: null };
+      if (idx.errors.length > 0) return { idx, plan: null, result: null, error: idx.errors[0]! };
+      const plan = planFor(idx.key, { spikes });
+      const { result } = arrangeForPlan(abc, idx, plan, {
+        overrides: abcMode ? new Map() : overridesOf(song),
+      });
+      return { idx, plan, result, error: null };
     } catch (e) {
-      return { idx: null, result: null, error: e instanceof Error ? e.message : String(e) };
+      const error = e instanceof Error ? e.message : String(e);
+      return { idx: null, plan: null, result: null, error };
     }
-  }, [abc, abcMode, song]);
+  }, [abc, abcMode, song, spikes]);
   const problem = live.result?.problems.find((p) => p.measure === current + 1);
   const previewMeasures = live.result?.arrangement.measures.slice(
     Math.max(0, current - 1),
@@ -524,6 +531,11 @@ export function SongEditor({ store }: { store: AppStore }) {
 
       <section>
         <h3>Tab preview</h3>
+        {live.plan && live.plan.capo.capo > 0 && (
+          <p class="setting-help" data-testid="preview-capo">
+            {live.plan.instruction}
+          </p>
+        )}
         {previewMeasures && previewMeasures.length > 0 ? (
           <TabSvg
             p={layoutTabLine(previewMeasures, evenGeometry(previewMeasures, 700, 30), 700, {
@@ -531,7 +543,8 @@ export function SongEditor({ store }: { store: AppStore }) {
               showRollNames: true,
               showAccents: false,
               showChords: true,
-              fretNumbering: "actual",
+              fretNumbering: store.settings.value.fretNumbering,
+              ...(live.plan ? { plan: live.plan.capo } : {}),
               showMeasureNumber: true,
               lineStart: 0,
             })}
