@@ -2,7 +2,7 @@ import abcjs from "abcjs";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { indexAbc } from "../../src/core/song/abcIndex.ts";
-import { lineAbc, lineBreaks, lyricLines } from "../../src/core/song/layoutAbc.ts";
+import { lineAbc, lyricLines } from "../../src/core/song/layoutAbc.ts";
 import { evenGeometry, layoutTabLine } from "../../src/render/tabLayout.ts";
 import { tab } from "../helpers/tab.ts";
 
@@ -21,6 +21,11 @@ w:fun
 
 describe("lyrics", () => {
   const idx = indexAbc(ABC);
+  // Two measures on the first display line, the third on the second.
+  const lines = [
+    { from: 0, to: 2 },
+    { from: 2, to: 3 },
+  ];
 
   it("keeps each note's syllable for every verse", () => {
     expect(idx.verses).toBe(2);
@@ -30,7 +35,6 @@ describe("lyrics", () => {
   });
 
   it("writes the words under each display line, realigned at every bar", () => {
-    const lines = lineBreaks(idx.measures, 2);
     const first = lineAbc(ABC, idx, lines[0]!, { showMeter: true, showLyrics: true });
     expect(first).toContain("w:Go-in' up Crip-ple Creek, | go-in' in a run, _");
     expect(first).toContain("w:I got a gal at the | head of the creek, go up");
@@ -52,7 +56,7 @@ describe("lyrics", () => {
   // Regression: field lines between measures (w:, P:) leaked into the music text of the
   // per-line layout ABC, garbling the notation (found while adding lyrics).
   it("never copies field lines into the music text", () => {
-    for (const [i, line] of lineBreaks(idx.measures, 2).entries()) {
+    for (const [i, line] of lines.entries()) {
       const music = lineAbc(ABC, idx, line, { showMeter: i === 0 }).split("\n")[6]!;
       expect(music).not.toMatch(/[A-Za-z]:/);
     }

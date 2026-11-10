@@ -347,15 +347,3 @@ export function recentSongIds(prefs: readonly SongPrefs[], n = 5): string[] {
     .slice(0, n)
     .map((p) => p.songId);
 }
-
-/**
- * Measures per display line: the most that fit at the minimum slot width, but only 1, 2 or 4
- * (or 8 on very wide screens) so 4-bar phrases stay together.
- */
-export function measuresPerLine(width: number, sizeScale: number, slotsPerMeasure = 8): number {
-  const slotMin = 24 * sizeScale;
-  const measureWidth = slotsPerMeasure * slotMin + 14 * sizeScale;
-  const fits = Math.floor((width - 40) / measureWidth);
-  for (const n of [8, 4, 2]) if (fits >= n) return n;
-  return 1;
-}

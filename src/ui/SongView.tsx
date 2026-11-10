@@ -8,24 +8,25 @@ import { practiceArrangement } from "../core/song/practiceArrangement.ts";
 import type { SongIndex } from "../core/song/abcIndex.ts";
 import { indexAbc } from "../core/song/abcIndex.ts";
 import { transposeAbc } from "../core/song/transposeAbc.ts";
-import { SIZE_STEPS, measuresPerLine } from "../app/model.ts";
+import { SIZE_STEPS } from "../app/model.ts";
 import type { ArrangedMeasure } from "../core/banjo/types.ts";
 import { capoPlan } from "../core/banjo/tuning.ts";
 import { formatKey } from "../core/music/keys.ts";
 import type { IndexedMeasure } from "../core/song/abcIndex.ts";
 import type { DisplayLine } from "../core/song/layoutAbc.ts";
-import { lineAbc, lineBreaks, splitLines } from "../core/song/layoutAbc.ts";
+import { fitLines, leadInAbc, lineAbc, lineNeed, splitLines } from "../core/song/layoutAbc.ts";
 import type { LoadedSong } from "../core/song/song.ts";
 import { loadSong, songNotes } from "../core/song/song.ts";
 import type { LineMeasureInfo } from "../render/notation.ts";
-import { renderNotationLine } from "../render/notation.ts";
+import { lineWidth, notationPage, tabPage } from "../render/lineFit.ts";
+import { measureNotation, renderNotationLine } from "../render/notation.ts";
 import type { MeasureGeometry, TabLayoutOptions } from "../render/tabLayout.ts";
 import { evenGeometry, layoutTabLine } from "../render/tabLayout.ts";
 import { TabSvg } from "../render/TabSvg.tsx";
 
 /** Notation is drawn a little smaller than the tab: Dad reads mainly tab (F4). */
 const NOTATION_SCALE = 0.9;
-const NO_CUTS: readonly number[] = [];
+const NONE: readonly number[] = [];
 const TAB_SCALE = 1.1;
 
 function info(m: IndexedMeasure): LineMeasureInfo {
@@ -72,11 +73,15 @@ interface LineProps {
   readonly stepAt: { readonly measure: number; readonly slot: number } | null;
   /** F30: the note playing now (not while stepping). */
   readonly playAt: { readonly measure: number; readonly slot: number } | null;
-  /** The notation came out wider than the screen: use fewer measures on each line. */
+  /** The notation came out wider than the screen: give this line's measures more room. */
   readonly onTooWide: (from: number, to: number) => void;
   readonly line: DisplayLine;
   readonly lineNo: number;
+  /** The column's width, and how much of it this line's staff spans (all, bar a very short line). */
   readonly width: number;
+  readonly staffWidth: number;
+  /** A single measure too wide for the screen: draw its words with no air between them. */
+  readonly tight: boolean;
   readonly scale: number;
   readonly tabOnly: boolean;
   readonly arranged: readonly ArrangedMeasure[] | null;
@@ -96,6 +101,8 @@ function SongLine({
   line,
   lineNo,
   width,
+  staffWidth,
+  tight,
   scale,
   tabOnly,
   arranged,
@@ -115,18 +122,33 @@ function SongLine({
     const abc = lineAbc(notation.abc, notation.index, line, {
       showMeter: lineNo === 0,
       showLyrics: tabOpts.showLyrics,
+      fill: true,
     });
     let result = null;
     try {
-      result = renderNotationLine(el, abc, width, NOTATION_SCALE * scale, infos, onChordTap);
+      const k = NOTATION_SCALE * scale;
+      result = renderNotationLine(el, abc, staffWidth, k, infos, onChordTap, tight);
     } catch {
       result = null;
     }
     // Words under crowded notes can make abcjs draw the staff wider than asked for.
     if (result && result.drawnWidth > width + 2) onTooWide(line.from, line.to);
     setGeometry(result?.geometry ?? evenGeometry(infos, width, 34 * scale));
-    // `infos` is derived from `loaded` and `line`, which are the dependencies.
-  }, [loaded, notation, line, lineNo, width, scale, tabOnly, tabOpts.showLyrics]);
+    // `infos` is derived from `loaded` and the line's measures, which are the dependencies. (Not
+    // `line` itself: a new fit makes new line objects, and only changed lines need redrawing.)
+  }, [
+    loaded,
+    notation,
+    line.from,
+    line.to,
+    lineNo,
+    width,
+    staffWidth,
+    tight,
+    scale,
+    tabOnly,
+    tabOpts.showLyrics,
+  ]);
 
   const tab =
     geometry && arranged
@@ -180,32 +202,6 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
   const tabOnly = view === "tab";
 
   const loaded = useMemo(() => (song ? loadSong(song) : null), [song]);
-  // Words under crowded notes can make abcjs draw a line wider than the screen. A line that
-  // does reports its measures here and is cut in two; every other line is left as it was. The
-  // cuts are remembered with the song, width and size they were found for, so a different one
-  // starts afresh (no reset effect: it would run after the first render and undo them).
-  const fitKey = `${song?.id}|${width}|${scale}|${view}|${settings.showLyrics}`;
-  const [fit, setFit] = useState<{ key: string; cuts: readonly number[] }>({
-    key: fitKey,
-    cuts: [],
-  });
-  const cuts = fit.key === fitKey ? fit.cuts : NO_CUTS;
-  const tooWide = useCallback(
-    (from: number, to: number) =>
-      setFit((s) => {
-        const have = s.key === fitKey ? s.cuts : NO_CUTS;
-        const mid = from + Math.ceil((to - from) / 2);
-        if (to - from < 2 || have.includes(mid)) return s;
-        return { key: fitKey, cuts: [...have, mid] };
-      }),
-    [fitKey],
-  );
-  const lines = useMemo(() => {
-    if (!loaded || width <= 0) return [];
-    const per = measuresPerLine(width, TAB_SCALE * scale);
-    return splitLines(lineBreaks(loaded.index.measures, per), cuts);
-  }, [loaded, width, scale, cuts]);
-
   const keyShift = store.practice.value.keyShift;
   const rolls = store.practice.value.rolls;
   const shapeNotation = store.practice.value.notationKey === "shape";
@@ -225,6 +221,66 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
     const t = transposeAbc(loaded.song.abc, keyShift, practiceTab.plan.soundingKey);
     return { abc: t.abc, index: indexAbc(t.abc) };
   }, [loaded, practiceTab, keyShift, shapeNotation]);
+  // How wide each measure is at abcjs's natural spacing, words included: measured once per
+  // song, key and lyrics setting (the widths are in abcjs units, so the screen width and the
+  // size setting don't matter). Null in the tab-only view, or if abcjs can't draw the song.
+  const natural = useMemo(() => {
+    if (!loaded || !notation || tabOnly) return null;
+    const measures = loaded.index.measures;
+    if (notation.index.measures.length !== measures.length) return null;
+    const whole = { from: 0, to: measures.length };
+    const { abc, index } = notation;
+    return measureNotation(
+      {
+        song: lineAbc(abc, index, whole, { showMeter: false, showLyrics: settings.showLyrics }),
+        lead: leadInAbc(index, { showMeter: false, startRepeat: false }),
+        leadMeter: leadInAbc(index, { showMeter: true, startRepeat: false }),
+        leadRepeat: leadInAbc(index, { showMeter: false, startRepeat: true }),
+      },
+      measures.map(info),
+    );
+  }, [loaded, notation, tabOnly, settings.showLyrics]);
+
+  // The fit is corrected by what the drawing shows: a squeezed line that abcjs still drew wider
+  // than the screen (its words wouldn't give) has its measures marked `rigid` and the song is
+  // fitted again; a line that is too wide even unsqueezed is cut in two. Both are remembered
+  // with the song, key, width and size they were found for, so a different one starts afresh
+  // (no reset effect: it would run after the first render and undo them).
+  const fitKey = `${song?.id}|${keyShift}|${shapeNotation}|${width}|${scale}|${view}|${settings.showLyrics}`;
+  const [found, setFound] = useState<{
+    key: string;
+    rigid: readonly number[];
+    cuts: readonly number[];
+  }>({ key: fitKey, rigid: NONE, cuts: NONE });
+  const rigid = found.key === fitKey ? found.rigid : NONE;
+  const cuts = found.key === fitKey ? found.cuts : NONE;
+  const page = useMemo(() => {
+    if (!loaded || width <= 0) return null;
+    const measures = loaded.index.measures;
+    return natural
+      ? notationPage(natural, measures, width, NOTATION_SCALE * scale, TAB_SCALE * scale, rigid)
+      : tabPage(measures, width, TAB_SCALE * scale);
+  }, [loaded, natural, width, scale, rigid]);
+  const lines = useMemo(
+    () => (loaded && page ? splitLines(fitLines(loaded.index.measures, page), cuts) : []),
+    [loaded, page, cuts],
+  );
+  const tooWide = useCallback(
+    (from: number, to: number) => {
+      const squeezed =
+        loaded && page ? lineNeed(loaded.index.measures, page, { from, to }) > page.room : false;
+      setFound((s) => {
+        const have = s.key === fitKey ? s : { key: fitKey, rigid: NONE, cuts: NONE };
+        const fresh: number[] = [];
+        for (let i = from; squeezed && i < to; i++) if (!have.rigid.includes(i)) fresh.push(i);
+        if (fresh.length > 0) return { ...have, rigid: [...have.rigid, ...fresh] };
+        const mid = from + Math.ceil((to - from) / 2);
+        if (to - from < 2 || have.cuts.includes(mid)) return s;
+        return { ...have, cuts: [...have.cuts, mid] };
+      });
+    },
+    [fitKey, loaded, page],
+  );
   const tabOpts = {
     showRollNames: settings.showRollNames,
     showAccents: settings.showAccents,
@@ -415,25 +471,31 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
       </header>
       <div class="song-lines" ref={containerRef}>
         {width > 0 &&
-          lines.map((line, i) => (
-            <SongLine
-              key={`${line.from}-${line.to}-${width}-${scale}-${view}`}
-              loaded={loaded}
-              notation={notation!}
-              current={current}
-              stepAt={stepAt}
-              playAt={playAt}
-              onTooWide={tooWide}
-              onChordTap={openChord}
-              line={line}
-              lineNo={i}
-              width={width}
-              scale={scale}
-              tabOnly={tabOnly}
-              arranged={arranged}
-              tabOpts={tabOpts}
-            />
-          ))}
+          page &&
+          lines.map((line, i) => {
+            const need = lineNeed(loaded.index.measures, page, line);
+            return (
+              <SongLine
+                key={`${line.from}-${line.to}-${width}-${scale}-${view}`}
+                loaded={loaded}
+                notation={notation!}
+                current={current}
+                stepAt={stepAt}
+                playAt={playAt}
+                onTooWide={tooWide}
+                onChordTap={openChord}
+                line={line}
+                lineNo={i}
+                width={width}
+                staffWidth={lineWidth(page, need, width, lines.length === 1)}
+                tight={line.to - line.from === 1 && need > page.room}
+                scale={scale}
+                tabOnly={tabOnly}
+                arranged={arranged}
+                tabOpts={tabOpts}
+              />
+            );
+          })}
       </div>
     </article>
   );

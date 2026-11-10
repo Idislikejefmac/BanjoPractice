@@ -78,7 +78,8 @@ test("favorites and recently played survive a reload (F24)", async ({ page }) =>
 });
 
 test("a hard reload returns to the same song and place (F35, I16)", async ({ page }) => {
-  await page.setViewportSize({ width: 1180, height: 500 });
+  // Narrow enough, beside the song list, for two measures on a line: enough lines to scroll.
+  await page.setViewportSize({ width: 950, height: 500 });
   await page.goto("/");
   await openSong(page, "will-the-circle-be-unbroken");
   const lines = page.locator(".song-line");

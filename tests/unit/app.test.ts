@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_SESSION,
   DEFAULT_SETTINGS,
-  measuresPerLine,
   readSession,
   readSettings,
   recentSongIds,
@@ -62,13 +61,6 @@ describe("persisted records (I7)", () => {
       "c",
       "b",
     ]);
-  });
-
-  it("keeps 4-bar phrases together: 1, 2, 4 or 8 measures per line", () => {
-    expect(measuresPerLine(1180, 1.1)).toBe(4);
-    expect(measuresPerLine(880, 1.1)).toBe(2);
-    expect(measuresPerLine(300, 1.1)).toBe(1);
-    expect(measuresPerLine(2400, 1)).toBe(8);
   });
 });
 
