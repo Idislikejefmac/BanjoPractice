@@ -89,6 +89,14 @@ export class Player {
   private startToken = 0;
   /** After an interruption, Play carries on from this measure. */
   private resumeFrom: number | null = null;
+  /**
+   * Where Play will carry on from after a pause or a move by measures: a position in the
+   * playback order (so a repeated measure is the right one). null = from the top. The measure
+   * is highlighted while it is set.
+   */
+  readonly resumeAt = signal<{ readonly orderIndex: number } | null>(null);
+  /** The order position the last Play started from (a pause during the count-in uses it). */
+  private lastStart = 0;
   private warnedFallback = false;
   private lastBeatKey = "";
   private beatCount = 0;
@@ -132,6 +140,7 @@ export class Player {
     // A different song stops playback.
     effect(() => {
       const id = store.session.value.songId;
+      if (id !== this.loadedId) this.resumeAt.value = null;
       if (id !== this.loadedId && this.state.peek() !== "stopped") this.stop();
     });
 
@@ -291,12 +300,23 @@ export class Player {
     if (token !== this.startToken) return; // Stop or another Play happened meanwhile
     const p = this.store.practice.peek();
     let fromOrderIndex = 0;
-    if (fromMeasure === undefined && this.resumeFrom !== null) fromMeasure = this.resumeFrom;
-    this.resumeFrom = null;
-    if (fromMeasure !== undefined) {
-      const i = program.order.findIndex((pos) => loaded.index.measures[pos]?.index === fromMeasure);
-      if (i >= 0) fromOrderIndex = i;
+    // After a pause (or a move by measures) Play carries on from that place, with the count-in.
+    const resume = fromMeasure === undefined ? this.resumeAt.peek() : null;
+    this.resumeAt.value = null;
+    if (resume !== null) {
+      fromOrderIndex = Math.min(resume.orderIndex, Math.max(0, program.order.length - 1));
+      this.resumeFrom = null;
+    } else {
+      if (fromMeasure === undefined && this.resumeFrom !== null) fromMeasure = this.resumeFrom;
+      this.resumeFrom = null;
+      if (fromMeasure !== undefined) {
+        const i = program.order.findIndex(
+          (pos) => loaded.index.measures[pos]?.index === fromMeasure,
+        );
+        if (i >= 0) fromOrderIndex = i;
+      }
     }
+    this.lastStart = fromOrderIndex;
     this.state.value = "count-in";
     const loopLabel = p.loop
       ? `${Math.min(p.loop.from, p.loop.to)}–${Math.max(p.loop.from, p.loop.to)}`
@@ -322,7 +342,45 @@ export class Player {
     this.startFollowing(loaded);
   }
 
+  /**
+   * Pauses: the sound stops but the place is kept (the measure stays highlighted). Move it back
+   * or forward by measures, then Play counts in and carries on from there.
+   */
+  pause(): void {
+    if (this.state.peek() === "stopped") return;
+    const loaded = this.song();
+    if (!loaded) return;
+    const f = this.follow.peek();
+    const orderIndex = f.orderIndex >= 0 ? f.orderIndex : this.lastStart;
+    this.stop();
+    this.setResume(loaded, orderIndex);
+  }
+
+  /** Moves the place Play carries on from by whole measures (while paused or stopped). */
+  moveResume(delta: number): void {
+    if (this.state.peek() !== "stopped") return;
+    const loaded = this.song();
+    if (!loaded) return;
+    this.setResume(loaded, (this.resumeAt.peek()?.orderIndex ?? 0) + delta);
+  }
+
+  private setResume(loaded: LoadedSong, orderIndex: number): void {
+    const order = this.program(loaded).order;
+    if (order.length === 0) return;
+    const at = Math.max(0, Math.min(order.length - 1, orderIndex));
+    this.resumeAt.value = { orderIndex: at };
+    const measure = loaded.index.measures[order[at]!]?.index ?? null;
+    this.follow.value = {
+      ...this.follow.peek(),
+      measure,
+      countIn: null,
+      slot: null,
+      orderIndex: -1,
+    };
+  }
+
   stop(): void {
+    this.resumeAt.value = null;
     if (this.state.peek() !== "stopped") this.store.logPractice({ kind: "stop" });
     this.startToken++;
     this.scheduler.stop();

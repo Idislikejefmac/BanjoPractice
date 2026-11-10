@@ -144,6 +144,36 @@ export function PracticeBar({ store, player }: { store: AppStore; player: Player
             {state === "loading" ? "…" : playing ? "■ Stop" : "▶ Play"}
           </button>
         )}
+        {!step &&
+          (playing ? (
+            <button
+              class="tool"
+              data-action="pause"
+              aria-label="Pause"
+              onClick={() => player.pause()}
+            >
+              ⏸ Pause
+            </button>
+          ) : (
+            <>
+              <button
+                class="tool"
+                data-action="measure-back"
+                aria-label="Back one measure"
+                onClick={() => player.moveResume(-1)}
+              >
+                ◀ Bar
+              </button>
+              <button
+                class="tool"
+                data-action="measure-forward"
+                aria-label="Forward one measure"
+                onClick={() => player.moveResume(1)}
+              >
+                Bar ▶
+              </button>
+            </>
+          ))}
         {playing && settings.visualMetronome && (
           <span class="beat-light" key={follow.beat} aria-hidden="true" />
         )}

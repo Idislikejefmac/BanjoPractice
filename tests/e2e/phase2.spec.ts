@@ -181,3 +181,42 @@ test("the song list steps aside when playback starts, and a tab brings it back",
   await expect(list).toBeHidden();
   await page.click('[data-action="play"]');
 });
+
+test("pause, step back by measures, and Play counts in and carries on from there", async ({
+  page,
+  browserName,
+}) => {
+  test.skip(noAudio(browserName), "no Web Audio in Playwright WebKit on Windows");
+  await openSong(page, "old-joe-clark");
+  await page.locator('input[name="tempo-slider"]').fill("200");
+  const highlighted = async () =>
+    Number(await page.locator(".measure-highlight").first().getAttribute("data-measure"));
+  await expect(page.locator('[data-action="measure-back"]')).toBeVisible();
+  await expect(page.locator('[data-action="pause"]')).toHaveCount(0);
+  await page.click('[data-action="play"]');
+  await expect(page.locator('[data-action="pause"]')).toBeVisible();
+  await expect(page.locator('.measure-highlight[data-measure="3"]').first()).toBeVisible({
+    timeout: 9000,
+  });
+  // Pause: Dad "messed up". The sound stops, the measure stays marked, Play is offered again.
+  await page.click('[data-action="pause"]');
+  await expect(page.locator('[data-action="play"]')).toHaveAttribute("aria-label", "Play");
+  await expect(page.locator(".measure-highlight")).toHaveCount(1);
+  const paused = await highlighted();
+  // Back one measure, twice.
+  await page.click('[data-action="measure-back"]');
+  await expect(
+    page.locator(`.measure-highlight[data-measure="${paused - 1}"]`).first(),
+  ).toBeVisible();
+  await page.click('[data-action="measure-back"]');
+  const target = paused - 2;
+  await expect(page.locator(`.measure-highlight[data-measure="${target}"]`).first()).toBeVisible();
+  // Play counts in, then carries on from that measure.
+  await page.click('[data-action="play"]');
+  await expect(page.locator(".count-in")).toBeVisible();
+  await expect(page.locator(`.measure-highlight[data-measure="${target}"]`).first()).toBeVisible({
+    timeout: 6000,
+  });
+  await page.click('[data-action="play"]'); // Stop
+  await expect(page.locator(".measure-highlight")).toHaveCount(0, { timeout: 1000 });
+});

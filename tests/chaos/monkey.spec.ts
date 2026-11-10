@@ -238,6 +238,18 @@ const ACTIONS: Action[] = [
     },
   },
   {
+    name: "pause-and-rewind",
+    weight: 3,
+    async run(ctx) {
+      // Pause, go back a few measures, play again: counts in and carries on from there.
+      const wasPlaying = await clickIfVisible(ctx, '[data-action="pause"]');
+      const back = Math.floor(ctx.random() * 4);
+      for (let i = 0; i < back; i++) await clickIfVisible(ctx, '[data-action="measure-back"]');
+      if (ctx.random() < 0.7) await clickIfVisible(ctx, '[data-action="play"]');
+      return `${wasPlaying ? "paused" : "stopped"} back ${back}`;
+    },
+  },
+  {
     name: "restart",
     weight: 3,
     async run(ctx) {

@@ -64,6 +64,56 @@ describe("player on an iPad-like audio context", () => {
     player.stop();
   });
 
+  it("pauses where it is, steps back by measures, and counts in again from there", async () => {
+    const { audio, player, store, run } = await rig();
+    audio.tap();
+    await player.play();
+    await run(4300);
+    expect(player.follow.value.measure).toBe(3);
+    player.pause();
+    expect(player.state.value).toBe("stopped");
+    expect(player.resumeAt.value).toEqual({ orderIndex: 2 });
+    expect(player.follow.value.measure).toBe(3); // the place stays highlighted
+    // Back one measure three times: stops at the first measure.
+    player.moveResume(-1);
+    expect(player.follow.value.measure).toBe(2);
+    player.moveResume(-1);
+    player.moveResume(-1);
+    expect(player.follow.value.measure).toBe(1);
+    player.moveResume(1);
+    expect(player.follow.value.measure).toBe(2);
+    // Play counts in (4 beats = 2 s here), then plays from the measure it was moved to.
+    store.updatePractice({ metronome: "count-in", countInBeats: 4 });
+    audio.tap(); // the tap on Play
+    await player.play();
+    expect(player.resumeAt.value).toBeNull();
+    await run(600);
+    expect(player.follow.value.countIn).not.toBeNull();
+    expect(player.follow.value.measure).toBeNull();
+    await run(2000);
+    expect(player.follow.value.countIn).toBeNull();
+    expect(player.follow.value.measure).toBe(2);
+    player.stop();
+  }, 20_000);
+
+  it("only moves the place while stopped, and Stop or a new song forgets it", async () => {
+    const { audio, player, run } = await rig();
+    audio.tap();
+    await player.play();
+    await run(300);
+    player.moveResume(1); // playing: ignored
+    expect(player.resumeAt.value).toBeNull();
+    player.pause();
+    expect(player.resumeAt.value).not.toBeNull();
+    player.stop();
+    expect(player.resumeAt.value).toBeNull();
+    player.moveResume(1); // from the top, forward one
+    expect(player.resumeAt.value).toEqual({ orderIndex: 1 });
+    player.restart();
+    expect(player.resumeAt.value).toBeNull();
+    expect(player.follow.value.measure).toBeNull();
+  });
+
   it("won't play before a tap, and says so instead of showing a silent 'playing'", async () => {
     const { player, store } = await rig();
     await player.play();

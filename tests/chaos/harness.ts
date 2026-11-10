@@ -210,6 +210,8 @@ export async function checkAudioInvariants(ctx: MonkeyContext): Promise<void> {
           Number(h.getAttribute("data-measure")),
         ),
         follow: t.player.follow.value.measure,
+        // Paused or moved by measures: the place Play carries on from stays highlighted.
+        paused: t.player.resumeAt.value !== null,
       };
     });
   let s = await read();
@@ -235,7 +237,7 @@ export async function checkAudioInvariants(ctx: MonkeyContext): Promise<void> {
     if (after.uiStopped && after.audio.sources > 0) {
       throw new InvariantFailure("I4", `${after.audio.sources} sources still live after Stop`);
     }
-    if (after.uiStopped && after.highlights.length > 0) {
+    if (after.uiStopped && !after.paused && after.highlights.length > 0) {
       throw new InvariantFailure("I5", "a measure is highlighted while stopped");
     }
   }
