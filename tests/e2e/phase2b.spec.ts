@@ -94,3 +94,23 @@ test("echo mode leaves Dad a silent 'your turn' phrase, with a beat light (F29, 
   await page.click('[data-action="play"]');
   await expect(page.locator(".your-turn-label")).toHaveCount(0);
 });
+
+test("step mode: says what the note under the cursor is for (F39)", async ({
+  page,
+  browserName,
+}) => {
+  test.skip(noAudio(browserName), "stepping sounds the note: no Web Audio in WebKit on Windows");
+  await openSong(page, "cripple-creek");
+  await page.click('[data-action="loop"]');
+  await page.click('[data-action="step-mode"]');
+  await expect(page.getByTestId("step-reason")).toHaveCount(0);
+  await page.click('[data-action="step-next"]');
+  const box = page.getByTestId("step-reason");
+  await expect(box).toBeVisible();
+  await expect(box).toContainText("note 1");
+  await expect(box).toContainText(/string \d, fret \d+/);
+  await page.click('[data-action="step-next"]');
+  await expect(box).toContainText("note 2");
+  await page.click('[data-action="step-exit"]');
+  await expect(page.getByTestId("step-reason")).toHaveCount(0);
+});

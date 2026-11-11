@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { rollById, rollMeasure, ROLLS } from "../../src/core/banjo/rolls.ts";
 import { NO_CAPO, OPEN_G } from "../../src/core/banjo/tuning.ts";
-import { classifyMeasure, classifyNote } from "../../src/core/learning/classify.ts";
+import { classifyMeasure, classifyNote, explainSlot } from "../../src/core/learning/classify.ts";
 import {
   accentFingers,
   listenCue,
@@ -212,5 +212,20 @@ describe("why this note? (F39)", () => {
     const noChord = { ...m, chords: [{ atSlot: 0, chord: "???" }] };
     expect(classifyNote(noChord, noChord.notes[0]!, ctx)).toBe("passing");
     expect(classifyNote({ ...m, chords: [] }, m.notes[0]!, ctx)).toBe("passing");
+  });
+});
+
+describe("explainSlot (F39 step line)", () => {
+  it("returns every note struck in the slot, melody first as stored", () => {
+    const m = rollMeasure(rollById("forward")!);
+    const pinch = {
+      ...m,
+      notes: [...m.notes, { ...m.notes[0]!, string: 5 as const, isMelody: true, pinchGroup: 1 }],
+    };
+    const info = explainSlot(pinch, 0, ctx);
+    expect(info.map((i) => i.role)).toEqual(["chord-tone", "melody"]);
+    expect(info[1]).toMatchObject({ string: 5, fret: 0, finger: "T", label: "Melody note" });
+    expect(explainSlot(m, 3, ctx)).toHaveLength(1);
+    expect(explainSlot(m, 99, ctx)).toEqual([]);
   });
 });

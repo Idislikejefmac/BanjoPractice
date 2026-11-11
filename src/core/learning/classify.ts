@@ -57,3 +57,26 @@ export function classifyMeasure(
 ): { note: TabNote; role: NoteRole }[] {
   return m.notes.map((note) => ({ note, role: classifyNote(m, note, ctx) }));
 }
+
+export interface StepNoteInfo {
+  readonly role: NoteRole;
+  readonly label: string;
+  readonly string: number;
+  /** Capo-relative fret, as stored. */
+  readonly fret: number;
+  readonly finger: "T" | "I" | "M" | null;
+}
+
+/** Every note struck at `slot` (a pinch strikes several), each with why it is there. */
+export function explainSlot(
+  m: ArrangedMeasure,
+  slot: number,
+  ctx: ClassifyContext,
+): StepNoteInfo[] {
+  return m.notes
+    .filter((n) => n.slot === slot)
+    .map((n) => {
+      const role = classifyNote(m, n, ctx);
+      return { role, label: ROLE_LABEL[role], string: n.string, fret: n.fret, finger: n.finger };
+    });
+}

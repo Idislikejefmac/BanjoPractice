@@ -220,6 +220,29 @@ button {
   fill: #d9f2dc;
 }
 
+/* F39: what the note under the step cursor is for. Fixed, so it stays in view while stepping. */
+.step-reason {
+  position: fixed;
+  left: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 40;
+  max-width: min(26rem, calc(100vw - 32px));
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: #fff;
+  color: #1c1c1c;
+  border: 2px solid #1c1c1c;
+  font-size: 1.15rem;
+  line-height: 1.35;
+}
+.step-reason p {
+  margin: 0;
+}
+.step-reason-where {
+  font-size: 0.95rem;
+  opacity: 0.75;
+}
+
 .your-turn-label {
   position: fixed;
   right: 16px;

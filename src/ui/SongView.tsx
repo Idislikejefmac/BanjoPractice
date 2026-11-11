@@ -9,8 +9,10 @@ import type { SongIndex } from "../core/song/abcIndex.ts";
 import { indexAbc } from "../core/song/abcIndex.ts";
 import { transposeAbc } from "../core/song/transposeAbc.ts";
 import { SIZE_STEPS } from "../app/model.ts";
-import type { ArrangedMeasure } from "../core/banjo/types.ts";
-import { capoPlan } from "../core/banjo/tuning.ts";
+import type { ArrangedMeasure, StringNo } from "../core/banjo/types.ts";
+import { FINGER_NAME } from "../core/banjo/types.ts";
+import { actualFret, capoPlan, OPEN_G } from "../core/banjo/tuning.ts";
+import { explainSlot } from "../core/learning/classify.ts";
 import { formatKey, sameKey } from "../core/music/keys.ts";
 import type { IndexedMeasure } from "../core/song/abcIndex.ts";
 import type { DisplayLine } from "../core/song/layoutAbc.ts";
@@ -295,6 +297,12 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
     player.step.value && follow.measure !== null && follow.slot !== null
       ? { measure: follow.measure, slot: follow.slot }
       : null;
+  // F39: while stepping, say what the note under the cursor is for (read from the tab itself).
+  const stepMeasure = stepAt ? arranged?.find((m) => m.index === stepAt.measure) : undefined;
+  const stepInfo =
+    stepAt && stepMeasure
+      ? explainSlot(stepMeasure, stepAt.slot, { tuning: OPEN_G, plan: tabOpts.plan })
+      : [];
   const playAt =
     !player.step.value &&
     player.state.value !== "stopped" &&
@@ -417,6 +425,26 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
         <p class="your-turn-label" role="status">
           Your turn
         </p>
+      )}
+      {stepAt && stepInfo.length > 0 && (
+        <div class="step-reason" role="status" data-testid="step-reason">
+          <p class="step-reason-where">
+            Measure {stepAt.measure}, note {stepAt.slot + 1}
+          </p>
+          {stepInfo.map((n, i) => (
+            <p class={`step-reason-note role-${n.role}`} key={i}>
+              <strong>{n.label}</strong>
+              <span>
+                {" "}
+                · string {n.string}, fret{" "}
+                {settings.fretNumbering === "actual"
+                  ? actualFret(n.string as StringNo, n.fret, tabOpts.plan)
+                  : n.fret}
+                {n.finger ? ` · ${FINGER_NAME[n.finger]}` : ""}
+              </span>
+            </p>
+          ))}
+        </div>
       )}
       <header class="song-head">
         <h2>{song.title}</h2>
