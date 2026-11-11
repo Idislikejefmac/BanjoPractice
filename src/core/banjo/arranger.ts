@@ -39,7 +39,7 @@ const MAX_FIRST_POSITION_FRET = 5;
 const MAX_REACH = 3;
 
 /** Finger → strings it may pick (guide §3 usual + occasionally; C4 H4). */
-const STRINGS_FOR: Readonly<Record<Finger, readonly StringNo[]>> = {
+export const STRINGS_FOR: Readonly<Record<Finger, readonly StringNo[]>> = {
   T: [5, 4, 3, 2],
   I: [2, 3, 4],
   M: [1, 2],
