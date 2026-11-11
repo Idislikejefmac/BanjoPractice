@@ -107,3 +107,37 @@ production"), and a line here recording what shipped.
 
 - **L1 (2026-11-11):** `src/core/learning/` (`fade.ts`, `schedule.ts`, `cues.ts`, `classify.ts`), `tests/unit/learning.test.ts` (17 tests), and `STRINGS_FOR` exported from `arranger.ts`. Typecheck, lint on `src` and `tests`, all 383 unit tests, build and production-bundle check pass. Not yet done: a classifier test over the built-in songs, and the C10 / F36–F44 entries in DEVELOPMENT.md. `npm run lint` as a whole fails only because ESLint scans the untracked `.claude/worktrees/` folder, which predates this work.
 - **L2 (2026-11-11):** step mode (F28) now shows a fixed box at the bottom left saying what the note under the cursor is for (F39): measure and note number, its role (melody, chord tone, 5th-string drone, hammer/pull/slide, not in the chord), string, fret (actual or capo-relative per the setting) and finger. Pinches list every note. `explainSlot` in `core/learning/classify.ts`, UI in `SongView.tsx`, one Playwright test in `phase2b.spec.ts`. No new platform behaviour, so no chaos scenario. Not done: showing the reason during normal playback, and an explicit "why this roll" (the arranger discards its costs). Unit tests 384, Chromium e2e 49 passed (1 skipped), build and bundle check pass.
+
+## 9. Visual design approaches (added 2026-11-11)
+
+Sources are reviews and practitioner guides, not controlled studies; I could not use the apps
+themselves. Nothing is copied: only general approaches are taken, drawn in the app's own style.
+Reviews: [Yousician](https://americansongwriter.com/yousician-review/),
+[Simply Guitar vs Yousician](https://www.kunstplaza.de/en/music/simply-guitar-or-yousician/),
+[Flowkey](https://pianistscompass.org/reviews/apps/flowkey/),
+[Melodics](https://deviantnoise.com/piano/online-lessons/melodics-review/).
+Older-adult guides: [IEEE age-friendly UI](https://agetech.ieee.org/publications/topics/why-age-friendly-ui-ux-design-is-the-most-overlooked-skill-in-modern-tech-development/),
+[Bentley UX Center](https://www.bentley.edu/centers/user-experience-center/designing-mobile-experiences-seniors-mind),
+[Glance guide](https://thisisglance.com/learning-centre/how-do-i-design-apps-for-elderly-people).
+Roll-specific: [ArtistWorks Banjo Roll Trainer](https://go.artistworks.com/banjo-roll-trainer) (hear and see each roll, finger letters plus open-G strings, adjustable speed); I found no reviewed banjo app with finger-lane diagrams, so F36's lanes are our own design.
+
+| Approach seen | Where | Use here | Verdict |
+| --- | --- | --- | --- |
+| Restrained, limited interface for beginners, not overwhelming | Simply Guitar reviews | One idea per screen (principle 1) | Adopt |
+| Small fixed main menu, no nested menus; same layout on every device | Flowkey reviews | The Learn page is one list of rolls; same layout at every width | Adopt |
+| Hand separation and wait mode as practice tools | Flowkey reviews | We already have step mode (F28), loops and echo mode; lessons should use them, not add new modes | Adopt (reuse) |
+| App rewinds to the section after repeated errors | Simply Guitar reviews | After two "Again" ratings, the lesson steps back a level and restarts the half (F37) | Adopt |
+| Streaks, combos, achievements, scores | Melodics, Yousician | Conflicts with principle 4 (no scolding or streak loss) and reviewers note the game look can feel childish to some players | **Reject**; the mastery map (F42) shows steadiness, never points |
+| Falling-note, game-like scrolling display | Yousician | Needs constant eye tracking while also playing (E9) | **Reject** as the main view |
+| Touch targets 44 pt minimum, 48 better; spacing so neighbours aren't hit | Older-adult guides (practitioner consensus) | All lesson buttons at least 48 px with a clear gap | Adopt |
+| Body text 18 px or more; contrast 7:1 where possible (practitioner preference; WCAG 4.5:1 is the baseline) | Older-adult guides | Lesson text 18 px+, check contrast of the finger colours and the step box | Adopt, and measure |
+| Test with real older users | All guides | Dad is the test; leave room for his feedback after each phase | Adopt |
+
+**Concrete visual rules for F36–F44**
+1. Finger lanes use the existing finger colours **and** letters (T, I, M), as elsewhere in the app; never colour alone.
+2. One accent colour for "current note"; everything else quiet. Hidden hints (fade levels) show as plain dashed outlines, so he sees something is expected there.
+3. Rating buttons are two large, equal buttons: "Got it" and "Again", with words, no icons alone.
+4. No sounds for "wrong"; progress shown as filled steps (1 of 4), never as a score.
+5. Every new screen gets a Playwright screenshot at iPad sizes (744, 820, 1180 wide) that is looked at before it ships, plus a contrast check of text on its backgrounds.
+
+**Limit:** this is a survey of opinions. The real check is Dad using it; the design is a first draft for him to react to.
