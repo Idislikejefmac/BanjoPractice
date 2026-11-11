@@ -19,9 +19,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check:prod-bundle": "node scripts/check-prod-bundle.mjs dist",
-    "e2e": "playwright test --grep-invert @spike",
-    "spike:s0": "playwright test --grep @spike",
-    "chaos": "playwright test -c playwright.chaos.config.ts",
+    "e2e": "node scripts/run-tests.mjs e2e",
+    "spike:s0": "node scripts/run-tests.mjs spike",
+    "chaos": "node scripts/run-tests.mjs chaos",
+    "check": "node scripts/check.mjs",
     "icons": "node scripts/make-icons.mjs",
     "verify": "npm run typecheck && npm run lint && npm run format:check && npm test && npm run build && npm run check:prod-bundle"
   },

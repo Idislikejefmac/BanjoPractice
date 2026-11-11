@@ -12,13 +12,14 @@ import {
 } from "../../src/platform/fakes.ts";
 import type { Services } from "../../src/app/services.ts";
 import { builtinSong } from "../../src/core/song/song.ts";
+import { rollExercise } from "../../src/core/banjo/exercises.ts";
 
 const SONG = builtinSong(
   "t",
   'X:1\nT:T\nM:4/4\nL:1/8\nQ:1/4=120\nK:G\n"G"G2 A2 B2 c2|"C"c8|"G"G8|"D"A8|]',
 );
 
-async function rig() {
+async function rig(song = SONG) {
   const audio = createFakeAudio();
   const clock = createFakeClock();
   const input = createFakeInput();
@@ -31,9 +32,9 @@ async function rig() {
     samples: createFakeSamples(),
     diagnostics,
   } as unknown as Services;
-  const store = new AppStore(services, [SONG], null);
+  const store = new AppStore(services, [song], null);
   await store.load();
-  store.openSong("t");
+  store.openSong(song.id);
   store.updatePractice({ metronome: "off" });
   const player = new Player(services, store);
   const samples = services.samples as ReturnType<typeof createFakeSamples>;
@@ -63,6 +64,60 @@ describe("player on an iPad-like audio context", () => {
     expect(samples.loads.some((l) => l.startsWith("flute/"))).toBe(true);
     player.stop();
   });
+
+  // Regression: changing the key while an exercise played left it playing in the old key.
+  it("starts again from the top when the key changes during playback", async () => {
+    const { audio, player, store, run } = await rig();
+    audio.tap();
+    await player.play();
+    await run(4300);
+    expect(player.follow.value.measure).toBe(3);
+    audio.tap(); // choosing the key is itself a tap
+    store.updatePractice({ keyShift: 2 });
+    await run(300);
+    expect(player.state.value).not.toBe("stopped");
+    expect(player.follow.value.measure).toBe(1);
+    player.stop();
+  }, 20_000);
+
+  it("a key change while stopped just changes the key; tempo changes don't restart", async () => {
+    const { audio, player, store, run } = await rig();
+    store.updatePractice({ keyShift: 2 });
+    expect(player.state.value).toBe("stopped");
+    audio.tap();
+    await player.play();
+    await run(4300);
+    store.updatePractice({ tempoBpm: 110 });
+    await run(100);
+    expect(player.follow.value.measure).toBeGreaterThan(1);
+    player.stop();
+  }, 20_000);
+
+  // Roll exercises have no melody, whatever the melody switch says for songs.
+  it("keeps the melody silent in an exercise without changing his melody choice", async () => {
+    const { player, store, run } = await rig(rollExercise("forward")!);
+    const parts = () =>
+      (player as unknown as { scheduler: { enabled: Record<string, boolean> } }).scheduler.enabled;
+    await run(20);
+    expect(store.practice.value.parts.melody.on).toBe(true);
+    expect(parts().melody).toBe(false);
+    expect(parts().chords).toBe(true);
+    expect(parts().banjo).toBe(true);
+  });
+
+  it("starts again when the chosen chords change during playback", async () => {
+    const { audio, player, store, run } = await rig(rollExercise("forward")!);
+    audio.tap();
+    await player.play();
+    await run(5000);
+    expect(player.follow.value.measure).toBeGreaterThan(1);
+    audio.tap();
+    store.updateSettings({ exerciseChords: { "3": "Am" } });
+    await run(300);
+    expect(player.state.value).not.toBe("stopped");
+    expect(player.follow.value.measure).toBe(1);
+    player.stop();
+  }, 20_000);
 
   it("pauses where it is, steps back by measures, and counts in again from there", async () => {
     const { audio, player, store, run } = await rig();

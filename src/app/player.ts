@@ -99,6 +99,7 @@ export class Player {
   private lastStart = 0;
   private warnedFallback = false;
   private lastBeatKey = "";
+  private lastTune: { id: string | null; tune: string } | null = null;
   private beatCount = 0;
 
   constructor(deps: PlayerDeps, store: AppStore) {
@@ -120,8 +121,12 @@ export class Player {
     effect(() => {
       const p = store.practice.value;
       if (!p.speedBuilder.enabled) this.scheduler.setTempo(this.tempoFor(p.tempoBpm));
+      // A roll exercise has no melody: the roll over the chords is the point, so the melody
+      // stays silent there whatever he has chosen for songs (his choice is kept for them).
+      const exercise = store.session.value.songId?.startsWith("exercise:") ?? false;
       for (const part of ["melody", "chords", "banjo"] as const) {
-        this.scheduler.setPart(part, p.parts[part].on, p.parts[part].volume);
+        const on = p.parts[part].on && !(exercise && part === "melody");
+        this.scheduler.setPart(part, on, p.parts[part].volume);
       }
       this.scheduler.setPart("voice", p.voice.on, p.voice.volume);
       this.scheduler.setPart("metronome", p.metronome === "throughout", p.clickVolume);
@@ -136,6 +141,19 @@ export class Player {
           .prepare(this.program(playing).measures.flatMap((m) => m.events))
           .catch(() => undefined);
       }
+    });
+    // Changing the key (or the rolls the arranger may use) while playing starts the song again
+    // from the top, with the count-in, in the new key. Before, the old key played on until he
+    // stopped and restarted by hand.
+    effect(() => {
+      const p = store.practice.value;
+      const id = store.session.value.songId;
+      const song = store.currentSong.value;
+      const tune = JSON.stringify([p.keyShift, p.rolls, song?.abc, song?.tab]);
+      const prev = this.lastTune;
+      this.lastTune = { id, tune };
+      if (prev === null || prev.id !== id || prev.tune === tune) return;
+      if (this.state.peek() !== "stopped") this.restart();
     });
     // A different song stops playback.
     effect(() => {
@@ -174,7 +192,7 @@ export class Player {
   song(): LoadedSong | null {
     const s = this.store.currentSong.peek();
     if (!s) return null;
-    if (this.loadedId !== s.id) {
+    if (this.loadedId !== s.id || this.loaded?.song !== s) {
       this.loaded = loadSong(s);
       this.loadedId = s.id;
     }

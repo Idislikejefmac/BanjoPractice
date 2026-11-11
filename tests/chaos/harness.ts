@@ -3,6 +3,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import type { Page } from "@playwright/test";
 import { STORE_VALIDATORS } from "../../src/app/model.ts";
+import { readProgress } from "../../src/core/learning/progress.ts";
 
 /** mulberry32, the same PRNG as the chaos controller. */
 export function rng(seed: number): () => number {
@@ -136,12 +137,13 @@ export async function waitForSaves(page: Page): Promise<void> {
 export async function checkpoint(page: Page): Promise<void> {
   await page.evaluate(() => window.__banjoChaos?.disarmAll());
   await waitForSaves(page);
-  const { dump, settings, songId, favorites } = await page.evaluate(async () => {
+  const { dump, settings, songId, favorites, learning } = await page.evaluate(async () => {
     const t = window.__banjoTest!;
     return {
       dump: await t.dumpStorage(),
       settings: t.store.settings.value,
       songId: t.store.session.value.songId,
+      learning: t.store.learning.value,
       favorites: [...t.store.prefs.value.values()]
         .filter((p) => p.favorite)
         .map((p) => p.songId)
@@ -176,6 +178,14 @@ export async function checkpoint(page: Page): Promise<void> {
     if (dump.settings?.settings !== undefined) {
       throw new InvariantFailure("I6", "settings in storage differ from the settings shown");
     }
+  }
+  // I6 for roll-lesson progress (F37): what the lesson shows is what storage holds.
+  const storedLearning = readProgress(dump.meta?.learning);
+  if (JSON.stringify(storedLearning) !== JSON.stringify(learning)) {
+    throw new InvariantFailure(
+      "I6",
+      `lesson progress: shown ${JSON.stringify(learning)}, stored ${JSON.stringify(storedLearning)}`,
+    );
   }
   const stored = dump.session?.session as { songId: string | null } | undefined;
   if (stored && stored.songId !== songId) {

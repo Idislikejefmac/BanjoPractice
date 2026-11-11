@@ -272,6 +272,12 @@ Given a sounding key (tonic + mode), the arrangement's shape key and Dad's spike
 - **Meters**: 4/4, 2/2 and 2/4 are fully supported. 3/4 renders and plays melody and chords, but the arranger is off for 3/4 in v1.
 - Consistency check: same measure count and chords in melody and arrangement. On a mismatch the arrangement is flagged stale and regeneration is offered.
 
+### C10. Learning helpers (`src/core/learning/`, pure; plan and evidence in `LEARNING_SPEC.md`)
+
+- `fade.ts`: the four-step help ladder for a roll lesson; moves on "Got it" / "Again" ratings only (the app can't hear him play).
+- `progress.ts`: the saved record (one document, `meta` store key `learning`), read defensively, merged on restore so a backup never takes progress away.
+- `lesson.ts`: what each of a roll's eight slots shows at a fade level. `cues.ts`: listen-for lines and the roll finder, derived from `rolls.ts` and C6's finger-to-string rules. `classify.ts`: why a tab note is there (melody, chord tone, drone, slur, not in the chord), worked out after the fact so it also covers hand-written tabs. `schedule.ts`: gapped spaced review (not yet used by any screen).
+
 ---
 
 ## 4. Rendering
@@ -429,6 +435,14 @@ Only instruments in use are loaded, and each is cached after first use (~1–3 M
 | F33 | Tap tempo and tempo presets | F9 | 2b |
 | F34 | Notation in shape key toggle | C1, C8, R1 | 2b |
 | F35 | Session restore | §5.2 | 1 |
+| F36 | Roll lesson: the roll as finger lanes in two halves, above a roll exercise (`RollLesson.tsx`) | C3, C10, F15 | 3 |
+| F37 | Roll fade ladder with "Got it" / "Again" and saved progress (backup and chaos covered) | F36, C10, F18 | 3 |
+| F39 | "Why this note?" box in step mode | C10, F28 | 3 |
+| F41 | Listen-for cue per roll (in the lesson) | C10, F36 | 3 |
+| F45 | Roll exercises: touch a measure's chord letter (large, bold) and a sheet slides up with the key's chords; the measure's chord and its roll change. Saved in settings (`exerciseChords`, measure → chord) and used by every roll. Exercises have no melody (switch greyed, silent) | F15, C6 | 3 |
+| F46 | Mix preferences: melody/chords/banjo on-off and volumes, count-in mode and click volume are saved in settings and follow him between songs (not per song). Changing key or chords while playing restarts with the count-in | F6, F9, F11 | 3 |
+
+Planned, not built (see `LEARNING_SPEC.md`): F38 chord-tones card, F40 spaced rule quiz, F42 mastery map, F44 roll chooser. F43 was cut.
 
 ### Feature dependency graph
 

@@ -12,6 +12,7 @@ import {
 import { DEFAULT_SETTINGS, MODEL_SCHEMA_VERSION } from "../../src/app/model.ts";
 import type { Song } from "../../src/core/song/song.ts";
 import { SONG_SCHEMA_VERSION } from "../../src/core/song/song.ts";
+import { EMPTY_PROGRESS, mergeProgress, rateRoll } from "../../src/core/learning/progress.ts";
 import { createMemoryStore } from "../../src/platform/fakes.ts";
 
 let n = 0;
@@ -165,5 +166,92 @@ describe("F18 backup", () => {
       ),
       { numRuns: 300 },
     );
+  });
+});
+
+describe("F37 learning progress in backups", () => {
+  const progress = rateRoll(
+    rateRoll(rateRoll(EMPTY_PROGRESS, "forward", "got-it"), "forward", "got-it"),
+    "forward",
+    "got-it",
+  );
+
+  it("is exported, read back, and restored into the meta store", () => {
+    const backup = makeBackup({
+      appVersion: "1",
+      songs: [],
+      songPrefs: [],
+      settings: DEFAULT_SETTINGS,
+      practiceLog: [],
+      learning: progress,
+    });
+    const parsed = parseBackup(JSON.stringify(backup));
+    expect(parsed.ok && parsed.backup.learning).toEqual(progress);
+    if (!parsed.ok) return;
+    const ops = importOps(parsed.backup, previewImport(parsed.backup, new Map()), "skip", {
+      newId: uuid,
+      importSettings: false,
+    });
+    const put = ops.find((o) => o.op === "put" && o.store === "meta" && o.key === "learning");
+    expect(put && put.op === "put" && (put.value as typeof progress).rolls.forward?.level).toBe(2);
+  });
+
+  it("an older backup with no progress restores nothing and changes nothing", () => {
+    const old = JSON.parse(
+      JSON.stringify(
+        makeBackup({
+          appVersion: "1",
+          songs: [],
+          songPrefs: [],
+          settings: DEFAULT_SETTINGS,
+          practiceLog: [],
+        }),
+      ),
+    );
+    delete old.learning;
+    const parsed = parseBackup(JSON.stringify(old));
+    expect(parsed.ok && parsed.backup.learning).toEqual(EMPTY_PROGRESS);
+    if (!parsed.ok) return;
+    const ops = importOps(parsed.backup, previewImport(parsed.backup, new Map()), "skip", {
+      newId: uuid,
+      importSettings: false,
+      currentLearning: progress,
+    });
+    expect(ops.some((o) => o.store === "meta")).toBe(false);
+  });
+
+  it("restoring an old backup never takes away progress already made", () => {
+    const behind = rateRoll(EMPTY_PROGRESS, "forward", "got-it");
+    const backup = makeBackup({
+      appVersion: "1",
+      songs: [],
+      songPrefs: [],
+      settings: DEFAULT_SETTINGS,
+      practiceLog: [],
+      learning: behind,
+    });
+    const ops = importOps(backup, previewImport(backup, new Map()), "skip", {
+      newId: uuid,
+      importSettings: false,
+      currentLearning: progress,
+    });
+    const put = ops.find((o) => o.op === "put" && o.store === "meta");
+    expect(put && put.op === "put" && (put.value as typeof progress).rolls.forward?.level).toBe(2);
+    expect(mergeProgress(behind, progress).rolls.forward?.level).toBe(2);
+  });
+
+  it("damaged progress in a backup is dropped, not fatal", () => {
+    const text = JSON.stringify({
+      ...makeBackup({
+        appVersion: "1",
+        songs: [],
+        songPrefs: [],
+        settings: DEFAULT_SETTINGS,
+        practiceLog: [],
+      }),
+      learning: { version: 1, rolls: { forward: 5 } },
+    });
+    const parsed = parseBackup(text);
+    expect(parsed.ok && parsed.backup.learning).toEqual(EMPTY_PROGRESS);
   });
 });

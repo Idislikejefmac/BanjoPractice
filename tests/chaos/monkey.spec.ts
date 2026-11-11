@@ -507,7 +507,13 @@ const ACTIONS: Action[] = [
   },
 ];
 
-const randomSeed = Number(process.env.CHAOS_SEED ?? Math.floor(Math.random() * 2 ** 31));
+// The seed is in the test's title, and Playwright's runner and its worker each load this file:
+// the config (playwright.chaos.config.ts) draws one random seed and passes it in
+// CHAOS_RUN_SEED, so both see the same title. (A seed drawn here differed between the two and
+// the run failed with "Test not found in the worker process".)
+const randomSeed = Number(
+  process.env.CHAOS_SEED ?? process.env.CHAOS_RUN_SEED ?? Math.floor(Math.random() * 2 ** 31),
+);
 const defaultSteps = Number(process.env.CHAOS_STEPS ?? 500);
 const defaultMinutes = Number(process.env.CHAOS_MINUTES ?? 0);
 
@@ -580,6 +586,8 @@ async function runMonkey(
       await page.waitForTimeout(Math.floor(random() ** 3 * 1500));
       await checkInvariants(ctx, MAX_TASK_MS);
       if (step % 100 === 0) await checkpoint(page);
+      // A sign of life for the test runner's progress log (no randomness used: seeds unchanged).
+      if (step % 25 === 0) console.log(`monkey ${browserName} seed ${seed}: step ${step}`);
     }
     await checkpoint(page);
   } catch (e) {

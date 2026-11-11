@@ -91,6 +91,7 @@ export function PracticeBar({ store, player }: { store: AppStore; player: Player
   const state = player.state.value;
   const follow = player.follow.value;
   const settings = store.settings.value;
+  const exercise = store.session.value.songId?.startsWith("exercise:") ?? false;
   const [tapCount, setTapCount] = useState(0);
   const tap = useTapTempo((bpm) => store.updatePractice({ tempoBpm: bpm }));
   if (!loaded) return null;
@@ -236,30 +237,38 @@ export function PracticeBar({ store, player }: { store: AppStore; player: Player
         </select>
 
         <div class="parts" role="group" aria-label="Parts and volumes">
-          {(["melody", "chords", "banjo"] as const).map((part) => (
-            <div class="part-stack" key={part}>
-              <button
-                class={p.parts[part].on ? "tool chip on" : "tool chip"}
-                data-part={part}
-                aria-pressed={p.parts[part].on}
-                onClick={() =>
-                  set({
-                    parts: { ...p.parts, [part]: { ...p.parts[part], on: !p.parts[part].on } },
-                  })
-                }
-              >
-                {PART_LABEL[part]}
-              </button>
-              <VolumeSlider
-                label={`${PART_LABEL[part]} volume`}
-                name={`mix-${part}`}
-                value={p.parts[part].volume}
-                onChange={(volume) =>
-                  set({ parts: { ...p.parts, [part]: { ...p.parts[part], volume } } })
-                }
-              />
-            </div>
-          ))}
+          {(["melody", "chords", "banjo"] as const).map((part) => {
+            // Roll exercises have no melody: the roll over the chords is the point.
+            const noMelody = part === "melody" && exercise;
+            return (
+              <div class={noMelody ? "part-stack unavailable" : "part-stack"} key={part}>
+                <button
+                  class={p.parts[part].on && !noMelody ? "tool chip on" : "tool chip"}
+                  data-part={part}
+                  aria-pressed={p.parts[part].on && !noMelody}
+                  disabled={noMelody}
+                  title={
+                    noMelody ? "Exercises have no melody: play the roll over the chords" : undefined
+                  }
+                  onClick={() =>
+                    set({
+                      parts: { ...p.parts, [part]: { ...p.parts[part], on: !p.parts[part].on } },
+                    })
+                  }
+                >
+                  {PART_LABEL[part]}
+                </button>
+                <VolumeSlider
+                  label={`${PART_LABEL[part]} volume`}
+                  name={`mix-${part}`}
+                  value={p.parts[part].volume}
+                  onChange={(volume) =>
+                    set({ parts: { ...p.parts, [part]: { ...p.parts[part], volume } } })
+                  }
+                />
+              </div>
+            );
+          })}
           <div class="part-stack">
             <button
               class={p.metronome === "off" ? "tool chip" : "tool chip on"}

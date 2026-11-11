@@ -44,7 +44,9 @@ test("Play counts in, follows the music measure by measure, and Stop clears it (
   await expect(page.locator('[data-action="play"]')).toHaveAttribute("aria-label", "Play");
 });
 
-test("tempo, parts and metronome are per song and remembered (F6, F9)", async ({ page }) => {
+test("tempo is per song; parts and metronome are preferences, all remembered (F6, F9)", async ({
+  page,
+}) => {
   await openSong(page, "old-joe-clark");
   await expect(page.locator('[data-action="tempo"]')).toHaveText("100");
   // The slider next to the number sets the tempo; the number itself opens the tempo panel (F9).
@@ -64,9 +66,12 @@ test("tempo, parts and metronome are per song and remembered (F6, F9)", async ({
   await expect(page.locator('[data-action="tempo"]')).toHaveText(String(held));
   await expect(page.locator('[data-part="banjo"]')).toHaveAttribute("aria-pressed", "false");
   await expect(page.locator('[data-action="metronome"]')).toHaveText("Click on");
-  // Another song keeps its own tempo.
+  // Another song keeps its own tempo, but the mix (banjo off, click on) is his preference and
+  // follows him there.
   await openSong(page, "cripple-creek");
   await expect(page.locator('[data-action="tempo"]')).toHaveText("100");
+  await expect(page.locator('[data-part="banjo"]')).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator('[data-action="metronome"]')).toHaveText("Click on");
 });
 
 test("changing the key keeps the tab, adds a capo, and transposes the notation (F11)", async ({

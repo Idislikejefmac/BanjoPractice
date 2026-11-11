@@ -239,3 +239,133 @@ describe("app store", () => {
     expect(a.currentSong.value).toBeNull();
   });
 });
+
+// Regression: turning the melody off on one exercise and opening another switched it back on.
+// The mix (parts, count-in mode, click volume) is a preference that follows him between songs.
+describe("the mix is a preference, not per-song state", () => {
+  it("keeps parts, volumes, count-in mode and click volume when another song opens", async () => {
+    const a = new AppStore(fakeServices(createMemoryStore()), SONGS, null);
+    await a.load();
+    a.openSong("a-song");
+    const p = a.practice.value;
+    a.updatePractice({
+      parts: {
+        ...p.parts,
+        melody: { ...p.parts.melody, on: false },
+        banjo: { on: true, volume: 0.3 },
+      },
+      metronome: "off",
+      clickVolume: 0.1,
+    });
+    a.openSong("b-song");
+    const q = a.practice.value;
+    expect(q.parts.melody.on).toBe(false);
+    expect(q.parts.banjo.volume).toBe(0.3);
+    expect(q.metronome).toBe("off");
+    expect(q.clickVolume).toBe(0.1);
+  });
+
+  it("still keeps tempo and key per song", async () => {
+    const a = new AppStore(fakeServices(createMemoryStore()), SONGS, null);
+    await a.load();
+    a.openSong("a-song");
+    a.updatePractice({ tempoBpm: 70, keyShift: 2 });
+    a.openSong("b-song");
+    expect(a.practice.value.tempoBpm).toBeNull();
+    expect(a.practice.value.keyShift).toBe(0);
+    a.openSong("a-song");
+    expect(a.practice.value.tempoBpm).toBe(70);
+  });
+
+  it("survives a restart, and an old settings record without them gets the defaults", async () => {
+    const storage = createMemoryStore();
+    const a = new AppStore(fakeServices(storage), SONGS, null);
+    await a.load();
+    a.openSong("a-song");
+    a.updatePractice({ clickVolume: 0.1 });
+    await settle();
+    const b = new AppStore(fakeServices(storage), SONGS, null);
+    await b.load();
+    b.openSong("b-song");
+    expect(b.practice.value.clickVolume).toBe(0.1);
+
+    const old: Record<string, unknown> = { ...DEFAULT_SETTINGS };
+    for (const k of ["parts", "metronome", "clickVolume"]) delete old[k];
+    const s = readSettings(old);
+    expect(s.parts).toEqual(DEFAULT_SETTINGS.parts);
+    expect(s.clickVolume).toBe(DEFAULT_SETTINGS.clickVolume);
+  });
+
+  it("ignores a mix saved inside an older song record", async () => {
+    const storage = createMemoryStore();
+    const a = new AppStore(fakeServices(storage), SONGS, null);
+    await a.load();
+    a.openSong("a-song");
+    a.updatePractice({ tempoBpm: 80 });
+    await settle();
+    const rec = (await storage.get("songPrefs", "a-song")) as {
+      practice: { parts: { melody: { on: boolean } }; clickVolume: number };
+    };
+    rec.practice.parts.melody.on = false;
+    rec.practice.clickVolume = 0.01;
+    await storage.put("songPrefs", "a-song", rec);
+    const b = new AppStore(fakeServices(storage), SONGS, null);
+    await b.load();
+    b.openSong("a-song");
+    expect(b.practice.value.tempoBpm).toBe(80);
+    expect(b.practice.value.parts.melody.on).toBe(true);
+    expect(b.practice.value.clickVolume).toBe(DEFAULT_SETTINGS.clickVolume);
+  });
+});
+
+describe("roll lesson progress (F37)", () => {
+  it("saves each rating and loads it back", async () => {
+    const storage = createMemoryStore();
+    const a = new AppStore(fakeServices(storage), SONGS, memoryLocal());
+    await a.load();
+    for (let i = 0; i < 3; i++) a.rateRollPass("forward", "got-it");
+    a.rateRollPass("backward", "again");
+    await settle();
+    const b = new AppStore(fakeServices(storage), SONGS, memoryLocal());
+    await b.load();
+    expect(b.learning.value.rolls.forward?.level).toBe(2);
+    expect(b.learning.value.rolls.backward?.againRun).toBe(1);
+  });
+
+  it("recovers a rating that hadn't reached storage when the page was killed", async () => {
+    const storage = createMemoryStore();
+    const local = memoryLocal();
+    const hung: KeyValueStore = { ...storage, put: () => new Promise(() => {}) };
+    const a = new AppStore(fakeServices(hung), SONGS, local);
+    await a.load();
+    for (let i = 0; i < 3; i++) a.rateRollPass("forward", "got-it");
+    const b = new AppStore(fakeServices(storage), SONGS, local);
+    await b.load();
+    expect(b.learning.value.rolls.forward?.level).toBe(2);
+    await settle();
+    expect(
+      (await storage.get<{ rolls: Record<string, { level: number }> }>("meta", "learning"))?.rolls
+        .forward?.level,
+    ).toBe(2);
+  });
+
+  it("ignores damaged saved progress instead of failing to start", async () => {
+    const storage = createMemoryStore();
+    await storage.put("meta", "learning", {
+      version: 1,
+      rolls: { forward: "garbage", backward: { level: 3 } },
+    });
+    const a = new AppStore(fakeServices(storage), SONGS, memoryLocal());
+    await a.load();
+    expect(a.learning.value.rolls.forward).toBeUndefined();
+    expect(a.learning.value.rolls.backward?.level).toBe(3);
+  });
+
+  it("starting a roll over drops its progress", async () => {
+    const a = new AppStore(fakeServices(createMemoryStore()), SONGS, memoryLocal());
+    await a.load();
+    for (let i = 0; i < 3; i++) a.rateRollPass("forward", "got-it");
+    a.resetRollLesson("forward");
+    expect(a.learning.value.rolls.forward).toBeUndefined();
+  });
+});

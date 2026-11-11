@@ -1253,3 +1253,244 @@ h2 {
   stroke: var(--ink);
   stroke-width: 2px;
 }
+
+/* F36 / F37: the roll lesson. One idea per screen: a picture, one rule line, two big buttons.
+   Finger colors always come with their letters; hidden hints are dashed outlines. */
+.lesson {
+  margin: 0 0 20px;
+  padding: 16px 18px 18px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.lesson-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+}
+.lesson h3 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+.lesson-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 1.125rem;
+}
+.lesson-dots {
+  display: inline-flex;
+  gap: 4px;
+}
+.lesson-dots .dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--brand);
+}
+.lesson-dots .dot.on {
+  background: var(--brand);
+}
+.lesson-steady {
+  color: var(--ok);
+}
+.lanes {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  margin: 14px 0 6px;
+  overflow-x: auto;
+}
+.lane-labels {
+  display: grid;
+  grid-template-rows: repeat(3, 44px) 28px 28px;
+  align-items: center;
+  font-size: 1rem;
+  white-space: nowrap;
+}
+.lane-notes {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lane-note {
+  display: grid;
+  grid-template-rows: repeat(3, 44px) 28px 28px;
+  justify-items: center;
+  align-items: center;
+  min-width: 48px;
+}
+.lane-note.half-start {
+  margin-left: 14px;
+  padding-left: 14px;
+  border-left: 2px solid var(--line);
+}
+.lane-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-top: 1px solid var(--line);
+}
+.lane-note .badge {
+  width: 40px;
+  height: 40px;
+  font-size: 1.25rem;
+}
+.badge-hidden {
+  background: transparent;
+  border: 2px dashed var(--ink-soft);
+  color: var(--ink);
+}
+.lane-string {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+.lane-slot {
+  font-size: 1rem;
+  color: var(--ink);
+}
+.lesson-rule {
+  margin: 10px 0 2px;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+.lesson-use {
+  font-weight: 400;
+  letter-spacing: 0;
+  font-size: 1.125rem;
+}
+.lesson-cue,
+.lesson-ask {
+  margin: 4px 0;
+  font-size: 1.125rem;
+}
+.lesson-buttons {
+  display: flex;
+  gap: 16px;
+  margin: 12px 0 8px;
+}
+.lesson-button {
+  flex: 1 1 0;
+  min-height: 56px;
+  border-radius: var(--radius);
+  border: 2px solid var(--brand);
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+.lesson-got-it {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: #fff;
+}
+.lesson-again {
+  background: var(--surface);
+  color: var(--ink);
+}
+.lesson-extra {
+  display: flex;
+  gap: 12px;
+  margin: 0;
+}
+.lesson-extra .plain-button {
+  min-height: 48px;
+}
+
+/* F45 · Changing one measure's chord in a roll exercise: a sheet that slides up */
+.chord-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.chord-sheet {
+  width: min(100%, 520px);
+  max-height: 70vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  border-radius: 16px 16px 0 0;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.3);
+  animation: chord-sheet-up 0.18s ease-out;
+}
+@keyframes chord-sheet-up {
+  from {
+    transform: translateY(40%);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chord-sheet {
+    animation: none;
+  }
+}
+.chord-sheet-title {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+}
+.chord-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scroll-snap-type: y proximity;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+  -webkit-overflow-scrolling: touch;
+}
+.chord-option {
+  scroll-snap-align: center;
+  min-height: 64px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 6px 20px;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: var(--bg);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.chord-option.on {
+  border-color: currentColor;
+}
+.chord-option-name {
+  font-size: 2rem;
+  font-weight: 700;
+}
+.chord-option-degree {
+  font-size: 1.1rem;
+  opacity: 0.7;
+}
+.part-stack.unavailable {
+  opacity: 0.45;
+}
+/* Exercises have chords, not a melody: make the chord letters in the notation larger. */
+.song-lines.exercise .notation .abcjs-chord {
+  font-size: 200%;
+  font-weight: 700;
+}
+/* A chord letter he can change: touch it. */
+.song-lines.exercise .notation .abcjs-chord.changeable {
+  cursor: pointer;
+  text-decoration: underline dotted;
+}

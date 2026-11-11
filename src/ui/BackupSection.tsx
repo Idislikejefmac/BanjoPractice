@@ -36,6 +36,7 @@ export function BackupSection({ store, services }: { store: AppStore; services: 
       songPrefs: [...store.prefs.value.values()],
       settings: store.settings.value,
       practiceLog: [],
+      learning: store.learning.value,
     });
     const blob = new Blob([JSON.stringify(backup, null, 1)], { type: "application/json" });
     const result = await services.share.shareFile(backupFileName(), blob);
@@ -70,6 +71,7 @@ export function BackupSection({ store, services }: { store: AppStore; services: 
     const ops = importOps(pending.backup, pending.preview, choice, {
       newId: () => crypto.randomUUID(),
       importSettings: true,
+      currentLearning: store.learning.value,
     });
     try {
       await services.storage.writeAll(ops);

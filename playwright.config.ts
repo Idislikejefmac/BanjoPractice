@@ -1,3 +1,4 @@
+import type { ReporterDescription } from "@playwright/test";
 import { defineConfig, devices } from "@playwright/test";
 
 // E2E and chaos tests run against the production build (vite preview).
@@ -7,7 +8,11 @@ export default defineConfig({
   testDir: "tests/e2e",
   timeout: 30_000,
   retries: 0,
-  reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
+  reporter: [
+    ["list"],
+    ["./tests/reporters/progress.mjs"],
+    ...(process.env.CI ? ([["github"], ["html", { open: "never" }]] as ReporterDescription[]) : []),
+  ],
   use: {
     baseURL: "http://localhost:4173",
     trace: "retain-on-failure",
@@ -20,7 +25,9 @@ export default defineConfig({
     // The test build: it adds the draft fixture songs (tests/fixtures/songs) the suites use.
     command: "npm run build:chaos && npx vite preview --outDir dist-chaos --port 4173 --strictPort",
     url: "http://localhost:4173",
-    reuseExistingServer: !process.env.CI,
+    // Never reuse a server already on the port: it may serve an old build (scripts/run-tests.mjs
+    // frees the ports first). REUSE_SERVER=1 allows it for quick local reruns.
+    reuseExistingServer: process.env.REUSE_SERVER === "1",
     timeout: 120_000,
   },
 });

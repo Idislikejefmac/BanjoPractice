@@ -2,6 +2,8 @@
 // The validators back invariant I7 (every stored record parses at the current schema) and
 // make loading defensive: a corrupt record is replaced by defaults, never crashes the app.
 
+import type { ChordOverrides } from "../core/banjo/exercises.ts";
+import { validChordOverrides } from "../core/banjo/exercises.ts";
 import { songProblems } from "../core/song/song.ts";
 import { practiceSessionProblems } from "./practiceLog.ts";
 
@@ -105,7 +107,20 @@ export interface Settings {
   readonly visualMetronome: boolean;
   /** Song words under the notes (and under the tab in tab-only view). */
   readonly showLyrics: boolean;
+  /**
+   * What he last chose for the mix, kept across songs and exercises: which of melody, chords and
+   * banjo are on, their volumes, the count-in/metronome mode and the click volume. They are
+   * preferences, not per-song state, so opening another song never switches them back.
+   */
+  readonly parts: Readonly<Record<PartId, PartPrefs>>;
+  readonly metronome: MetronomeMode;
+  readonly clickVolume: number;
+  /** Chords he chose for single measures of the roll exercises (measure position → chord). */
+  readonly exerciseChords: ChordOverrides;
 }
+
+/** The practice keys that are kept as preferences (in Settings) instead of per song. */
+export const SOUND_KEYS = ["parts", "metronome", "clickVolume"] as const;
 
 export const DEFAULT_SETTINGS: Settings = {
   schemaVersion: MODEL_SCHEMA_VERSION,
@@ -120,6 +135,10 @@ export const DEFAULT_SETTINGS: Settings = {
   melodyInstrument: "violin",
   visualMetronome: true,
   showLyrics: true,
+  parts: DEFAULT_PRACTICE.parts,
+  metronome: DEFAULT_PRACTICE.metronome,
+  clickVolume: DEFAULT_PRACTICE.clickVolume,
+  exerciseChords: {},
 };
 
 export const SIZE_STEPS = [0.85, 1, 1.25, 1.55] as const;
@@ -183,6 +202,30 @@ export function settingsProblems(v: unknown): string[] {
   if (!["violin", "flute", "mandolin"].includes(v.melodyInstrument as string)) {
     p.push("melodyInstrument");
   }
+  p.push(...partsProblems(v.parts));
+  if (!["off", "count-in", "throughout"].includes(v.metronome as string)) p.push("metronome");
+  if (typeof v.clickVolume !== "number" || v.clickVolume < 0 || v.clickVolume > 1) {
+    p.push("clickVolume");
+  }
+  if (!validChordOverrides(v.exerciseChords)) p.push("exerciseChords");
+  return p;
+}
+
+function partsProblems(parts: unknown): string[] {
+  if (!isObj(parts)) return ["parts"];
+  const p: string[] = [];
+  for (const id of ["melody", "chords", "banjo"]) {
+    const part = parts[id];
+    if (
+      !isObj(part) ||
+      !isBool(part.on) ||
+      typeof part.volume !== "number" ||
+      part.volume < 0 ||
+      part.volume > 1
+    ) {
+      p.push(`parts.${id}`);
+    }
+  }
   return p;
 }
 
@@ -194,21 +237,7 @@ export function practiceProblems(v: unknown): string[] {
   if (v.tempoBpm !== null && !isBpm(v.tempoBpm)) p.push("tempoBpm");
   if (!isInt(v.keyShift) || v.keyShift < 0 || v.keyShift > 11) p.push("keyShift");
   if (v.notationKey !== "sounding" && v.notationKey !== "shape") p.push("notationKey");
-  const parts = v.parts;
-  if (!isObj(parts)) p.push("parts");
-  else
-    for (const id of ["melody", "chords", "banjo"]) {
-      const part = parts[id];
-      if (
-        !isObj(part) ||
-        !isBool(part.on) ||
-        typeof part.volume !== "number" ||
-        part.volume < 0 ||
-        part.volume > 1
-      ) {
-        p.push(`parts.${id}`);
-      }
-    }
+  p.push(...partsProblems(v.parts));
   if (
     v.rolls !== null &&
     (!Array.isArray(v.rolls) ||

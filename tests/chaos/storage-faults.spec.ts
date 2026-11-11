@@ -77,7 +77,10 @@ test("Database newer than this build: never modified, read-only with a message (
   const errors: string[] = [];
   await page.goto("/");
   await page.waitForSelector(".toolbar");
-  // Simulate a rollback: the database was upgraded by a newer app version.
+  // Simulate a rollback: the database was upgraded by a newer app version. The app holds the
+  // database open and doesn't close it for a delete, so a delete from its own page waits forever
+  // (this test hung with no timeout). Do it from a plain page of the same origin instead.
+  await page.goto("/manifest.webmanifest");
   await page.evaluate(async (name) => {
     for (const db of await indexedDB.databases())
       if (db.name === name) indexedDB.deleteDatabase(name);
@@ -93,7 +96,7 @@ test("Database newer than this build: never modified, read-only with a message (
     });
   }, DB);
   watchErrors(page, errors);
-  await page.reload();
+  await page.goto("/");
   await expect(page.locator(".notices")).toContainText("newer version");
   await page.click('[data-favorite="wildwood-flower"]');
   const version = await page.evaluate(async (name) => {

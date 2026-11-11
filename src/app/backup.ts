@@ -9,6 +9,11 @@ import type { Song } from "../core/song/song.ts";
 import { songProblems } from "../core/song/song.ts";
 import type { Settings, SongPrefs } from "./model.ts";
 import { readSettings, settingsProblems, songPrefsProblems } from "./model.ts";
+import type { LearningProgress } from "../core/learning/progress.ts";
+import { EMPTY_PROGRESS, mergeProgress, readProgress } from "../core/learning/progress.ts";
+
+/** Key of the learning-progress document in the meta store (same as AppStore's LEARNING_KEY). */
+const LEARNING_META_KEY = "learning";
 
 export const BACKUP_FORMAT = "banjo-practice-backup";
 export const BACKUP_VERSION = 1;
@@ -22,6 +27,8 @@ export interface Backup {
   readonly songPrefs: readonly SongPrefs[];
   readonly settings: Settings | null;
   readonly practiceLog: readonly unknown[];
+  /** F37 roll-lesson progress. Optional in older files; read as empty if missing. */
+  readonly learning: LearningProgress;
 }
 
 export function makeBackup(input: {
@@ -30,6 +37,7 @@ export function makeBackup(input: {
   songPrefs: readonly SongPrefs[];
   settings: Settings;
   practiceLog: readonly unknown[];
+  learning?: LearningProgress;
   now?: Date;
 }): Backup {
   return {
@@ -41,6 +49,7 @@ export function makeBackup(input: {
     songPrefs: input.songPrefs,
     settings: input.settings,
     practiceLog: input.practiceLog,
+    learning: input.learning ?? EMPTY_PROGRESS,
   };
 }
 
@@ -116,6 +125,7 @@ export function parseBackup(text: string): ParseResult {
       songPrefs,
       settings,
       practiceLog: Array.isArray(r.practiceLog) ? r.practiceLog : [],
+      learning: readProgress(r.learning),
     },
   };
 }
@@ -167,7 +177,13 @@ export function importOps(
   backup: Backup,
   preview: ImportPreview,
   choice: ConflictChoice,
-  opts: { now?: Date; newId: () => string; importSettings: boolean },
+  opts: {
+    now?: Date;
+    newId: () => string;
+    importSettings: boolean;
+    /** Progress already on this device, so the restore can only add to it. */
+    currentLearning?: LearningProgress;
+  },
 ): WriteOp[] {
   const now = (opts.now ?? new Date()).toISOString();
   const ops: WriteOp[] = [];
@@ -204,6 +220,14 @@ export function importOps(
     if (imported.has(p.songId) || !UUID.test(p.songId)) {
       ops.push({ op: "put", store: "songPrefs", key: p.songId, value: p });
     }
+  }
+  if (Object.keys(backup.learning.rolls).length > 0) {
+    ops.push({
+      op: "put",
+      store: "meta",
+      key: LEARNING_META_KEY,
+      value: mergeProgress(opts.currentLearning ?? EMPTY_PROGRESS, backup.learning),
+    });
   }
   if (opts.importSettings && backup.settings) {
     ops.push({ op: "put", store: "settings", key: "settings", value: backup.settings });

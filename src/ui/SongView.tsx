@@ -12,7 +12,9 @@ import { SIZE_STEPS } from "../app/model.ts";
 import type { ArrangedMeasure, StringNo } from "../core/banjo/types.ts";
 import { FINGER_NAME } from "../core/banjo/types.ts";
 import { actualFret, capoPlan, OPEN_G } from "../core/banjo/tuning.ts";
+import { OPEN_STRING_MEASURES } from "../core/banjo/exercises.ts";
 import { explainSlot } from "../core/learning/classify.ts";
+import { formatChord, parseChord, transposeChord } from "../core/music/chords.ts";
 import { formatKey, sameKey } from "../core/music/keys.ts";
 import type { IndexedMeasure } from "../core/song/abcIndex.ts";
 import type { DisplayLine } from "../core/song/layoutAbc.ts";
@@ -25,6 +27,8 @@ import { measureNotation, renderNotationLine } from "../render/notation.ts";
 import type { MeasureGeometry, TabLayoutOptions } from "../render/tabLayout.ts";
 import { evenGeometry, layoutTabLine } from "../render/tabLayout.ts";
 import { TabSvg } from "../render/TabSvg.tsx";
+import { EXERCISE_PREFIX, RollLesson } from "./RollLesson.tsx";
+import { ChordSheet } from "./ChordSheet.tsx";
 
 /** Notation is drawn a little smaller than the tab: Dad reads mainly tab (F4). */
 const NOTATION_SCALE = 0.9;
@@ -71,6 +75,11 @@ interface LineProps {
   readonly current: number | null;
   /** F16: a chord symbol in the notation was tapped. */
   readonly onChordTap: (chord: string) => void;
+  /**
+   * F45: in a roll exercise, a chord letter was touched: the measure's position in the
+   * exercise. Chord letters of the changeable measures get a pointer and a dotted underline.
+   */
+  readonly onMeasureChord?: ((position: number) => void) | undefined;
   /** F28: the step cursor's measure and slot. */
   readonly stepAt: { readonly measure: number; readonly slot: number } | null;
   /** F30: the note playing now (not while stepping). */
@@ -100,6 +109,7 @@ function SongLine({
   playAt,
   onTooWide,
   onChordTap,
+  onMeasureChord,
   line,
   lineNo,
   width,
@@ -132,6 +142,11 @@ function SongLine({
       result = renderNotationLine(el, abc, staffWidth, k, infos, onChordTap, tight);
     } catch {
       result = null;
+    }
+    if (onMeasureChord) {
+      el.querySelectorAll(".abcjs-chord").forEach((t, i) => {
+        if (line.from + i >= OPEN_STRING_MEASURES) t.classList.add("changeable");
+      });
     }
     // Words under crowded notes can make abcjs draw the staff wider than asked for.
     if (result && result.drawnWidth > width + 2) onTooWide(line.from, line.to);
@@ -180,7 +195,36 @@ function SongLine({
           style={{ left: `${box.left}px`, width: `${box.right - box.left}px` }}
         />
       )}
-      {!tabOnly && <div class="notation" ref={notationRef} aria-label="Notation" />}
+      {!tabOnly && (
+        <div
+          class="notation"
+          ref={notationRef}
+          aria-label="Notation"
+          onClick={
+            onMeasureChord
+              ? (e) => {
+                  // A finger is bigger than the letter: a touch within 24px of a changeable
+                  // chord letter counts as touching it.
+                  const chords = [...(e.currentTarget.querySelectorAll(".abcjs-chord") ?? [])];
+                  const hit = chords.findIndex((t) => {
+                    const r = t.getBoundingClientRect();
+                    const padX = Math.max(0, (48 - r.width) / 2);
+                    const padY = Math.max(0, (48 - r.height) / 2);
+                    return (
+                      e.clientX >= r.left - padX &&
+                      e.clientX <= r.right + padX &&
+                      e.clientY >= r.top - padY &&
+                      e.clientY <= r.bottom + padY
+                    );
+                  });
+                  if (hit >= 0 && line.from + hit >= OPEN_STRING_MEASURES) {
+                    onMeasureChord(line.from + hit);
+                  }
+                }
+              : undefined
+          }
+        />
+      )}
       {tab && (
         <TabSvg
           p={tab}
@@ -292,6 +336,19 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
   };
   const follow = player.follow.value;
   const current = follow.measure;
+  const isExercise = song?.id.startsWith(EXERCISE_PREFIX) ?? false;
+  // F45: the measure whose chord is being changed (exercises only).
+  const [editing, setEditing] = useState<number | null>(null);
+  useEffect(() => setEditing(null), [song?.id]);
+  const noChordFinder = useCallback(() => undefined, []);
+  const showChord = (name: string) => {
+    // Chords are stored as G-shape names; show them the way the notation writes them.
+    if (shapeNotation || keyShift === 0 || !practiceTab) return name;
+    const chord = parseChord(name);
+    return chord
+      ? formatChord(transposeChord(chord, keyShift, practiceTab.plan.soundingKey), "ascii")
+      : name;
+  };
   const openChord = useMemo(() => (chord: string) => (store.chordFinder.value = chord), [store]);
   const stepAt =
     player.step.value && follow.measure !== null && follow.slot !== null
@@ -499,7 +556,18 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
           </p>
         )}
       </header>
-      <div class="song-lines" ref={containerRef}>
+      {song.id.startsWith(EXERCISE_PREFIX) && (
+        <RollLesson store={store} rollId={song.id.slice(EXERCISE_PREFIX.length)} />
+      )}
+      {isExercise && editing !== null && (
+        <ChordSheet
+          store={store}
+          position={editing}
+          display={showChord}
+          onClose={() => setEditing(null)}
+        />
+      )}
+      <div class={isExercise ? "song-lines exercise" : "song-lines"} ref={containerRef}>
         {width > 0 &&
           page &&
           lines.map((line, i) => {
@@ -513,7 +581,8 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
                 stepAt={stepAt}
                 playAt={playAt}
                 onTooWide={tooWide}
-                onChordTap={openChord}
+                onChordTap={isExercise ? noChordFinder : openChord}
+                onMeasureChord={isExercise ? setEditing : undefined}
                 line={line}
                 lineNo={i}
                 width={width}

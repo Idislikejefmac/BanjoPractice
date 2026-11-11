@@ -20,7 +20,11 @@ Banjo practice PWA for Jeff's dad (Scruggs style, open G, reads mainly tab). Rea
 
 ## Commands
 
-`npm run verify` runs typecheck, lint, tests, build and the production-bundle check. Run it before committing.
+Don't run the whole suite for every small change. `npm run check` looks at what changed (git) and picks the tier: **docs** (prettier), **quick** (+ typecheck, ESLint and the unit tests that import the changed files; seconds), **feature** (+ browser tests on Chromium; about a minute; for screen-only changes) or **full** (+ `npm run verify`, e2e on both engines and the chaos suite; many minutes; for storage, model, playback, audio, platform, build/test config, or many files). `npm run check -- --dry` says which tier and why; `--tier <name>` forces one. Run **full** before a phase is pushed; **quick** is enough between edits.
+
+`npm run verify` runs typecheck, lint, tests, build and the production-bundle check.
+
+Run browser suites only through `npm run e2e`, `npm run chaos` or `npm run check` (all go through `scripts/run-tests.mjs`): they stream live, print a heartbeat, write `test-logs/<suite>-progress.log`, stop a stalled run, and free the preview ports (4173–4175) before and after. Never pipe them through `tail` (no output until the end) and never start Playwright directly: a stopped run leaves its `vite preview` servers behind, and the next run then tests a stale build.
 
 ## Commits
 

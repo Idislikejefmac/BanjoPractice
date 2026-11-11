@@ -8,6 +8,10 @@ IDs such as `C4`, `P2`, `F17` refer to [`DEVELOPMENT.md`](DEVELOPMENT.md).
 
 ---
 
+## Running the suites
+
+`npm run chaos` (and `npm run e2e`) go through `scripts/run-tests.mjs`: results stream live; `test-logs/chaos-progress.log` gets one timed line per test start, result and monkey checkpoint (every 25 steps); a heartbeat prints every 30 s; a run with no sign of life for 10 minutes (`--stall-min`, or `CHAOS_MINUTES` + 5 for a long run) is stopped and its last event reported; and the preview ports are freed before and after, because a server left by an earlier run would be reused and serve an old build. `npm run check` chooses how much of this a change needs (CLAUDE.md, Commands).
+
 ## 1. What "stable" means: the invariants
 
 Every chaos run checks these after **every** action. A run fails the first time any of them breaks. The "Engines" column says where an invariant can actually be checked: **C** = Chromium, **W** = WebKit (subject to spike S0), **iPad** = manual checklist only.
@@ -192,6 +196,8 @@ Each scenario runs alone (scripted), then again with the monkey running.
 | Corrupt record in `songs` | That song is quarantined (listed in diagnostics with "export raw"). All others load |
 | Failure mid-transaction during import | Rollback; storage identical to before |
 | Slow storage (500 ms per op) | UI stays responsive (I2); saves show progress; slider drags don't queue hundreds of writes |
+| **Roll-lesson progress** (F37, `meta/learning`): `QuotaExceeded` on a rating; hard reload right after one; a damaged or newer-version document; a seeded storm of ratings, reloads and disk faults | A visible save failure, the change kept and retried; the rating survives a reload; a bad document is ignored (lessons start at step 1); at every checkpoint what the lesson shows equals what storage holds (I6). Scripted in `tests/chaos/lesson.spec.ts`; the checkpoint also checks it for the main monkey |
+| **Exercise chords** (F45, `settings.exerciseChords`): `QuotaExceeded` while changing a measure's chord | Visible save failure; the chosen chord stays on screen, is saved when space returns and survives a reload (scripted in `tests/chaos/lesson.spec.ts`) |
 
 ### 6.2 Audio (P2, P3, A1)
 

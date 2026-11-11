@@ -9,9 +9,13 @@
 import { batch, computed, signal } from "@preact/signals";
 import type { Song } from "../core/song/song.ts";
 import { songProblems } from "../core/song/song.ts";
+import type { Rating } from "../core/learning/fade.ts";
+import type { LearningProgress } from "../core/learning/progress.ts";
+import { EMPTY_PROGRESS, rateRoll, readProgress, resetRoll } from "../core/learning/progress.ts";
 import type { LogEvent, OpenSession, PracticeSession } from "./practiceLog.ts";
 import { applyLogEvent, close as closeSession, practiceSessionProblems } from "./practiceLog.ts";
 import type { KeyValueStore, StoreName } from "../platform/types.ts";
+import { rollExercise } from "../core/banjo/exercises.ts";
 import type { Services } from "./services.ts";
 import type { PracticePrefs, Session, Settings, SongPrefs, ViewMode } from "./model.ts";
 import {
@@ -24,12 +28,15 @@ import {
   readSongPrefs,
   readPractice,
   recentSongIds,
+  SOUND_KEYS,
   STORE_VALIDATORS,
 } from "./model.ts";
 
 const SESSION_MIRROR_KEY = "banjo.session";
 /** Write-ahead copy of saves not yet confirmed by IndexedDB (survives a kill mid-save). */
 const PENDING_KEY = "banjo.pendingWrites";
+/** Key of the learning-progress document in the meta store (apart from the "meta" document). */
+export const LEARNING_KEY = "learning";
 const SESSION_DEBOUNCE_MS = 500;
 const RETRY_MS = 3000;
 
@@ -47,6 +54,8 @@ export class AppStore {
   private readonly builtins: readonly Song[];
   /** F18: when Dad last exported a backup (ISO), for "Last backup: N days ago". */
   readonly lastBackupAt = signal<string | null>(null);
+  /** F37: how far Dad has taken each roll lesson (one document in the meta store). */
+  readonly learning = signal<LearningProgress>(EMPTY_PROGRESS);
   /** F21: saved practice sessions, newest first. */
   readonly practiceLog = signal<readonly PracticeSession[]>([]);
   /** Which practice tool is open (F19, F21, F23), or null. */
@@ -68,9 +77,21 @@ export class AppStore {
   /** Bumped when the user picks a song, so the view scrolls to its top. */
   readonly openNonce = signal(0);
 
-  readonly currentSong = computed(
-    () => this.songs.find((s) => s.id === this.session.value.songId) ?? null,
-  );
+  readonly currentSong = computed(() => {
+    const song = this.songs.find((s) => s.id === this.session.value.songId) ?? null;
+    // A roll exercise is rebuilt with the chords he chose for its "Your chords" part.
+    if (song?.id.startsWith("exercise:")) {
+      const chords = this.settings.value.exerciseChords;
+      const key = `${song.id}|${JSON.stringify(chords)}`;
+      if (this.exerciseCache?.key !== key) {
+        const built = rollExercise(song.id.slice("exercise:".length), chords);
+        this.exerciseCache = { key, song: built ?? song };
+      }
+      return this.exerciseCache.song;
+    }
+    return song;
+  });
+  private exerciseCache: { key: string; song: Song } | null = null;
   readonly view = computed<ViewMode>(() => {
     const id = this.session.value.songId;
     return (id ? this.prefs.value.get(id)?.view : undefined) ?? this.settings.value.defaultView;
@@ -79,7 +100,15 @@ export class AppStore {
   readonly practice = computed<PracticePrefs>(() => {
     const id = this.session.value.songId;
     const p = id ? this.prefs.value.get(id)?.practice : undefined;
-    return p ? readPractice(p) : DEFAULT_PRACTICE;
+    const s = this.settings.value;
+    // The mix (parts on/off and volumes, count-in mode, click volume) is a preference that
+    // follows him from song to song, so it always comes from settings, never from the song.
+    return {
+      ...(p ? readPractice(p) : DEFAULT_PRACTICE),
+      parts: s.parts,
+      metronome: s.metronome,
+      clickVolume: s.clickVolume,
+    };
   });
   readonly favorites = computed(() =>
     this.songs.filter((s) => this.prefs.value.get(s.id)?.favorite),
@@ -125,6 +154,7 @@ export class AppStore {
     let settings = DEFAULT_SETTINGS;
     const prefs = new Map<string, SongPrefs>();
     let session: Session | null = null;
+    let learning = EMPTY_PROGRESS;
     const userSongs = new Map<string, Song>();
     try {
       for (const key of await this.storage.keys("songs")) {
@@ -144,6 +174,7 @@ export class AppStore {
       this.practiceLog.value = log.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
       const meta = await this.storage.get<{ lastBackupAt?: string }>("meta", "meta");
       if (meta?.lastBackupAt) this.lastBackupAt.value = meta.lastBackupAt;
+      learning = readProgress(await this.storage.get("meta", LEARNING_KEY));
       settings = readSettings(await this.storage.get("settings", "settings"));
       for (const key of await this.storage.keys("songPrefs")) {
         const p = readSongPrefs(await this.storage.get("songPrefs", key));
@@ -163,6 +194,7 @@ export class AppStore {
         if (p) prefs.set(p.songId, p);
       }
       if (w.store === "songs") userSongs.set((w.value as Song).id, w.value as Song);
+      if (w.store === "meta" && w.key === LEARNING_KEY) learning = readProgress(w.value);
     }
     this.songList.value = [
       ...this.builtins,
@@ -181,6 +213,7 @@ export class AppStore {
       this.settings.value = settings;
       this.prefs.value = prefs;
       this.session.value = session ?? DEFAULT_SESSION;
+      this.learning.value = learning;
     });
     for (const w of unsaved) this.write(w.store, w.key, w.value);
     // The recovered session is saved properly now, so storage matches what is shown (I6).
@@ -340,8 +373,16 @@ export class AppStore {
   updatePractice(patch: Partial<PracticePrefs>): void {
     const id = this.session.value.songId;
     if (!id) return;
-    const next = readPractice({ ...this.practice.value, ...patch });
-    this.updatePrefs(id, { practice: next });
+    const sound: Record<string, unknown> = {};
+    const song: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(patch)) {
+      (SOUND_KEYS.includes(k as (typeof SOUND_KEYS)[number]) ? sound : song)[k] = v;
+    }
+    if (Object.keys(sound).length > 0) this.updateSettings(sound as Partial<Settings>);
+    if (Object.keys(song).length > 0) {
+      const next = readPractice({ ...this.practice.value, ...song });
+      this.updatePrefs(id, { practice: next });
+    }
   }
 
   setTopMeasure(measure: number): void {
@@ -436,6 +477,18 @@ export class AppStore {
   private savePracticeSession(s: PracticeSession): void {
     this.practiceLog.value = [s, ...this.practiceLog.value.filter((x) => x.id !== s.id)];
     this.write("practiceLog", s.id, s);
+  }
+
+  /** F37: Dad rated one pass of a roll lesson. */
+  rateRollPass(rollId: string, rating: Rating): void {
+    this.learning.value = rateRoll(this.learning.value, rollId, rating);
+    this.write("meta", LEARNING_KEY, this.learning.value);
+  }
+
+  /** F37: start a roll's lesson over from full help. */
+  resetRollLesson(rollId: string): void {
+    this.learning.value = resetRoll(this.learning.value, rollId);
+    this.write("meta", LEARNING_KEY, this.learning.value);
   }
 
   /** Records that a backup was made (F18 "Last backup: N days ago"). */
