@@ -55,6 +55,12 @@ test("touch a measure's chord letter, slide to another chord of the key, and the
     /D\s*V$/,
     /Em\s*vi$/,
     /F\s*♭VII$/,
+    /D7\s*V7$/,
+    /G7\s*I7$/,
+    /C7\s*IV7$/,
+    /A7\s*II7$/,
+    /E7\s*VI7$/,
+    /B7\s*III7$/,
   ]);
   await expect(page.locator('.chord-option[data-chord="C"]')).toHaveAttribute(
     "aria-pressed",
@@ -116,6 +122,12 @@ test("the chord names follow the key he plays in", async ({ page }) => {
     /E\s*V$/,
     /F♯m\s*vi$|F#m\s*vi$/,
     /G\s*♭VII$/,
+    /E7\s*V7$/,
+    /A7\s*I7$/,
+    /D7\s*IV7$/,
+    /B7\s*II7$/,
+    /F♯7\s*VI7$|F#7\s*VI7$/,
+    /C♯7\s*III7$|C#7\s*III7$/,
   ]);
   await page.click('.chord-option[data-chord="Am"]'); // the chord named for the key of A: Bm
   expect((await chordTexts(page))[3]).toBe("Bm");
@@ -151,4 +163,29 @@ test("changing a chord while it plays doesn't stop it; the new chord is used as 
   await expect(page.locator('[data-action="play"]')).toHaveAttribute("aria-label", "Stop");
   expect((await chordTexts(page))[5]).toBe("Em");
   await page.click('[data-action="play"]'); // stop
+});
+
+test("a D can be made a D7: the seventh chords are a second group in the sheet", async ({
+  page,
+}) => {
+  await openExercise(page);
+  const before = await chordTexts(page);
+  const tabBefore = await tabText(page);
+  await chords(page).nth(4).click(); // the D of the second part
+  await expect(page.locator(".chord-group-title")).toHaveText([
+    "Chords of the key",
+    "Seventh chords (each leads to the next)",
+  ]);
+  await page.click('.chord-option[data-chord="D7"]');
+  const after = await chordTexts(page);
+  expect(after.map((c, i) => (c === before[i] ? "" : `${i}:${c}`)).filter(Boolean)).toEqual([
+    "4:D7",
+  ]);
+  expect(await tabText(page)).not.toBe(tabBefore); // the roll is arranged for D7 (the C, not the D)
+  // Still D7 on the next roll and after a reload.
+  await openExercise(page, "backward");
+  expect((await chordTexts(page))[4]).toBe("D7");
+  await page.reload();
+  await page.waitForSelector("svg.tab");
+  expect((await chordTexts(page))[4]).toBe("D7");
 });

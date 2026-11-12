@@ -29,7 +29,11 @@ const npx = win ? "npx.cmd" : "npx";
 
 const run = (cmd, args, label) => {
   console.log(`\n[check] ▶ ${label}`);
-  const r = spawnSync(cmd, args, { stdio: "inherit", shell: win && cmd.endsWith(".cmd") });
+  // No stdin: a tool must never sit waiting for input.
+  const r = spawnSync(cmd, args, {
+    stdio: ["ignore", "inherit", "inherit"],
+    shell: win && cmd.endsWith(".cmd"),
+  });
   if (r.status !== 0) {
     console.error(`[check] ✗ ${label} failed (exit ${r.status}). Stopping here.`);
     process.exit(r.status ?? 1);
@@ -96,11 +100,9 @@ if (!["docs", "quick", "feature", "full"].includes(tier)) {
 }
 
 // --- the steps ------------------------------------------------------------------------------
-run(
-  npx,
-  ["prettier", "--check", ...changed.filter((f) => /\.(ts|tsx|mjs|js|css|md|json|html)$/.test(f))],
-  "prettier on the changed files",
-);
+const formatted = changed.filter((f) => /\.(ts|tsx|mjs|js|css|md|json|html)$/.test(f));
+if (formatted.length > 0)
+  run(npx, ["prettier", "--check", ...formatted], "prettier on the changed files");
 if (tier === "docs") process.exit(0);
 
 if (tier !== "full") {

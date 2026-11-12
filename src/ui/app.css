@@ -1543,3 +1543,14 @@ h2 {
 .toolbar.has-song .part-stack {
   order: 2;
 }
+
+.chord-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.chord-group-title {
+  margin: 8px 0 0;
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+}

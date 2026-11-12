@@ -79,6 +79,16 @@ describe("rollExercise with a chord chosen for single measures", () => {
     }
   });
 
+  it("D7 plays the flat seventh where D plays the root, in every roll", () => {
+    for (const roll of ["forward", "backward", "alternating-thumb"]) {
+      const plain = tabLines(rollExercise(roll)!.tab!)[4]!;
+      const seven = tabLines(rollExercise(roll, { "4": "D7" })!.tab!)[4]!;
+      expect(plain, roll).toContain("2:3I"); // D on the 2nd string, 3rd fret
+      expect(seven, roll).toContain("2:1I"); // C on the 2nd string, 1st fret
+      expect(seven, roll).not.toContain("2:3I");
+    }
+  });
+
   it("leaves the open-strings measures alone and ignores choices that aren't on offer", () => {
     expect(validChordOverrides({ "0": "C" })).toBe(false);
     expect(validChordOverrides({ "3": "Cm" })).toBe(false);

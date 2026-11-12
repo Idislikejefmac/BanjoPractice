@@ -49,17 +49,24 @@ export function ChordSheet({
       >
         <p class="chord-sheet-title">Measure {position + 1}: slide, then touch a chord</p>
         <div class="chord-list" ref={listRef}>
-          {EXERCISE_CHORD_CHOICES.map((o) => (
-            <button
-              key={o.chord}
-              class={current === o.chord ? "chord-option on" : "chord-option"}
-              data-chord={o.chord}
-              aria-pressed={current === o.chord}
-              onClick={() => choose(o.chord)}
-            >
-              <span class="chord-option-name">{display(o.chord)}</span>
-              <span class="chord-option-degree">{o.degree}</span>
-            </button>
+          {(["key", "seventh"] as const).map((group) => (
+            <div class="chord-group" key={group} role="group">
+              <p class="chord-group-title">
+                {group === "key" ? "Chords of the key" : "Seventh chords (each leads to the next)"}
+              </p>
+              {EXERCISE_CHORD_CHOICES.filter((o) => o.group === group).map((o) => (
+                <button
+                  key={o.chord}
+                  class={current === o.chord ? "chord-option on" : "chord-option"}
+                  data-chord={o.chord}
+                  aria-pressed={current === o.chord}
+                  onClick={() => choose(o.chord)}
+                >
+                  <span class="chord-option-name">{display(o.chord)}</span>
+                  <span class="chord-option-degree">{o.degree}</span>
+                </button>
+              ))}
+            </div>
           ))}
         </div>
         <button class="big-button secondary" data-action="chord-sheet-close" onClick={onClose}>

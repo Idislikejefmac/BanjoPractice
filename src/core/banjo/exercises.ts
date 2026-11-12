@@ -28,15 +28,29 @@ export const EXERCISE_PROGRESSIONS: readonly {
   { label: "D", name: "G–Em–C–D", chords: ["G", "Em", "C", "D"] },
 ];
 
-/** The chords he can choose for a measure: those of the key, as G-shape names. */
-export const EXERCISE_CHORD_CHOICES: readonly { chord: string; degree: string }[] = [
-  { chord: "G", degree: "I" },
-  { chord: "Am", degree: "ii" },
-  { chord: "Bm", degree: "iii" },
-  { chord: "C", degree: "IV" },
-  { chord: "D", degree: "V" },
-  { chord: "Em", degree: "vi" },
-  { chord: "F", degree: "♭VII" },
+/**
+ * The chords he can choose for a measure, as G-shape names. First the chords of the key; then the
+ * dominant sevenths: D7 is the one that leads home to G, and the rest follow the circle of
+ * fifths (each seventh chord leads to the next one: B7 to E7 to A7 to D7 to G7 to C7).
+ */
+export const EXERCISE_CHORD_CHOICES: readonly {
+  chord: string;
+  degree: string;
+  group: "key" | "seventh";
+}[] = [
+  { chord: "G", degree: "I", group: "key" },
+  { chord: "Am", degree: "ii", group: "key" },
+  { chord: "Bm", degree: "iii", group: "key" },
+  { chord: "C", degree: "IV", group: "key" },
+  { chord: "D", degree: "V", group: "key" },
+  { chord: "Em", degree: "vi", group: "key" },
+  { chord: "F", degree: "♭VII", group: "key" },
+  { chord: "D7", degree: "V7", group: "seventh" },
+  { chord: "G7", degree: "I7", group: "seventh" },
+  { chord: "C7", degree: "IV7", group: "seventh" },
+  { chord: "A7", degree: "II7", group: "seventh" },
+  { chord: "E7", degree: "VI7", group: "seventh" },
+  { chord: "B7", degree: "III7", group: "seventh" },
 ];
 /** Chords per measure, chosen by him: measure position (0-based, whole exercise) → chord. */
 export type ChordOverrides = Readonly<Record<string, string>>;
