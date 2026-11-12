@@ -129,3 +129,20 @@ test("exercises have no melody: the switch is greyed out", async ({ page }) => {
   await expect(page.locator('[data-part="melody"]')).toBeEnabled();
   await expect(page.locator('[data-part="melody"]')).toHaveAttribute("aria-pressed", "true");
 });
+
+test("changing a chord while it plays doesn't stop it; the new chord is used as it comes round", async ({
+  page,
+}) => {
+  await openExercise(page);
+  await page.click('[data-action="repeat"]'); // loop, so a measure already played comes round again
+  await page.click('[data-action="play"]');
+  await expect(page.locator('[data-action="play"]')).toHaveAttribute("aria-label", "Stop");
+  await expect(page.locator(".measure-highlight")).toBeVisible();
+  await chords(page).nth(5).scrollIntoViewIfNeeded();
+  await chords(page).nth(5).click(); // a measure ahead (or behind, when looping)
+  await page.click('.chord-option[data-chord="Em"]');
+  await page.waitForTimeout(1200);
+  await expect(page.locator('[data-action="play"]')).toHaveAttribute("aria-label", "Stop");
+  expect((await chordTexts(page))[5]).toBe("Em");
+  await page.click('[data-action="play"]'); // stop
+});

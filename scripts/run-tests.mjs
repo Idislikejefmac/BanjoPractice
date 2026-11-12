@@ -14,8 +14,11 @@
 //     with times, to test-logs/<suite>-progress.log (tests/reporters/progress.mjs).
 //  3. Prints a heartbeat every 30 s with the last event, so a long test is visibly alive.
 //  4. Stops a run that has shown no sign of life for the stall time, and says which test it was in.
-//  5. Kills the whole process tree and frees the ports when it ends, however it ends.
-//  6. Ends with a summary (also saved as test-logs/<suite>-summary.txt), and exits non-zero on any
+//  5. Takes a lock (test-logs/run.lock): a second run started while one is going is refused,
+//     because it would free the first run's ports and clear its results folder (each suite writes
+//     to its own test-results/<suite>/ folder as well).
+//  6. Kills the whole process tree and frees the ports when it ends, however it ends.
+//  7. Ends with a summary (also saved as test-logs/<suite>-summary.txt), and exits non-zero on any
 //     failure, stall or time-out. Never pipe it through `tail`: that hides everything until the end.
 
 import { spawn, spawnSync } from "node:child_process";
@@ -130,6 +133,34 @@ const summaryFile = join(root, "test-logs", `${suiteName}-summary.txt`);
 writeFileSync(progressFile, "");
 writeFileSync(fullFile, "");
 
+// --- one run at a time ---------------------------------------------------------------------
+const lockFile = join(root, "test-logs", "run.lock");
+if (existsSync(lockFile)) {
+  const [pid, who] = readFileSync(lockFile, "utf8").split(" ");
+  let alive = false;
+  try {
+    process.kill(Number(pid), 0);
+    alive = true;
+  } catch {
+    /* the run that wrote it is gone: a stale lock */
+  }
+  if (alive) {
+    console.error(
+      `[runner] refusing to start: a ${who?.trim()} run (pid ${pid}) is still going, and a second run would free its ports and clear its results. Wait for it, or stop it first.`,
+    );
+    process.exit(2);
+  }
+}
+writeFileSync(lockFile, `${process.pid} ${suiteName}`);
+const unlock = () => {
+  try {
+    if (readFileSync(lockFile, "utf8").startsWith(`${process.pid} `)) unlinkSync(lockFile);
+  } catch {
+    /* already gone */
+  }
+};
+process.on("exit", unlock);
+
 if (!freePorts("before the run")) {
   console.error("[runner] cannot start: a port it needs is in use by something else.");
   process.exit(2);
@@ -142,6 +173,9 @@ const args = [
   "-c",
   suite.config,
   ...(passthrough.some((a) => a.startsWith("--grep")) ? [] : suite.args),
+  ...(passthrough.some((a) => a.startsWith("--output"))
+    ? []
+    : ["--output", `test-results/${suiteName}`]),
   ...passthrough,
 ];
 console.log(`[runner] ${suiteName}: playwright ${args.slice(1).join(" ")}`);

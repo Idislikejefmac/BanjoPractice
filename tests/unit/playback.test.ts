@@ -187,6 +187,50 @@ describe("A1 scheduler", () => {
     expect(gaps[gaps.length - 1]).toBeCloseTo(1); // quarter notes at 60 bpm
   });
 
+  // A chord changed in an exercise while it plays: the song carries on, and each measure uses
+  // its new notes as it comes round. The measure sounding when it changed finishes as it was.
+  it("swaps in new notes while playing: ahead at once, the sounding measure from its next bar", () => {
+    const three = indexAbc(`${HEADER}"G"G2 A2 B2 c2|"C"c8|"D"d8|]`);
+    const mk = (transpose: number) => generateEvents(three, null, { transpose });
+    const prog = (repeat: boolean) =>
+      program({
+        measures: mk(0),
+        order: playbackOrder(three),
+        slotSeconds: (bpm) => slotSeconds(three, bpm),
+        repeat,
+      });
+    const melody = (played: ScheduledNote[]) =>
+      played.filter((n) => n.part === "melody").map((n) => n.midi);
+
+    const a = rig();
+    a.scheduler.start(prog(false), { bpm: 120 });
+    run(a.clock, 300); // measure 1 is sounding
+    expect(a.scheduler.replaceMeasures(mk(2))).toBe(true);
+    run(a.clock, 8000);
+    expect(melody(a.played)).toEqual([67, 69, 71, 72, 74, 76]); // 1 as written, 2 and 3 new
+
+    const b = rig();
+    b.scheduler.start(prog(true), { bpm: 120 });
+    run(b.clock, 300);
+    b.scheduler.replaceMeasures(mk(2));
+    run(b.clock, 8000);
+    expect(melody(b.played).slice(6, 10)).toEqual([69, 71, 73, 74]); // next pass: measure 1 new
+
+    // Changed after it was already played: it plays as changed the next time round (looping).
+    const d = rig();
+    d.scheduler.start(prog(true), { bpm: 120 });
+    run(d.clock, 5000); // measure 3 is sounding; 1 and 2 are behind
+    d.scheduler.replaceMeasures(mk(2));
+    run(d.clock, 4000);
+    expect(melody(d.played).slice(6, 11)).toEqual([69, 71, 73, 74, 74]); // pass 2: 1 and 2 new
+
+    // Nothing playing, or a different length: refused, nothing changed.
+    expect(rig().scheduler.replaceMeasures(mk(2))).toBe(false);
+    const c = rig();
+    c.scheduler.start(prog(false), { bpm: 120 });
+    expect(c.scheduler.replaceMeasures(mk(2).slice(0, 2))).toBe(false);
+  });
+
   it("mutes a part live", () => {
     const { clock, played, scheduler } = rig();
     scheduler.start(program(), { bpm: 120 });

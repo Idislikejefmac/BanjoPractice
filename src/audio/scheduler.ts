@@ -113,6 +113,8 @@ export class Scheduler {
     voice: 1,
   };
   private marks: PositionMark[] = [];
+  /** Changed measures waiting for the one now sounding to finish (see replaceMeasures). */
+  private deferred = new Map<number, MeasureEvents>();
   private listeners = new Set<() => void>();
   private _state: TransportState = "stopped";
   private endTime = 0;
@@ -171,6 +173,7 @@ export class Scheduler {
     this.timer = null;
     this.cursor = null;
     this.marks = [];
+    this.deferred.clear();
     this.out.stopAll();
     this.setState("stopped");
   }
@@ -183,6 +186,29 @@ export class Scheduler {
   setPart(part: Part, enabled: boolean, volume?: number): void {
     this.enabled[part] = enabled;
     if (volume !== undefined) this.volume[part] = Math.max(0, Math.min(1, volume));
+  }
+
+  /**
+   * Swaps in new notes for the measures while the song plays on (a chord changed in an
+   * exercise). Every measure but the one sounding now changes at once; that one finishes as it
+   * is and changes at its next bar line, so old and new notes are never mixed in one bar.
+   * Returns false (nothing changed) when nothing is playing or the song's length differs.
+   */
+  replaceMeasures(measures: readonly MeasureEvents[]): boolean {
+    const program = this.program;
+    const c = this.cursor;
+    if (!program || !c || measures.length !== program.measures.length) return false;
+    const sounding = c.phase === "song" ? program.order[c.orderIndex] : undefined;
+    this.deferred = new Map();
+    this.program = {
+      ...program,
+      measures: measures.map((m, i) => {
+        if (i !== sounding) return m;
+        this.deferred.set(i, m);
+        return program.measures[i]!;
+      }),
+    };
+    return true;
   }
 
   /** Where playback is at audio time `t` (latency already subtracted by the caller). */
@@ -305,6 +331,9 @@ export class Scheduler {
     const m = this.measureFor(program, c);
     if (m && c.slot < m.slots) return true;
     c.slot = 0;
+    // The measure that was sounding when notes were replaced has finished: use its new notes.
+    for (const [i, m] of this.deferred) (program.measures as MeasureEvents[])[i] = m;
+    this.deferred.clear();
     if (c.phase === "count-in") {
       c.phase = "song";
       return true;

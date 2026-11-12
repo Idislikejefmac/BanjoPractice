@@ -99,7 +99,8 @@ export class Player {
   private lastStart = 0;
   private warnedFallback = false;
   private lastBeatKey = "";
-  private lastTune: { id: string | null; tune: string } | null = null;
+  private lastTune: { id: string | null; tune: string; content: string } | null = null;
+  private liveToken = 0;
   private beatCount = 0;
 
   constructor(deps: PlayerDeps, store: AppStore) {
@@ -143,17 +144,20 @@ export class Player {
       }
     });
     // Changing the key (or the rolls the arranger may use) while playing starts the song again
-    // from the top, with the count-in, in the new key. Before, the old key played on until he
-    // stopped and restarted by hand.
+    // from the top, with the count-in, in the new key. Changing only the notes of the song (a
+    // chord picked in an exercise) lets it play on: the new notes are used as each measure
+    // comes round, so he can change a measure just ahead of where it is.
     effect(() => {
       const p = store.practice.value;
       const id = store.session.value.songId;
       const song = store.currentSong.value;
-      const tune = JSON.stringify([p.keyShift, p.rolls, song?.abc, song?.tab]);
+      const tune = JSON.stringify([p.keyShift, p.rolls]);
+      const content = JSON.stringify([song?.abc, song?.tab]);
       const prev = this.lastTune;
-      this.lastTune = { id, tune };
-      if (prev === null || prev.id !== id || prev.tune === tune) return;
-      if (this.state.peek() !== "stopped") this.restart();
+      this.lastTune = { id, tune, content };
+      if (prev === null || prev.id !== id || this.state.peek() === "stopped") return;
+      if (prev.tune !== tune) this.restart();
+      else if (prev.content !== content) this.changeNotesWhilePlaying();
     });
     // A different song stops playback.
     effect(() => {
@@ -275,6 +279,25 @@ export class Player {
           ? countInEvents(loaded.index, p.loopGapBeats)
           : null,
     };
+  }
+
+  /**
+   * The song's notes changed while it plays: fetch any sounds the new notes need, then hand the
+   * new measures to the scheduler, which uses them as each comes round. If it can't (the song's
+   * length changed), start again instead.
+   */
+  private changeNotesWhilePlaying(): void {
+    const loaded = this.song();
+    if (!loaded) return;
+    const next = this.program(loaded);
+    const token = ++this.liveToken; // a newer change replaces an older one still being prepared
+    void this.engine
+      .prepare(next.measures.flatMap((m) => m.events))
+      .catch(() => undefined)
+      .then(() => {
+        if (token !== this.liveToken || this.state.peek() === "stopped") return;
+        if (!this.scheduler.replaceMeasures(next.measures)) this.restart();
+      });
   }
 
   /** Play (from a tap or the pedal). */

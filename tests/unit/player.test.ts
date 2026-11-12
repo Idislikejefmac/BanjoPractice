@@ -105,17 +105,24 @@ describe("player on an iPad-like audio context", () => {
     expect(parts().banjo).toBe(true);
   });
 
-  it("starts again when the chosen chords change during playback", async () => {
+  // A chord changed in an exercise while it plays: no restart, it carries on and uses the new
+  // chord as the measure comes round.
+  it("carries on when a chord of the exercise is changed during playback", async () => {
     const { audio, player, store, run } = await rig(rollExercise("forward")!);
     audio.tap();
     await player.play();
     await run(5000);
-    expect(player.follow.value.measure).toBeGreaterThan(1);
-    audio.tap();
-    store.updateSettings({ exerciseChords: { "3": "Am" } });
-    await run(300);
+    const before = player.follow.value.measure!;
+    expect(before).toBeGreaterThan(1);
+    const scheduler = (player as unknown as { scheduler: { replaceMeasures: unknown } }).scheduler;
+    const swaps: number[] = [];
+    const real = (scheduler.replaceMeasures as (m: readonly unknown[]) => boolean).bind(scheduler);
+    scheduler.replaceMeasures = (m: readonly unknown[]) => (swaps.push(m.length), real(m));
+    store.updateSettings({ exerciseChords: { "9": "Am" } });
+    await run(1000);
+    expect(swaps).toEqual([14]); // one swap, all 14 measures of the exercise
     expect(player.state.value).not.toBe("stopped");
-    expect(player.follow.value.measure).toBe(1);
+    expect(player.follow.value.measure!).toBeGreaterThanOrEqual(before); // not back at 1
     player.stop();
   }, 20_000);
 
