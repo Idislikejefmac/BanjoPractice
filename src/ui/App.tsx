@@ -97,31 +97,11 @@ function Welcome({ store }: { store: AppStore }) {
 function Toolbar({ store, player }: { store: AppStore; player: Player }) {
   const song = store.currentSong.value;
   const size = store.settings.value.size;
-  const tabOnly = store.view.value === "tab";
-  const panelOpen = store.session.value.songPanelOpen;
   return (
-    <header class="toolbar">
+    <header class={song ? "toolbar has-song" : "toolbar"}>
       <div class="toolbar-row">
-        <button
-          class="tool"
-          data-action="toggle-songs"
-          aria-expanded={panelOpen}
-          onClick={() => store.toggleSongPanel()}
-        >
-          ☰ Songs
-        </button>
         <h1 class="toolbar-title">{song ? song.title : "Banjo Practice"}</h1>
         <div class="tool-group">
-          {song && (
-            <button
-              class={tabOnly ? "tool on" : "tool"}
-              data-action="toggle-view"
-              aria-pressed={tabOnly}
-              onClick={() => store.setView(tabOnly ? "both" : "tab")}
-            >
-              Tab only
-            </button>
-          )}
           <button
             class="tool"
             data-action="smaller"
@@ -253,7 +233,7 @@ export function App({
       <Toolbar store={store} player={player} />
       <div class="body">
         <SongPanel store={store} />
-        {!panelOpen && store.currentSong.value && (
+        {!panelOpen && (
           <button
             class="panel-handle"
             data-action="show-songs"

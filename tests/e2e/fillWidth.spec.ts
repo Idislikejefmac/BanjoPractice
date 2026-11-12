@@ -2,6 +2,7 @@
 // closed, and the number of measures on a line follows the room there is.
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
+import { viaSettings } from "../helpers/ui.ts";
 
 const SONGS = ["cripple-creek", "old-joe-clark", "wildwood-flower", "will-the-circle-be-unbroken"];
 
@@ -186,7 +187,7 @@ test("the tab-only view fills the column too", async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 1024 });
   await page.goto("/");
   await open(page, '[data-song="cripple-creek"][data-section="builtin"]', false);
-  await page.click('[data-action="toggle-view"]');
+  await viaSettings(page, "toggle-view");
   await page.waitForTimeout(500);
   const r = await report(page);
   expect(r.pageOver).toBe(0);

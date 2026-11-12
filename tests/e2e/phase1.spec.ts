@@ -1,6 +1,7 @@
 // Phase 1 ("Read") features, end to end: F1–F5, F20, F22, F24, F25, F35 and offline.
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
+import { viaSettings, toggleSongs } from "../helpers/ui.ts";
 
 const SONGS = ["cripple-creek", "old-joe-clark", "wildwood-flower", "will-the-circle-be-unbroken"];
 
@@ -39,7 +40,7 @@ test("every built-in song opens with notation, tab and finger badges (F3–F5)",
 test("tab-only view and size are one tap away and are remembered (F22)", async ({ page }) => {
   await page.goto("/");
   await openSong(page, "cripple-creek");
-  await page.click('[data-action="toggle-view"]');
+  await viaSettings(page, "toggle-view");
   await expect(page.locator(".notation")).toHaveCount(0);
   await expect(page.locator(".tab-chord").first()).toBeVisible();
   const before = await page
@@ -60,7 +61,6 @@ test("tab-only view and size are one tap away and are remembered (F22)", async (
   await page.waitForSelector("svg.tab");
   await expect(page.locator(".toolbar-title")).toHaveText("Cripple Creek");
   await expect(page.locator(".notation")).toHaveCount(0);
-  await expect(page.locator('[data-action="toggle-view"]')).toHaveAttribute("aria-pressed", "true");
 });
 
 test("favorites and recently played survive a reload (F24)", async ({ page }) => {
@@ -109,8 +109,8 @@ test("a hard reload returns to the same song and place (F35, I16)", async ({ pag
 test("the toolbar stays on screen while scrolling (F1, I3)", async ({ page }) => {
   await page.setViewportSize({ width: 820, height: 600 });
   await page.goto("/");
-  await page.click('[data-action="toggle-songs"]');
-  await page.click('[data-action="toggle-songs"]');
+  await toggleSongs(page);
+  await toggleSongs(page);
   await openSong(page, "old-joe-clark");
   await page.evaluate(() => window.scrollTo(0, 3000));
   await page.waitForTimeout(200);

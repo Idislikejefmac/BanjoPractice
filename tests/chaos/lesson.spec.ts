@@ -4,10 +4,11 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import { checkpoint, rng, waitForSaves, watchErrors } from "./harness.ts";
+import { toggleSongs } from "../helpers/ui.ts";
 
 async function openLesson(page: Page, roll = "forward") {
   const panel = page.locator(".song-panel");
-  if (!(await panel.isVisible())) await page.click('[data-action="toggle-songs"]');
+  if (!(await panel.isVisible())) await toggleSongs(page);
   await page.click(`[data-song="exercise:${roll}"][data-section="exercises"]`);
   await expect(page.getByTestId("roll-lesson")).toBeVisible();
 }

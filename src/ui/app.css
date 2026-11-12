@@ -59,7 +59,7 @@ button {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 56px;
+  min-height: 48px;
 }
 
 /* Practice row: Play/Stop, Restart, Repeat, tempo, key and parts, always visible. */
@@ -67,8 +67,8 @@ button {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  padding: 0 0 8px;
+  gap: 4px 8px;
+  padding: 0 0 6px;
 }
 
 .tool.play {
@@ -91,10 +91,16 @@ button {
   gap: 4px;
 }
 
-/* Tempo number on top; drag the slider up for faster, down for slower. */
+/* The mix: each chip with its slider beside it; wraps as a whole when the bar is narrow. */
+.parts {
+  display: contents; /* the chips join the bar's own row and wrap one by one */
+}
+
+/* Tempo number with its slider just to the right: drag right for faster, left for slower. */
 .tempo {
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
+  gap: 2px;
 }
 
 .tempo-value {
@@ -106,6 +112,7 @@ button {
 .key-select {
   appearance: none;
   -webkit-appearance: none;
+  max-width: 150px;
   padding: 0 10px;
   background: transparent;
   color: var(--brand-ink);
@@ -1211,29 +1218,33 @@ h2 {
   fill: var(--ink);
 }
 
-/* Mixer: a short vertical volume slider under each part chip. */
+/* Mixer: a short volume slider just to the right of each part chip. */
 .part-stack {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   gap: 2px;
 }
 
 .vslider-wrap {
-  width: 44px;
-  height: 64px;
+  width: 66px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: visible;
 }
 
 .vslider-wrap input[type="range"] {
-  width: 60px;
+  width: 62px;
   height: 28px;
   margin: 0;
-  transform: rotate(-90deg);
   accent-color: var(--finger-t);
+}
+
+.this-song-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .hint {
@@ -1493,4 +1504,42 @@ h2 {
 .song-lines.exercise .notation .abcjs-chord.changeable {
   cursor: pointer;
   text-decoration: underline dotted;
+}
+
+/* A big button that is a quiet choice (outlined), and one that is switched on (filled). */
+.big-button.secondary {
+  background: transparent;
+  color: var(--ink);
+  border: 2px solid var(--brand);
+}
+.big-button.on {
+  background: var(--brand);
+  color: var(--brand-ink);
+  border: 2px solid var(--brand);
+}
+
+/* With a song open the bar is two rows, not three: the song's title is already the heading of
+   the page, so it leaves the bar, and the tool buttons share the first row with the transport.
+   The mix (each chip with its slider) follows on the second row. */
+.toolbar.has-song {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding-top: calc(env(safe-area-inset-top) + 4px);
+  padding-bottom: 6px;
+}
+.toolbar.has-song .toolbar-row,
+.toolbar.has-song .practice-bar {
+  display: contents;
+}
+.toolbar.has-song .toolbar-title {
+  display: none;
+}
+.toolbar.has-song .tool-group {
+  order: 3; /* after the mix, at the right end of the second row */
+  margin-left: auto;
+}
+.toolbar.has-song .part-stack {
+  order: 2;
 }

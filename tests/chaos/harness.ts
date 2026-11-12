@@ -114,7 +114,10 @@ export async function uiSnapshot(page: Page) {
     const top = lines.find((l) => l.getBoundingClientRect().bottom > toolbar + 4);
     return {
       title: document.querySelector(".toolbar-title")?.textContent ?? "",
-      tabOnly: document.querySelector('[data-action="toggle-view"]')?.getAttribute("aria-pressed"),
+      // Tab only = song lines drawn with no notation (the toggle is in the ⚙ page now).
+      tabOnly: document.querySelector(".song-line")
+        ? String(!document.querySelector(".song-line .notation"))
+        : undefined,
       // The line at the top of the screen (at the very top of the song, the first line).
       topLine: Number(top?.dataset.firstMeasure ?? 0),
       topLineLast: Number(top?.dataset.lastMeasure ?? 0),

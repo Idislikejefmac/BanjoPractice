@@ -3,10 +3,11 @@
 // Set LESSON_SHOTS to a folder to also save screenshots there.
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
+import { toggleSongs } from "../helpers/ui.ts";
 
 async function openExercise(page: Page, roll = "forward") {
   if (!(await page.locator(".song-panel").isVisible())) {
-    await page.click('[data-action="toggle-songs"]');
+    await toggleSongs(page);
   }
   await page.click(`[data-song="exercise:${roll}"][data-section="exercises"]`);
   await page.waitForSelector("svg.tab");

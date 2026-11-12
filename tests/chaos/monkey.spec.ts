@@ -11,6 +11,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import type { Page, TestInfo } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import type { Action, MonkeyContext } from "./harness.ts";
+import { toggleSongs } from "../helpers/ui.ts";
 import {
   checkInvariants,
   checkpoint,
@@ -41,9 +42,7 @@ async function clickIfVisible(ctx: MonkeyContext, selector: string): Promise<boo
 }
 
 async function ensurePanel(ctx: MonkeyContext): Promise<void> {
-  if (!(await ctx.page.locator(".song-panel").isVisible())) {
-    await ctx.page.click('[data-action="toggle-songs"]');
-  }
+  if (!(await ctx.page.locator(".song-panel").isVisible())) await toggleSongs(ctx.page);
 }
 
 async function closeSettings(ctx: MonkeyContext): Promise<void> {
@@ -96,7 +95,7 @@ const ACTIONS: Action[] = [
     weight: 6,
     async run(ctx) {
       await closeSettings(ctx);
-      await ctx.page.click('[data-action="toggle-songs"]');
+      await toggleSongs(ctx.page);
       return "";
     },
   },
@@ -114,7 +113,11 @@ const ACTIONS: Action[] = [
     name: "tab-only",
     weight: 8,
     async run(ctx) {
-      return (await clickIfVisible(ctx, '[data-action="toggle-view"]')) ? "" : null;
+      // Tab only is in the ⚙ page now.
+      if (!(await clickIfVisible(ctx, '[data-action="settings"]'))) return null;
+      if (await clickIfVisible(ctx, '.settings-page [data-action="toggle-view"]')) return "";
+      await closeSettings(ctx);
+      return null;
     },
   },
   {
@@ -296,7 +299,12 @@ const ACTIONS: Action[] = [
     name: "loop",
     weight: 3,
     async run(ctx) {
-      if (!(await clickIfVisible(ctx, '[data-action="loop"]'))) return null;
+      // Loop is in the ⚙ page now; it takes him back to the song with the loop panel open.
+      if (!(await clickIfVisible(ctx, '[data-action="settings"]'))) return null;
+      if (!(await clickIfVisible(ctx, '.settings-page [data-action="loop"]'))) {
+        await closeSettings(ctx);
+        return null;
+      }
       const from = ctx.page.locator('select[name="loopFrom"]');
       if (!(await from.isVisible().catch(() => false))) return null;
       if (ctx.random() < 0.3 && (await clickIfVisible(ctx, '[data-action="clear-loop"]'))) {
@@ -459,7 +467,7 @@ const ACTIONS: Action[] = [
     hostile: true,
     async run(ctx) {
       await closeSettings(ctx);
-      for (let i = 0; i < 20; i++) await ctx.page.click('[data-action="toggle-songs"]');
+      for (let i = 0; i < 20; i++) await toggleSongs(ctx.page);
       return "x20";
     },
   },

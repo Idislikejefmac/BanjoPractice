@@ -3,6 +3,7 @@
 // Web Audio (spike S0), so playback tests run there only on Linux.
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
+import { viaSettings, toggleSongs } from "../helpers/ui.ts";
 
 async function openSong(page: Page, id: string) {
   await page.click(`[data-song="${id}"][data-section="builtin"]`);
@@ -100,18 +101,18 @@ test("changing the key keeps the tab, adds a capo, and transposes the notation (
 
 test("a section loop shows on the toolbar and can be cleared (F8)", async ({ page }) => {
   await openSong(page, "will-the-circle-be-unbroken");
-  await page.click('[data-action="loop"]');
+  await viaSettings(page, "loop");
   await page.selectOption('select[name="loopFrom"]', "3");
   await page.selectOption('select[name="loopTo"]', "4");
-  await expect(page.locator('[data-action="loop"]')).toHaveText("Loop 3–4");
+  await expect(page.locator('[data-action="loop-active"]')).toHaveText("Loop 3–4");
   await page.click('[data-action="clear-loop"]');
-  await expect(page.locator('[data-action="loop"]')).toHaveText("Loop");
+  await expect(page.locator('[data-action="loop-active"]')).toHaveCount(0);
 });
 
 test("a looped section plays only its measures (F8)", async ({ page, browserName }) => {
   test.skip(noAudio(browserName), "no Web Audio in Playwright WebKit on Windows");
   await openSong(page, "cripple-creek");
-  await page.click('[data-action="loop"]');
+  await viaSettings(page, "loop");
   await page.selectOption('select[name="loopFrom"]', "2");
   await page.selectOption('select[name="loopTo"]', "2");
   await page.click("text=Done");
@@ -180,7 +181,7 @@ test("the song list steps aside when playback starts, and a tab brings it back",
   await expect(list).toBeHidden();
   // Stopped, then played again: it steps aside again.
   await page.click('[data-action="play"]');
-  await page.click('[data-action="toggle-songs"]');
+  await toggleSongs(page);
   await expect(list).toBeVisible();
   await page.click('[data-action="play"]');
   await expect(list).toBeHidden();

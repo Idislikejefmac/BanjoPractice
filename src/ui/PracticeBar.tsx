@@ -4,7 +4,7 @@
 
 import { useRef, useState } from "preact/hooks";
 import type { Player } from "../app/player.ts";
-import type { AppStore } from "../app/store.ts";
+import type { AppStore, PracticePanel } from "../app/store.ts";
 import type { MetronomeMode, PartId, PracticePrefs } from "../app/model.ts";
 import { DEFAULT_TEMPO, TEMPO_MAX, TEMPO_MIN } from "../app/model.ts";
 import { MELODY_INSTRUMENTS } from "../audio/engine.ts";
@@ -33,8 +33,6 @@ const NEXT_METRONOME: Readonly<Record<MetronomeMode, MetronomeMode>> = {
   "count-in": "throughout",
   throughout: "off",
 };
-
-type Panel = "none" | "tempo" | "parts" | "loop" | "rolls";
 
 /** A short vertical volume slider (0–100%) under a part's button. */
 function VolumeSlider({
@@ -85,7 +83,8 @@ function useTapTempo(onTempo: (bpm: number) => void) {
 }
 
 export function PracticeBar({ store, player }: { store: AppStore; player: Player }) {
-  const [panel, setPanel] = useState<Panel>("none");
+  const panel = store.practicePanel.value;
+  const setPanel = (which: PracticePanel) => (store.practicePanel.value = which);
   const loaded = player.song();
   const p = store.practice.value;
   const state = player.state.value;
@@ -115,7 +114,7 @@ export function PracticeBar({ store, player }: { store: AppStore; player: Player
   // (a song printed in B is tabbed in G shapes), so the notation can be shown in either (F34).
   const tabPlan = practicePlan(loaded, p.keyShift, settings.spikes);
   const measures = loaded.index.measures.map((m) => m.index);
-  const toggle = (which: Panel) => setPanel(panel === which ? "none" : which);
+  const toggle = (which: PracticePanel) => setPanel(panel === which ? "none" : which);
   const step = player.step.value;
   const parts = songParts(loaded.song.abc, loaded.index);
 
@@ -304,30 +303,18 @@ export function PracticeBar({ store, player }: { store: AppStore; player: Player
           )}
         </div>
 
-        <button
-          class={p.rolls || panel === "rolls" ? "tool on" : "tool"}
-          data-action="rolls"
-          onClick={() => toggle("rolls")}
-        >
-          {p.rolls ? `Rolls (${p.rolls.length})` : "Rolls"}
-        </button>
-        <button
-          class={p.loop ? "tool on" : panel === "loop" ? "tool on" : "tool"}
-          data-action="loop"
-          onClick={() => toggle("loop")}
-        >
-          {p.loop
-            ? `Loop ${Math.min(p.loop.from, p.loop.to)}–${Math.max(p.loop.from, p.loop.to)}`
-            : "Loop"}
-        </button>
-        <button
-          class={panel === "parts" ? "tool on" : "tool"}
-          data-action="mixer"
-          aria-label="More playback settings"
-          onClick={() => toggle("parts")}
-        >
-          ⋯
-        </button>
+        {/* Rolls, Loop and the other playback settings are in the ⚙ page. When a loop or a
+            roll choice is in force it shows here, so it can't be forgotten; touch it to change. */}
+        {p.rolls && (
+          <button class="tool on" data-action="rolls-active" onClick={() => toggle("rolls")}>
+            {`Rolls (${p.rolls.length})`}
+          </button>
+        )}
+        {p.loop && (
+          <button class="tool on" data-action="loop-active" onClick={() => toggle("loop")}>
+            {`Loop ${Math.min(p.loop.from, p.loop.to)}–${Math.max(p.loop.from, p.loop.to)}`}
+          </button>
+        )}
       </div>
 
       {panel !== "none" && (

@@ -1,6 +1,7 @@
 // R3 / spike S2: tab slots line up under the notation's notes, for every built-in song, at
 // several screen widths and sizes.
 import { expect, test } from "@playwright/test";
+import { toggleSongs } from "../helpers/ui.ts";
 
 const SONGS = ["cripple-creek", "old-joe-clark", "wildwood-flower", "will-the-circle-be-unbroken"];
 
@@ -30,7 +31,7 @@ for (const width of [820, 1180]) {
         return out;
       });
       expect(misses, `${id} misaligned notes`).toEqual([]);
-      if (width < 900) await page.click('[data-action="toggle-songs"]');
+      if (width < 900) await toggleSongs(page);
     }
   });
 }

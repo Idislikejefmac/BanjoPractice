@@ -37,6 +37,7 @@ const SESSION_MIRROR_KEY = "banjo.session";
 const PENDING_KEY = "banjo.pendingWrites";
 /** Key of the learning-progress document in the meta store (apart from the "meta" document). */
 export const LEARNING_KEY = "learning";
+export type PracticePanel = "none" | "tempo" | "parts" | "loop" | "rolls";
 const SESSION_DEBOUNCE_MS = 500;
 const RETRY_MS = 3000;
 
@@ -71,6 +72,8 @@ export class AppStore {
   readonly prefs = signal<ReadonlyMap<string, SongPrefs>>(new Map());
   readonly session = signal<Session>(DEFAULT_SESSION);
   readonly settingsOpen = signal(false);
+  /** Which playback panel is open under the toolbar (tempo, rolls, loop, more playback). */
+  readonly practicePanel = signal<PracticePanel>("none");
   /** F16 chord finder: open with this chord symbol, or null when closed. */
   readonly chordFinder = signal<string | null>(null);
   readonly notices = signal<readonly Notice[]>([]);
@@ -351,6 +354,7 @@ export class AppStore {
     batch(() => {
       this.updateSession({ songId: id, topMeasure: 0 });
       this.updatePrefs(id, { lastOpenedAt: new Date().toISOString() });
+      this.practicePanel.value = "none";
       this.openNonce.value++;
     });
   }

@@ -1,7 +1,7 @@
 // F20 settings (basic), F22 display options and F25 diagnostics.
 
 import { useState } from "preact/hooks";
-import type { AppStore } from "../app/store.ts";
+import type { AppStore, PracticePanel } from "../app/store.ts";
 import type { Services } from "../app/services.ts";
 import { SIZE_STEPS } from "../app/model.ts";
 import { DEERING_SPIKES } from "../core/banjo/tuning.ts";
@@ -71,6 +71,15 @@ export function SettingsPage({ store, services }: { store: AppStore; services: S
   const [updateText, setUpdateText] = useState("");
   const entries = services.diagnostics.entries();
   const spikesKey = s.spikes.length === 0 ? "none" : "deering";
+  // Rolls, Loop, Tab only and the other playback settings live here, not in the toolbar.
+  const song = store.currentSong.value;
+  const p = store.practice.value;
+  const tabOnly = store.view.value === "tab";
+  const close = () => (store.settingsOpen.value = false);
+  const openPanel = (which: PracticePanel) => {
+    store.practicePanel.value = which;
+    close();
+  };
 
   return (
     <div class="settings-page" role="dialog" aria-modal="true" aria-label="Settings">
@@ -80,6 +89,49 @@ export function SettingsPage({ store, services }: { store: AppStore; services: S
           Done
         </button>
       </header>
+
+      {song && (
+        <section class="this-song" aria-label="This song">
+          <h3>This song</h3>
+          <p class="hint">Each one takes you straight back to the song.</p>
+          <div class="this-song-buttons">
+            <button
+              class={tabOnly ? "big-button on" : "big-button secondary"}
+              data-action="toggle-view"
+              aria-pressed={tabOnly}
+              onClick={() => {
+                store.setView(tabOnly ? "both" : "tab");
+                close();
+              }}
+            >
+              {tabOnly ? "Tab only: on" : "Tab only"}
+            </button>
+            <button
+              class={p.rolls ? "big-button on" : "big-button secondary"}
+              data-action="rolls"
+              onClick={() => openPanel("rolls")}
+            >
+              {p.rolls ? `Rolls (${p.rolls.length})` : "Rolls"}
+            </button>
+            <button
+              class={p.loop ? "big-button on" : "big-button secondary"}
+              data-action="loop"
+              onClick={() => openPanel("loop")}
+            >
+              {p.loop
+                ? `Loop ${Math.min(p.loop.from, p.loop.to)}–${Math.max(p.loop.from, p.loop.to)}`
+                : "Loop"}
+            </button>
+            <button
+              class="big-button secondary"
+              data-action="mixer"
+              onClick={() => openPanel("parts")}
+            >
+              More playback settings
+            </button>
+          </div>
+        </section>
+      )}
 
       <section>
         <h3>Display</h3>

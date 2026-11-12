@@ -3,6 +3,7 @@
 // the practice tools (F19, F21) up to where a real microphone is needed.
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
+import { viaSettings } from "../helpers/ui.ts";
 
 async function openSong(page: Page, id: string, section = "builtin") {
   await page.click(`[data-song="${id}"][data-section="${section}"]`);
@@ -19,7 +20,7 @@ test("roll exercises are in the library and use their roll throughout (F15)", as
   const labels = await page.locator(".tab-roll").allTextContents();
   expect(labels.length).toBeGreaterThan(8);
   expect(labels.every((l) => l === "Forward-reverse")).toBe(true);
-  await page.click('[data-action="loop"]');
+  await viaSettings(page, "loop");
   await expect(page.locator("[data-part-loop]")).toHaveCount(4); // open strings + 3 progressions
 });
 
@@ -162,13 +163,13 @@ test("printable tab: a PDF of the song (F32)", async ({ page, browserName }) => 
 test("song words show under the notes and the tab, and can be turned off", async ({ page }) => {
   await openSong(page, "will-the-circle-be-unbroken");
   await expect(page.locator(".notation .abcjs-lyric").first()).toBeVisible();
-  await page.click('[data-action="toggle-view"]');
+  await viaSettings(page, "toggle-view");
   await expect(page.locator(".tab-lyric").first()).toHaveText("Will");
   await page.click('[data-action="settings"]');
   await page.locator('input[name="showLyrics"]').uncheck();
   await page.click("text=Done");
   await expect(page.locator(".tab-lyric")).toHaveCount(0);
-  await page.click('[data-action="toggle-view"]');
+  await viaSettings(page, "toggle-view");
   await expect(page.locator(".notation .abcjs-lyric")).toHaveCount(0);
 });
 
@@ -197,7 +198,7 @@ test("a singing voice can be turned on per song, with its own volume and registe
   await chip.click();
   await expect(chip).toHaveAttribute("aria-pressed", "true");
   await page.locator('input[name="mix-voice"]').fill("40");
-  await page.click('[data-action="mixer"]');
+  await viaSettings(page, "mixer");
   await expect(page.locator('[data-panel="voice"]')).toBeVisible();
   await page.locator('input[name="voice-octave"]').fill("0");
   await page.click(".practice-panel .big-button");
