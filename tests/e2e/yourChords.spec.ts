@@ -133,7 +133,12 @@ test("exercises have no melody: the switch is greyed out", async ({ page }) => {
 
 test("changing a chord while it plays doesn't stop it; the new chord is used as it comes round", async ({
   page,
+  browserName,
 }) => {
+  test.skip(
+    browserName === "webkit" && process.platform === "win32",
+    "no Web Audio in Playwright WebKit on Windows",
+  );
   await openExercise(page);
   await page.click('[data-action="repeat"]'); // loop, so a measure already played comes round again
   await page.click('[data-action="play"]');
