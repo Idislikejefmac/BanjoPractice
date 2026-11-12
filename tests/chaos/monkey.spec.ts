@@ -113,7 +113,9 @@ const ACTIONS: Action[] = [
     name: "tab-only",
     weight: 8,
     async run(ctx) {
-      // Tab only is in the ⚙ page now.
+      // Tab only is in the ⚙ page now. Any other full-screen page is closed first, as for the
+      // other actions: it would cover the settings page.
+      await closeSettings(ctx);
       if (!(await clickIfVisible(ctx, '[data-action="settings"]'))) return null;
       if (await clickIfVisible(ctx, '.settings-page [data-action="toggle-view"]')) return "";
       await closeSettings(ctx);
@@ -300,6 +302,7 @@ const ACTIONS: Action[] = [
     weight: 3,
     async run(ctx) {
       // Loop is in the ⚙ page now; it takes him back to the song with the loop panel open.
+      await closeSettings(ctx);
       if (!(await clickIfVisible(ctx, '[data-action="settings"]'))) return null;
       if (!(await clickIfVisible(ctx, '.settings-page [data-action="loop"]'))) {
         await closeSettings(ctx);
