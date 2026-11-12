@@ -405,7 +405,14 @@ const ACTIONS: Action[] = [
       for (let i = 0; i < notes; i++) {
         const letter = ctx.pick(["C", "D", "E", "F", "G", "A", "B", "rest"]);
         const btn = ctx.page.locator(`[data-note="${letter}"]`);
-        if (await btn.isEnabled().catch(() => false)) await btn.click();
+        // The measure can fill up (every letter then disables) between the check and the click, a
+        // race the monkey lost on WebKit with a 10 s wait on a button that stays disabled. A
+        // button that went disabled meanwhile is simply skipped, as the check intended.
+        if (await btn.isEnabled().catch(() => false)) {
+          await btn.click({ timeout: 2000 }).catch(async (e: unknown) => {
+            if (await btn.isEnabled().catch(() => false)) throw e; // enabled but unclickable: real
+          });
+        }
       }
       const r = ctx.random();
       if (r < 0.3) {
