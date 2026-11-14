@@ -187,12 +187,15 @@ export function createFakeShare(
  * P2 fake, modeled on observed iPad behavior (CHAOS_TESTING.md §3.1), not ideal behavior:
  * - before the first tap, unlock() only works from a "tap" (call tap() first);
  * - after interrupt() (a phone call), resume is refused until the next tap;
- * - routeChange() flips the sample rate, and the next unlock recreates the context.
+ * - routeChange() flips the sample rate, and the next unlock recreates the context;
+ * - hangNextUnlock() makes the next unlock() wait forever, as iOS can after the app was in the
+ *   background (found on a real iPad, 2026-11-14): the player must give up, not sit on "loading".
  * There is no Web Audio here: graph() is null, so nothing actually sounds.
  */
 export function createFakeAudio(): AudioService & {
   tap(): void;
   interrupt(): void;
+  hangNextUnlock(): void;
   routeChange(): void;
   advance(seconds: number): void;
   readonly sampleRate: number;
@@ -205,6 +208,7 @@ export function createFakeAudio(): AudioService & {
   let created = 0;
   let rate = 48000;
   let staleRate = false;
+  let hang = false;
   const stateListeners = new Set<(s: AudioService["state"]) => void>();
   const recreateListeners = new Set<() => void>();
   const set = (s: AudioService["state"]) => {
@@ -228,6 +232,9 @@ export function createFakeAudio(): AudioService & {
       tapped = false;
       set("interrupted");
     },
+    hangNextUnlock() {
+      hang = true;
+    },
     routeChange() {
       staleRate = true;
       rate = rate === 48000 ? 44100 : 48000;
@@ -236,6 +243,10 @@ export function createFakeAudio(): AudioService & {
       if (state === "running") time += seconds;
     },
     async unlock() {
+      if (hang) {
+        hang = false;
+        return new Promise<void>(() => undefined); // never answered
+      }
       if (live === 0 || staleRate) {
         if (live > 0) {
           live--;

@@ -28,6 +28,15 @@ import type {
 import { AudioUnavailableError } from "../platform/types.ts";
 import type { Diagnostics } from "../platform/diagnostics.ts";
 import { rollIdOfSong } from "../core/banjo/exercises.ts";
+
+/** How long Play waits for the iPad to hand the sound back before it tells him. */
+const UNLOCK_WAIT_MS = 4000;
+
+class AudioStuckError extends Error {
+  constructor() {
+    super("The audio request was never answered");
+  }
+}
 import { DEFAULT_TEMPO } from "./model.ts";
 import type { AppStore } from "./store.ts";
 
@@ -301,6 +310,27 @@ export class Player {
       });
   }
 
+  /**
+   * Asks for the sound, but not for ever: after the app has been in the background iOS can leave
+   * the request unanswered, and Play would sit on "loading" with no sound and no highlight until
+   * the app was closed (found on a real iPad, 2026-11-14).
+   */
+  private unlockWithin(ms: number): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const timer = this.deps.clock.setTimeout(() => reject(new AudioStuckError()), ms);
+      this.deps.audio.unlock().then(
+        () => {
+          this.deps.clock.clearTimeout(timer);
+          resolve();
+        },
+        (e: unknown) => {
+          this.deps.clock.clearTimeout(timer);
+          reject(e);
+        },
+      );
+    });
+  }
+
   /** Play (from a tap or the pedal). */
   async play(fromMeasure?: number): Promise<void> {
     const loaded = this.song();
@@ -308,14 +338,16 @@ export class Player {
     const token = ++this.startToken;
     this.state.value = "loading";
     try {
-      await this.deps.audio.unlock();
+      await this.unlockWithin(UNLOCK_WAIT_MS);
     } catch (e) {
       this.state.value = "stopped";
       this.store.notify(
         "info",
         e instanceof AudioUnavailableError
           ? "Sound isn't available in this browser."
-          : "The iPad paused the sound. Tap Play again to start.",
+          : e instanceof AudioStuckError
+            ? "The iPad didn't give the sound back. Tap Play again; if it stays silent, close the app and open it again."
+            : "The iPad paused the sound. Tap Play again to start.",
       );
       this.deps.diagnostics.log(
         "warning",

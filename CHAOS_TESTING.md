@@ -206,6 +206,7 @@ Each scenario runs alone (scripted), then again with the monkey running.
 | --- | --- |
 | Context starts `suspended` | First tap on Play unlocks and plays. Never a silent "playing" state |
 | Context goes `interrupted` mid-play **(fake-verified)** | Transport → paused. One tap on Play resumes (I10). `resume()` rejecting before the tap is handled |
+| **The request for sound is never answered** (iOS after the app was in the background) **(fake-verified)**: found on a real iPad on 2026-11-14, when Play sat on "loading" with no sound and no highlight until the app was closed | Play gives up after 4 s with "The iPad didn't give the sound back…" and the next tap plays. An interrupted or silent context is replaced at once, and a resume not answered within 0.6 s is retried on a fresh context (never waiting on the old one to close). Unit test in `tests/unit/player.test.ts` |
 | **Sample-rate change** on route change or mic open **(fake-verified)** | Context recreated, old one closed (I13). Playback resumes at the correct pitch |
 | App backgrounded mid-play, returns after 30 s | No burst of overdue notes. Position consistent. Wake lock re-acquired (I15) |
 | Output device change | Playback continues or pauses cleanly |
@@ -281,6 +282,7 @@ These can't be automated. Run on the iPad **in the installed Home Screen app** (
 - [ ] Bluetooth pedal: pair, use, turn it off mid-song, back on. With the pedal paired, tap the search box: the hint shows.
 - [ ] Rotate repeatedly during playback. Split View or Stage Manager if supported.
 - [ ] Airplane mode, then cold-launch from the Home Screen.
+- [ ] Leave the app for Mail or Files for a minute, return, tap Play once: sound and the highlight, with no need to close the app (found failing 2026-11-14).
 - [ ] Tuner on a real banjo, every string; 5th string with a spike and with a retune.
 - [ ] Record with and without headphones; play back with the backing.
 - [ ] Print tab to PDF and open it in Files.

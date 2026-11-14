@@ -212,6 +212,27 @@ describe("player on an iPad-like audio context", () => {
     player.stop();
   });
 
+  it("gives up when the iPad never answers the request for sound, then plays on the next tap (I10)", async () => {
+    // Found on a real iPad (2026-11-14): after leaving the app for Mail and Files, the request
+    // for sound was never answered and Play sat on "loading" with no sound and no highlight.
+    const { audio, player, store, run } = await rig();
+    audio.tap();
+    audio.hangNextUnlock();
+    const first = player.play();
+    await run(500);
+    expect(player.state.value).toBe("loading");
+    await run(4000);
+    expect(player.state.value).toBe("stopped");
+    expect(store.notices.value.map((n) => n.text).join()).toMatch(/didn't give the sound back/);
+    audio.tap();
+    await player.play();
+    await run(100);
+    expect(player.state.value).toBe("playing");
+    expect(player.follow.value.measure).not.toBeNull(); // the highlight is back
+    player.stop();
+    void first;
+  }, 30_000);
+
   it("recreates the audio context after a route change, never two at once (I13)", async () => {
     const { audio, player } = await rig();
     audio.tap();
