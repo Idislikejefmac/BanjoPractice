@@ -335,7 +335,8 @@ button {
   flex: 0 0 280px;
   height: calc(100vh - var(--toolbar-h));
   overflow-y: auto;
-  padding: 8px 8px calc(24px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left));
+  /* Room at the bottom to scroll the last rows above a notice banner. */
+  padding: 8px 8px calc(200px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left));
   background: var(--surface);
   border-right: 1px solid var(--line);
 }
@@ -1058,9 +1059,20 @@ h2 {
   line-height: 1.6;
 }
 
-/* Chord symbols in the notation are tappable (F16). */
+/* Chord symbols in the notation are tappable (F16). Every measure names its chord, so make
+   the letters big and bold enough to read at a glance. */
 .notation .abcjs-chord {
   cursor: pointer;
+  font-size: 150%;
+  font-weight: 700;
+}
+.rolls-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 8px 0 12px;
+  font-size: 1.125rem;
 }
 
 /* F17 song editor */

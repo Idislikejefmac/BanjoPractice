@@ -202,6 +202,11 @@ export interface LineAbcOptions {
    * last line.
    */
   fill?: boolean;
+  /**
+   * Write the chord at the start of every measure, not only where it changes (a measure that
+   * carries on from the one before gets the same chord again), so each measure says its chord.
+   */
+  chordEveryMeasure?: boolean;
 }
 
 /**
@@ -278,7 +283,19 @@ export function lineAbc(
   let melody =
     (first.startRepeat ? "|:" : "") + (first.ending !== undefined ? `[${first.ending} ` : "");
   let slots = "";
+  // The chord in force at the start of this line (from the measures before it).
+  let carried: string | null = null;
+  if (opts.chordEveryMeasure) {
+    for (const m of index.measures.slice(0, line.from)) {
+      const last = m.chords[m.chords.length - 1];
+      if (last) carried = last.chord;
+    }
+  }
   ms.forEach((m, i) => {
+    const named = m.chords[0]?.atSlot === 0;
+    if (opts.chordEveryMeasure && carried && !named) melody += `"${carried}"`;
+    const last = m.chords[m.chords.length - 1];
+    if (last) carried = last.chord;
     melody += cleanMusic(abc.slice(m.startChar, m.contentEnd));
     slots += slotRests(m, index);
     const next = ms[i + 1];

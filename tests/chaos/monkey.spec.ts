@@ -44,14 +44,14 @@ async function clickIfVisible(ctx: MonkeyContext, selector: string): Promise<boo
 /**
  * Touches a row in the song list. A notice banner at the bottom of the screen can sit on top of
  * the lowest rows (the built-in songs are now below the exercises), so, as he would, the monkey
- * scrolls the row to the top of the list and touches it again.
+ * scrolls the row to the middle of the list and touches it again.
  */
 async function openRow(ctx: MonkeyContext, selector: string): Promise<void> {
   const row = ctx.page.locator(selector);
   try {
     await row.click({ timeout: 3000 });
   } catch {
-    await row.evaluate((e) => e.scrollIntoView({ block: "start" }));
+    await row.evaluate((e) => e.scrollIntoView({ block: "center" }));
     await row.click({ timeout: 7000 });
   }
 }

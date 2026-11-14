@@ -29,6 +29,7 @@ import { evenGeometry, layoutTabLine } from "../render/tabLayout.ts";
 import { TabSvg } from "../render/TabSvg.tsx";
 import { RollLesson, RollViewSwitch } from "./RollLesson.tsx";
 import { isLessonSongId, rollIdOfSong } from "../core/banjo/exercises.ts";
+import { ROLLS, rollById } from "../core/banjo/rolls.ts";
 import { fadeFor } from "../core/learning/progress.ts";
 import { ChordSheet } from "./ChordSheet.tsx";
 
@@ -137,6 +138,7 @@ function SongLine({
       return;
     }
     const abc = lineAbc(notation.abc, notation.index, line, {
+      chordEveryMeasure: true,
       showMeter: lineNo === 0,
       showLyrics: tabOpts.showLyrics,
       fill: true,
@@ -243,6 +245,16 @@ function SongLine({
   );
 }
 
+/** "The rolls enabled for this song are …" (every roll when he hasn't narrowed them). */
+function rollsEnabledText(chosen: readonly string[] | null): string {
+  const names = (chosen ?? ROLLS.map((r) => r.id)).map((id) => rollById(id)?.name ?? id);
+  const list =
+    names.length <= 1
+      ? (names[0] ?? "none")
+      : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+  return `The rolls enabled for this song are ${list}. To change which rolls are used, press`;
+}
+
 export function SongView({ store, player }: { store: AppStore; player: Player }) {
   const song = store.currentSong.value;
   const settings = store.settings.value;
@@ -283,7 +295,11 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
     const { abc, index } = notation;
     return measureNotation(
       {
-        song: lineAbc(abc, index, whole, { showMeter: false, showLyrics: settings.showLyrics }),
+        song: lineAbc(abc, index, whole, {
+          showMeter: false,
+          showLyrics: settings.showLyrics,
+          chordEveryMeasure: true,
+        }),
         lead: leadInAbc(index, { showMeter: false, startRepeat: false }),
         leadMeter: leadInAbc(index, { showMeter: true, startRepeat: false }),
         leadRepeat: leadInAbc(index, { showMeter: false, startRepeat: true }),
@@ -563,6 +579,19 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
           </p>
         )}
       </header>
+      {!isExercise && (
+        <p class="rolls-line" data-testid="rolls-line">
+          <span>{rollsEnabledText(store.practice.value.rolls)}</span>{" "}
+          <button
+            type="button"
+            class="plain-button"
+            data-action="change-rolls"
+            onClick={() => (store.practicePanel.value = "rolls")}
+          >
+            Change rolls
+          </button>
+        </p>
+      )}
       {rollId && (
         <RollViewSwitch store={store} rollId={rollId} view={isLesson ? "learn" : "full"} />
       )}

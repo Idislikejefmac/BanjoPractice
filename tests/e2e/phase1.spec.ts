@@ -159,3 +159,41 @@ test("songs open with no network once the app has loaded (offline)", async ({ pa
   expect(await page.locator(".tab-badge").count()).toBeGreaterThan(20);
   await context.setOffline(false);
 });
+
+test("a song says which rolls are enabled, and its button opens the rolls panel", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await openSong(page, "cripple-creek");
+  const line = page.getByTestId("rolls-line");
+  await expect(line).toContainText("The rolls enabled for this song are Forward");
+  await page.click('[data-action="change-rolls"]');
+  await expect(page.locator('[data-panel="rolls"]')).toBeVisible();
+  await page.click('[data-roll-preset="Forward only"]');
+  await expect(line).toContainText("are Forward. To change");
+  // Saved with the song: a reload keeps it, and another song is untouched.
+  await page.waitForTimeout(600);
+  await page.reload();
+  await page.waitForSelector("svg.tab");
+  await expect(page.getByTestId("rolls-line")).toContainText("are Forward. To change");
+  await openSong(page, "old-joe-clark");
+  await expect(page.getByTestId("rolls-line")).toContainText("Forward, ");
+});
+
+test("every measure of a song names its chord, in bold letters", async ({ page }) => {
+  await page.goto("/");
+  await openSong(page, "wildwood-flower");
+  // The song writes a chord only where it changes; the notation names it in every measure.
+  const written = await page.evaluate(() => {
+    const abc = window.__banjoTest!.store.currentSong.value!.abc;
+    const music = abc.split(/\r?\n/).filter((line) => !/^[A-Za-z]:/.test(line));
+    return (music.join(" ").match(/"[^"]+"/g) ?? []).length;
+  });
+  const shown = await page.locator(".notation .abcjs-chord").count();
+  expect(shown).toBeGreaterThanOrEqual(written);
+  const weight = await page
+    .locator(".notation .abcjs-chord")
+    .first()
+    .evaluate((e) => getComputedStyle(e).fontWeight);
+  expect(Number(weight)).toBeGreaterThanOrEqual(600);
+});

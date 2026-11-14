@@ -184,6 +184,8 @@ test("a chord picked with a full disk is kept, saved when space returns, and sur
   await start(page, errors);
   await page.click('[data-song="exercise:forward"][data-section="exercises"]');
   await page.waitForSelector("svg.tab");
+  // A roll opens in its two-measure lesson first; this is about the full exercise's chords.
+  await page.click('[data-action="view-full"]');
   const chords = page.locator(".notation .abcjs-chord");
   await page.evaluate(() =>
     window.__banjoChaos!.arm({ service: "storage", op: "put", kind: "QuotaExceededError" }),
@@ -228,7 +230,14 @@ test("a chord picked and a view switched with a full disk are kept, saved, and s
   expect(errors).toEqual([]);
 });
 
-test("switching view while the lesson plays stops it cleanly (6.4)", async ({ page }) => {
+test("switching view while the lesson plays stops it cleanly (6.4)", async ({
+  page,
+  browserName,
+}) => {
+  test.skip(
+    browserName === "webkit" && process.platform === "win32",
+    "no Web Audio in Playwright WebKit on Windows",
+  );
   const errors: string[] = [];
   await start(page, errors);
   await openLesson(page);
