@@ -82,6 +82,8 @@ interface LineProps {
    * exercise. Chord letters of the changeable measures get a pointer and a dotted underline.
    */
   readonly onMeasureChord?: ((position: number) => void) | undefined;
+  /** The first measure whose chord can be changed (the exercise's open strings can't; a lesson's can). */
+  readonly changeableFrom?: number | undefined;
   /** F28: the step cursor's measure and slot. */
   readonly stepAt: { readonly measure: number; readonly slot: number } | null;
   /** F30: the note playing now (not while stepping). */
@@ -112,6 +114,7 @@ function SongLine({
   onTooWide,
   onChordTap,
   onMeasureChord,
+  changeableFrom = OPEN_STRING_MEASURES,
   line,
   lineNo,
   width,
@@ -147,7 +150,7 @@ function SongLine({
     }
     if (onMeasureChord) {
       el.querySelectorAll(".abcjs-chord").forEach((t, i) => {
-        if (line.from + i >= OPEN_STRING_MEASURES) t.classList.add("changeable");
+        if (line.from + i >= changeableFrom) t.classList.add("changeable");
       });
     }
     // Words under crowded notes can make abcjs draw the staff wider than asked for.
@@ -219,7 +222,7 @@ function SongLine({
                       e.clientY <= r.bottom + padY
                     );
                   });
-                  if (hit >= 0 && line.from + hit >= OPEN_STRING_MEASURES) {
+                  if (hit >= 0 && line.from + hit >= changeableFrom) {
                     onMeasureChord(line.from + hit);
                   }
                 }
@@ -596,6 +599,7 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
                 onTooWide={tooWide}
                 onChordTap={isExercise ? noChordFinder : openChord}
                 onMeasureChord={isExercise ? setEditing : undefined}
+                changeableFrom={isLesson ? 0 : OPEN_STRING_MEASURES}
                 line={line}
                 lineNo={i}
                 width={width}
