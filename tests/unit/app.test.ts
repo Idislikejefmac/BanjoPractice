@@ -319,26 +319,26 @@ describe("the mix is a preference, not per-song state", () => {
 });
 
 describe("roll lesson progress (F37)", () => {
-  it("saves each rating and loads it back", async () => {
+  it("saves each step and loads it back", async () => {
     const storage = createMemoryStore();
     const a = new AppStore(fakeServices(storage), SONGS, memoryLocal());
     await a.load();
-    for (let i = 0; i < 3; i++) a.rateRollPass("forward", "got-it");
-    a.rateRollPass("backward", "again");
+    a.setRollStep("forward", 2);
+    a.setRollStep("backward", 3);
     await settle();
     const b = new AppStore(fakeServices(storage), SONGS, memoryLocal());
     await b.load();
     expect(b.learning.value.rolls.forward?.level).toBe(2);
-    expect(b.learning.value.rolls.backward?.againRun).toBe(1);
+    expect(b.learning.value.rolls.backward?.level).toBe(3);
   });
 
-  it("recovers a rating that hadn't reached storage when the page was killed", async () => {
+  it("recovers a step that hadn't reached storage when the page was killed", async () => {
     const storage = createMemoryStore();
     const local = memoryLocal();
     const hung: KeyValueStore = { ...storage, put: () => new Promise(() => {}) };
     const a = new AppStore(fakeServices(hung), SONGS, local);
     await a.load();
-    for (let i = 0; i < 3; i++) a.rateRollPass("forward", "got-it");
+    a.setRollStep("forward", 2);
     const b = new AppStore(fakeServices(storage), SONGS, local);
     await b.load();
     expect(b.learning.value.rolls.forward?.level).toBe(2);
@@ -361,11 +361,11 @@ describe("roll lesson progress (F37)", () => {
     expect(a.learning.value.rolls.backward?.level).toBe(3);
   });
 
-  it("starting a roll over drops its progress", async () => {
+  it("going back to step 1 drops the saved entry", async () => {
     const a = new AppStore(fakeServices(createMemoryStore()), SONGS, memoryLocal());
     await a.load();
-    for (let i = 0; i < 3; i++) a.rateRollPass("forward", "got-it");
-    a.resetRollLesson("forward");
+    a.setRollStep("forward", 3);
+    a.setRollStep("forward", 1);
     expect(a.learning.value.rolls.forward).toBeUndefined();
   });
 });

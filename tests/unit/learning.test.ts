@@ -9,14 +9,11 @@ import {
   rollsPlayingString,
 } from "../../src/core/learning/cues.ts";
 import {
-  AGAIN_TO_RETREAT,
-  GOT_IT_TO_ADVANCE,
   hiddenSlots,
   INITIAL_FADE,
   parseFadeState,
-  rate,
+  stepLevel,
 } from "../../src/core/learning/fade.ts";
-import type { FadeState, Rating } from "../../src/core/learning/fade.ts";
 import {
   answer,
   BOX_INTERVALS_MS,
@@ -29,43 +26,12 @@ import {
 const ctx = { tuning: OPEN_G, plan: NO_CAPO };
 
 describe("fade ladder (F37)", () => {
-  it("advances after three 'got it' in a row, and resets the run", () => {
-    let s: FadeState = INITIAL_FADE;
-    for (let i = 0; i < GOT_IT_TO_ADVANCE - 1; i++) s = rate(s, "got-it");
-    expect(s.level).toBe(1);
-    s = rate(s, "got-it");
-    expect(s).toEqual({ level: 2, gotItRun: 0, againRun: 0 });
-  });
-
-  it("an 'again' in the middle breaks the run", () => {
-    let s: FadeState = INITIAL_FADE;
-    s = rate(rate(s, "got-it"), "got-it");
-    s = rate(s, "again");
-    s = rate(rate(s, "got-it"), "got-it");
-    expect(s.level).toBe(1);
-  });
-
-  it("steps back after two 'again' in a row, but never below 1 or above 4", () => {
-    let s: FadeState = { level: 3, gotItRun: 0, againRun: 0 };
-    for (let i = 0; i < AGAIN_TO_RETREAT; i++) s = rate(s, "again");
-    expect(s.level).toBe(2);
-    for (let i = 0; i < 10; i++) s = rate(s, "again");
-    expect(s.level).toBe(1);
-    for (let i = 0; i < 40; i++) s = rate(s, "got-it");
-    expect(s.level).toBe(4);
-  });
-
-  it("stays inside its bounds for any sequence of ratings", () => {
-    let seed = 12345;
-    let s: FadeState = INITIAL_FADE;
-    for (let i = 0; i < 2000; i++) {
-      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-      const r: Rating = seed % 3 === 0 ? "again" : "got-it";
-      s = rate(s, r);
-      expect([1, 2, 3, 4]).toContain(s.level);
-      expect(s.gotItRun).toBeLessThan(GOT_IT_TO_ADVANCE + 1);
-      expect(s.againRun).toBeLessThan(AGAIN_TO_RETREAT + 1);
-    }
+  it("moves one step at a time and never leaves 1 to 4", () => {
+    expect(INITIAL_FADE.level).toBe(1);
+    expect(stepLevel(1, 1)).toBe(2);
+    expect(stepLevel(3, -1)).toBe(2);
+    expect(stepLevel(1, -1)).toBe(1);
+    expect(stepLevel(4, 1)).toBe(4);
   });
 
   it("hides more help at each level", () => {
@@ -81,16 +47,8 @@ describe("fade ladder (F37)", () => {
     expect(parseFadeState(null)).toEqual(INITIAL_FADE);
     expect(parseFadeState("x")).toEqual(INITIAL_FADE);
     expect(parseFadeState({ level: 9 })).toEqual(INITIAL_FADE);
-    expect(parseFadeState({ level: 3, gotItRun: -4, againRun: 1.5 })).toEqual({
-      level: 3,
-      gotItRun: 0,
-      againRun: 0,
-    });
-    expect(parseFadeState({ level: 2, gotItRun: 2, againRun: 1 })).toEqual({
-      level: 2,
-      gotItRun: 2,
-      againRun: 1,
-    });
+    // Older saves also held "Got it" / "Again" counters; only the step is kept.
+    expect(parseFadeState({ level: 3, gotItRun: 2, againRun: 1 })).toEqual({ level: 3 });
   });
 });
 

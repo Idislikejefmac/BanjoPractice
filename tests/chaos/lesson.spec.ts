@@ -1,6 +1,6 @@
 // T3 · Roll-lesson progress under faults (CHAOS_TESTING.md §6.1, §6.5; LEARNING_SPEC.md F37).
-// Progress is one document (meta/learning). It must survive a full disk, a reload mid-save,
-// damaged records, a newer database, and a seeded storm of ratings, reloads and faults.
+// The step is one document (meta/learning). It must survive a full disk, a reload mid-save,
+// damaged records, a newer database, and a seeded storm of step changes, reloads and faults.
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import { checkpoint, rng, waitForSaves, watchErrors } from "./harness.ts";
@@ -21,14 +21,16 @@ async function start(page: Page, errors: string[]) {
 
 const step = (page: Page) => page.getByTestId("lesson-step");
 
-test("QuotaExceeded on a rating: visible failure, kept, retried, saved (6.1)", async ({ page }) => {
+test("QuotaExceeded on a step change: visible failure, kept, retried, saved (6.1)", async ({
+  page,
+}) => {
   const errors: string[] = [];
   await start(page, errors);
   await openLesson(page);
   await page.evaluate(() =>
     window.__banjoChaos!.arm({ service: "storage", op: "put", kind: "QuotaExceededError" }),
   );
-  for (let i = 0; i < 3; i++) await page.click('[data-action="lesson-got-it"]');
+  await page.click('[data-action="lesson-next"]');
   await expect(page.locator(".notices")).toContainText("storage is full");
   // The step still shows: the change is kept in memory.
   await expect(step(page)).toContainText("Step 2 of 4");
@@ -43,11 +45,11 @@ test("QuotaExceeded on a rating: visible failure, kept, retried, saved (6.1)", a
   expect(errors).toEqual([]);
 });
 
-test("a hard reload right after a rating keeps it (6.5)", async ({ page }) => {
+test("a hard reload right after a step change keeps it (6.5)", async ({ page }) => {
   const errors: string[] = [];
   await start(page, errors);
   await openLesson(page);
-  for (let i = 0; i < 3; i++) await page.click('[data-action="lesson-got-it"]');
+  await page.click('[data-action="lesson-next"]');
   await page.reload(); // no waiting for the save
   await page.waitForSelector(".toolbar");
   await openLesson(page);
@@ -81,7 +83,7 @@ test("progress written by a newer version of the app is not used (6.1)", async (
   await page.evaluate(async () => {
     await window.__banjoTest!.services.storage.put("meta", "learning", {
       version: 2,
-      rolls: { forward: { level: 4, gotItRun: 3, againRun: 0 } },
+      rolls: { forward: { level: 4, gotItRun: 3 } },
     });
   });
   await page.reload();
@@ -91,7 +93,7 @@ test("progress written by a newer version of the app is not used (6.1)", async (
   expect(errors).toEqual([]);
 });
 
-test("a seeded storm of ratings, reloads and disk faults ends with shown = stored (6.6)", async ({
+test("a seeded storm of step changes, reloads and disk faults ends with shown = stored (6.6)", async ({
   page,
 }, testInfo) => {
   const seed = Number(process.env.CHAOS_SEED ?? 11);
@@ -105,15 +107,19 @@ test("a seeded storm of ratings, reloads and disk faults ends with shown = store
     for (let i = 0; i < 60; i++) {
       const r = random();
       if (r < 0.45) {
-        const a = random() < 0.65 ? "lesson-got-it" : "lesson-again";
+        const a = random() < 0.65 ? "lesson-next" : "lesson-prev";
         trace.push(a);
-        await page.click(`[data-action="${a}"]`);
+        // At either end the button is disabled, so a tap there does nothing (as for a real user).
+        if (await page.locator(`[data-action="${a}"]`).isEnabled()) {
+          await page.click(`[data-action="${a}"]`);
+        }
       } else if (r < 0.55) {
         trace.push("lesson-reveal");
         await page.click('[data-action="lesson-reveal"]');
       } else if (r < 0.62) {
-        trace.push("lesson-reset");
-        await page.click('[data-action="lesson-reset"]');
+        const n = 1 + Math.floor(random() * 4);
+        trace.push(`lesson-step-${n}`);
+        await page.click(`[data-action="lesson-step-${n}"]`);
       } else if (r < 0.75) {
         const roll = rolls[Math.floor(random() * rolls.length)]!;
         trace.push(`open ${roll}`);

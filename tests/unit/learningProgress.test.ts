@@ -5,32 +5,28 @@ import { lessonCells } from "../../src/core/learning/lesson.ts";
 import {
   EMPTY_PROGRESS,
   fadeFor,
-  rateRoll,
   readProgress,
-  resetRoll,
+  setRollLevel,
 } from "../../src/core/learning/progress.ts";
 
 describe("saved learning progress (F37)", () => {
-  it("starts empty and rates one roll at a time", () => {
+  it("starts empty and moves one roll at a time", () => {
     expect(fadeFor(EMPTY_PROGRESS, "forward")).toEqual(INITIAL_FADE);
-    let p = EMPTY_PROGRESS;
-    for (let i = 0; i < 3; i++) p = rateRoll(p, "forward", "got-it");
+    const p = setRollLevel(EMPTY_PROGRESS, "forward", 2);
     expect(fadeFor(p, "forward").level).toBe(2);
     expect(fadeFor(p, "backward")).toEqual(INITIAL_FADE);
     // The old value is untouched (the record is immutable).
     expect(EMPTY_PROGRESS.rolls).toEqual({});
   });
 
-  it("ignores a roll it doesn't know, and can start a roll over", () => {
-    expect(rateRoll(EMPTY_PROGRESS, "no-such-roll", "got-it")).toBe(EMPTY_PROGRESS);
-    let p = rateRoll(EMPTY_PROGRESS, "forward", "got-it");
-    p = resetRoll(p, "forward");
+  it("ignores a roll it doesn't know, and step 1 keeps no entry", () => {
+    expect(setRollLevel(EMPTY_PROGRESS, "no-such-roll", 3)).toBe(EMPTY_PROGRESS);
+    const p = setRollLevel(setRollLevel(EMPTY_PROGRESS, "forward", 3), "forward", 1);
     expect(p.rolls).toEqual({});
   });
 
   it("round-trips through JSON", () => {
-    let p = EMPTY_PROGRESS;
-    for (let i = 0; i < 4; i++) p = rateRoll(p, "backward", "got-it");
+    const p = setRollLevel(EMPTY_PROGRESS, "backward", 4);
     expect(readProgress(JSON.parse(JSON.stringify(p)))).toEqual(p);
   });
 
@@ -57,7 +53,7 @@ describe("saved learning progress (F37)", () => {
         "nonsense":{"level":4}}}`),
     );
     expect(Object.keys(mixed.rolls)).toEqual(["forward"]);
-    expect(fadeFor(mixed, "forward")).toEqual({ level: 3, gotItRun: 1, againRun: 0 });
+    expect(fadeFor(mixed, "forward")).toEqual({ level: 3 });
     expect(fadeFor(mixed, "constructor")).toEqual(INITIAL_FADE);
     expect(fadeFor(mixed, "__proto__")).toEqual(INITIAL_FADE);
   });

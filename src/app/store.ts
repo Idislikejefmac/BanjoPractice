@@ -9,9 +9,9 @@
 import { batch, computed, signal } from "@preact/signals";
 import type { Song } from "../core/song/song.ts";
 import { songProblems } from "../core/song/song.ts";
-import type { Rating } from "../core/learning/fade.ts";
+import type { FadeLevel } from "../core/learning/fade.ts";
 import type { LearningProgress } from "../core/learning/progress.ts";
-import { EMPTY_PROGRESS, rateRoll, readProgress, resetRoll } from "../core/learning/progress.ts";
+import { EMPTY_PROGRESS, readProgress, setRollLevel } from "../core/learning/progress.ts";
 import type { LogEvent, OpenSession, PracticeSession } from "./practiceLog.ts";
 import { applyLogEvent, close as closeSession, practiceSessionProblems } from "./practiceLog.ts";
 import type { KeyValueStore, StoreName } from "../platform/types.ts";
@@ -483,15 +483,9 @@ export class AppStore {
     this.write("practiceLog", s.id, s);
   }
 
-  /** F37: Dad rated one pass of a roll lesson. */
-  rateRollPass(rollId: string, rating: Rating): void {
-    this.learning.value = rateRoll(this.learning.value, rollId, rating);
-    this.write("meta", LEARNING_KEY, this.learning.value);
-  }
-
-  /** F37: start a roll's lesson over from full help. */
-  resetRollLesson(rollId: string): void {
-    this.learning.value = resetRoll(this.learning.value, rollId);
+  /** F37: Dad moved a roll lesson to a step (1 = everything shown, 4 = all hidden). */
+  setRollStep(rollId: string, level: FadeLevel): void {
+    this.learning.value = setRollLevel(this.learning.value, rollId, level);
     this.write("meta", LEARNING_KEY, this.learning.value);
   }
 

@@ -12,7 +12,7 @@ import {
 import { DEFAULT_SETTINGS, MODEL_SCHEMA_VERSION } from "../../src/app/model.ts";
 import type { Song } from "../../src/core/song/song.ts";
 import { SONG_SCHEMA_VERSION } from "../../src/core/song/song.ts";
-import { EMPTY_PROGRESS, mergeProgress, rateRoll } from "../../src/core/learning/progress.ts";
+import { EMPTY_PROGRESS, mergeProgress, setRollLevel } from "../../src/core/learning/progress.ts";
 import { createMemoryStore } from "../../src/platform/fakes.ts";
 
 let n = 0;
@@ -170,11 +170,7 @@ describe("F18 backup", () => {
 });
 
 describe("F37 learning progress in backups", () => {
-  const progress = rateRoll(
-    rateRoll(rateRoll(EMPTY_PROGRESS, "forward", "got-it"), "forward", "got-it"),
-    "forward",
-    "got-it",
-  );
+  const progress = setRollLevel(EMPTY_PROGRESS, "forward", 2);
 
   it("is exported, read back, and restored into the meta store", () => {
     const backup = makeBackup({
@@ -220,8 +216,8 @@ describe("F37 learning progress in backups", () => {
     expect(ops.some((o) => o.store === "meta")).toBe(false);
   });
 
-  it("restoring an old backup never takes away progress already made", () => {
-    const behind = rateRoll(EMPTY_PROGRESS, "forward", "got-it");
+  it("restoring a backup keeps the step already chosen on this iPad", () => {
+    const behind = setRollLevel(EMPTY_PROGRESS, "forward", 3);
     const backup = makeBackup({
       appVersion: "1",
       songs: [],
@@ -237,7 +233,8 @@ describe("F37 learning progress in backups", () => {
     });
     const put = ops.find((o) => o.op === "put" && o.store === "meta");
     expect(put && put.op === "put" && (put.value as typeof progress).rolls.forward?.level).toBe(2);
-    expect(mergeProgress(behind, progress).rolls.forward?.level).toBe(2);
+    expect(mergeProgress(progress, behind).rolls.forward?.level).toBe(2);
+    expect(mergeProgress(EMPTY_PROGRESS, behind).rolls.forward?.level).toBe(3);
   });
 
   it("damaged progress in a backup is dropped, not fatal", () => {

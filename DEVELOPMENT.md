@@ -436,7 +436,7 @@ Only instruments in use are loaded, and each is cached after first use (~1–3 M
 | F34 | Notation in shape key toggle | C1, C8, R1 | 2b |
 | F35 | Session restore | §5.2 | 1 |
 | F36 | Roll lesson: the roll as finger lanes in two halves, above a roll exercise (`RollLesson.tsx`) | C3, C10, F15 | 3 |
-| F37 | Roll fade ladder with "Got it" / "Again" and saved progress (backup and chaos covered) | F36, C10, F18 | 3 |
+| F37 | Roll fade ladder: four steps he moves between by swipe, Back / Next or dots, with Peek; saved per roll (backup and chaos covered) | F36, C10, F18 | 3 |
 | F39 | "Why this note?" box in step mode | C10, F28 | 3 |
 | F41 | Listen-for cue per roll (in the lesson) | C10, F36 | 3 |
 | F45 | Roll exercises: touch a measure's chord letter (large, bold) and a sheet slides up with the key's chords; the measure's chord and its roll change. Saved in settings (`exerciseChords`, measure → chord) and used by every roll. Exercises have no melody (switch greyed, silent) | F15, C6 | 3 |

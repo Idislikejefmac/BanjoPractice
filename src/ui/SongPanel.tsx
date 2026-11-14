@@ -83,27 +83,60 @@ function Section({
   title,
   id,
   songs,
+  folded,
+  onToggle,
+  searching,
 }: {
   store: AppStore;
   title: string;
   id: string;
   songs: readonly Song[];
+  folded: boolean;
+  onToggle: () => void;
+  /** While he is searching, every section with a match stays open so a match is never hidden. */
+  searching: boolean;
 }) {
   if (songs.length === 0) return null;
+  const shut = folded && !searching;
   return (
     <section class="song-section" aria-label={title}>
-      <h3>{title}</h3>
-      <ul>
-        {songs.map((s) => (
-          <SongRow key={`${id}-${s.id}`} store={store} song={s} section={id} />
-        ))}
-      </ul>
+      <h3>
+        <button
+          type="button"
+          class="section-toggle"
+          data-action={`toggle-section-${id}`}
+          aria-expanded={!shut}
+          disabled={searching}
+          onClick={onToggle}
+        >
+          <span class="section-arrow" aria-hidden="true">
+            {shut ? "▸" : "▾"}
+          </span>
+          {title}
+          {shut && <span class="section-count"> ({songs.length})</span>}
+        </button>
+      </h3>
+      {!shut && (
+        <ul>
+          {songs.map((s) => (
+            <SongRow key={`${id}-${s.id}`} store={store} song={s} section={id} />
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
 
 export function SongPanel({ store }: { store: AppStore }) {
   const [query, setQuery] = useState("");
+  // Which sections he has folded away (this visit only).
+  const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
+  const toggle = (id: string) =>
+    setFolded((f) => {
+      const next = new Set(f);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
   const open = store.session.value.songPanelOpen;
   const all = store.songs;
   const q = query.trim().toLowerCase();
@@ -148,14 +181,28 @@ export function SongPanel({ store }: { store: AppStore }) {
           title="Favorites"
           id="favorites"
           songs={store.favorites.value.filter(match)}
+          folded={folded.has("favorites")}
+          onToggle={() => toggle("favorites")}
+          searching={q !== ""}
         />
         <Section
           store={store}
           title="Recently played"
           id="recent"
           songs={store.recent.value.filter(match)}
+          folded={folded.has("recent")}
+          onToggle={() => toggle("recent")}
+          searching={q !== ""}
         />
-        <Section store={store} title="Songs" id="builtin" songs={builtins} />
+        <Section
+          store={store}
+          title="Roll exercises"
+          id="exercises"
+          songs={exercises}
+          folded={folded.has("exercises")}
+          onToggle={() => toggle("exercises")}
+          searching={q !== ""}
+        />
         <div class="my-songs-head">
           <button
             class="plain-button"
@@ -170,8 +217,24 @@ export function SongPanel({ store }: { store: AppStore }) {
             </span>
           )}
         </div>
-        <Section store={store} title="My songs" id="mine" songs={mine} />
-        <Section store={store} title="Roll exercises" id="exercises" songs={exercises} />
+        <Section
+          store={store}
+          title="My songs"
+          id="mine"
+          songs={mine}
+          folded={folded.has("mine")}
+          onToggle={() => toggle("mine")}
+          searching={q !== ""}
+        />
+        <Section
+          store={store}
+          title="Songs"
+          id="builtin"
+          songs={builtins}
+          folded={folded.has("builtin")}
+          onToggle={() => toggle("builtin")}
+          searching={q !== ""}
+        />
       </aside>
     </>
   );

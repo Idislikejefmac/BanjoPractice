@@ -1,37 +1,19 @@
 // C10 · Learning helpers (LEARNING_SPEC.md F37). Pure: no clock, no storage, no UI.
 //
-// A roll lesson fades its help in four steps as the learner rates his own passes. The app can't
-// hear whether he played it right, so progress comes only from "Got it" / "Again".
+// A roll lesson fades its help in four steps. The app can't hear him play, so it never decides
+// he is ready: the step is only where he chose to be, and he moves it himself.
 
 export type FadeLevel = 1 | 2 | 3 | 4;
-export type Rating = "got-it" | "again";
-
-/** Consecutive "Got it" ratings that move a roll one step toward less help. */
-export const GOT_IT_TO_ADVANCE = 3;
-/** Consecutive "Again" ratings that move a roll one step back toward more help. */
-export const AGAIN_TO_RETREAT = 2;
 
 export interface FadeState {
   readonly level: FadeLevel;
-  readonly gotItRun: number;
-  readonly againRun: number;
 }
 
-export const INITIAL_FADE: FadeState = { level: 1, gotItRun: 0, againRun: 0 };
+export const INITIAL_FADE: FadeState = { level: 1 };
 
-export function rate(state: FadeState, rating: Rating): FadeState {
-  if (rating === "got-it") {
-    const run = state.gotItRun + 1;
-    if (run >= GOT_IT_TO_ADVANCE && state.level < 4) {
-      return { level: (state.level + 1) as FadeLevel, gotItRun: 0, againRun: 0 };
-    }
-    return { level: state.level, gotItRun: Math.min(run, GOT_IT_TO_ADVANCE), againRun: 0 };
-  }
-  const run = state.againRun + 1;
-  if (run >= AGAIN_TO_RETREAT && state.level > 1) {
-    return { level: (state.level - 1) as FadeLevel, gotItRun: 0, againRun: 0 };
-  }
-  return { level: state.level, gotItRun: 0, againRun: Math.min(run, AGAIN_TO_RETREAT) };
+/** One step toward more (-1) or less (+1) help, kept inside 1 to 4. */
+export function stepLevel(level: FadeLevel, by: -1 | 1): FadeLevel {
+  return Math.min(4, Math.max(1, level + by)) as FadeLevel;
 }
 
 export type HintKind = "finger" | "string";
@@ -55,17 +37,13 @@ export function hiddenSlots(level: FadeLevel, kind: HintKind, slots = 8): number
   }
 }
 
-/** Reads back a stored state defensively: anything malformed becomes the starting state. */
+/**
+ * Reads back a stored state defensively: anything malformed becomes the starting state. Older
+ * saves also held "Got it" / "Again" counters; only the step is kept.
+ */
 export function parseFadeState(value: unknown): FadeState {
   if (typeof value !== "object" || value === null) return INITIAL_FADE;
-  const v = value as Record<string, unknown>;
-  const level = v.level;
-  const run = (x: unknown, max: number): number =>
-    typeof x === "number" && Number.isInteger(x) && x >= 0 && x <= max ? x : 0;
+  const level = (value as Record<string, unknown>).level;
   if (level !== 1 && level !== 2 && level !== 3 && level !== 4) return INITIAL_FADE;
-  return {
-    level,
-    gotItRun: run(v.gotItRun, GOT_IT_TO_ADVANCE),
-    againRun: run(v.againRun, AGAIN_TO_RETREAT),
-  };
+  return { level };
 }
