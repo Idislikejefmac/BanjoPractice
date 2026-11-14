@@ -57,7 +57,8 @@ describe("lyrics", () => {
   // per-line layout ABC, garbling the notation (found while adding lyrics).
   it("never copies field lines into the music text", () => {
     for (const [i, line] of lines.entries()) {
-      const music = lineAbc(ABC, idx, line, { showMeter: i === 0 }).split("\n")[6]!;
+      const out = lineAbc(ABC, idx, line, { showMeter: i === 0 }).split("\n");
+      const music = out[out.indexOf("V:1") + 1]!; // the melody line, whatever the header holds
       expect(music).not.toMatch(/[A-Za-z]:/);
     }
   });

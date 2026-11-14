@@ -139,6 +139,7 @@ function SongLine({
     }
     const abc = lineAbc(notation.abc, notation.index, line, {
       chordEveryMeasure: true,
+      chordSize: onMeasureChord ? 24 : 20,
       showMeter: lineNo === 0,
       showLyrics: tabOpts.showLyrics,
       fill: true,
@@ -299,6 +300,7 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
           showMeter: false,
           showLyrics: settings.showLyrics,
           chordEveryMeasure: true,
+          chordSize: song && rollIdOfSong(song.id) ? 24 : 20,
         }),
         lead: leadInAbc(index, { showMeter: false, startRepeat: false }),
         leadMeter: leadInAbc(index, { showMeter: true, startRepeat: false }),

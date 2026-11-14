@@ -63,3 +63,26 @@ describe("chord on every measure", () => {
     expect(melodyOf(line)).not.toMatch(/""|"G""G"/);
   });
 });
+
+describe("one chord height on every line", () => {
+  const index = indexAbc(ABC);
+
+  it("gives every line a hidden third voice holding the song's highest note, raised a stem", () => {
+    const a = lineAbc(ABC, index, { from: 0, to: 3 }, { showMeter: true });
+    const b = lineAbc(ABC, index, { from: 3, to: 6 }, { showMeter: false });
+    for (const line of [a, b]) {
+      expect(line).toContain("%%score (1 2 3)");
+      expect(line).toContain("V:3");
+    }
+    // The same note on both lines (the song's, not the line's), so both reserve the same room.
+    const noteOf = (l: string) => l.split("V:3\n")[1]!.trim().split(" ")[0];
+    expect(noteOf(a)).toBe(noteOf(b));
+    // A note name with an optional length, such as f'/ (a stem's height above the melody's top).
+    expect(noteOf(a)).toMatch(/^[a-gA-G][',]*\/?\d*$/);
+  });
+
+  it("asks abcjs for the chord size it will really be drawn at", () => {
+    const line = lineAbc(ABC, index, { from: 0, to: 6 }, { showMeter: true, chordSize: 24 });
+    expect(line).toContain("%%gchordfont Arial 24 bold");
+  });
+});

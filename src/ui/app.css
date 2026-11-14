@@ -1059,12 +1059,14 @@ h2 {
   line-height: 1.6;
 }
 
+/* The hidden third voice only reserves headroom, so every line's chords sit at one height. */
+.notation .abcjs-v2 {
+  visibility: hidden;
+}
 /* Chord symbols in the notation are tappable (F16). Every measure names its chord, so make
    the letters big and bold enough to read at a glance. */
 .notation .abcjs-chord {
   cursor: pointer;
-  font-size: 150%;
-  font-weight: 700;
 }
 .rolls-line {
   display: flex;
@@ -1565,11 +1567,6 @@ h2 {
 }
 .part-stack.unavailable {
   opacity: 0.45;
-}
-/* Exercises have chords, not a melody: make the chord letters in the notation larger. */
-.song-lines.exercise .notation .abcjs-chord {
-  font-size: 200%;
-  font-weight: 700;
 }
 /* A chord letter he can change: touch it. */
 .song-lines.exercise .notation .abcjs-chord.changeable {

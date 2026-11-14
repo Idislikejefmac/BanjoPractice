@@ -207,6 +207,8 @@ export interface LineAbcOptions {
    * carries on from the one before gets the same chord again), so each measure says its chord.
    */
   chordEveryMeasure?: boolean;
+  /** The chord letters' size in px (default 20). */
+  chordSize?: number;
 }
 
 /**
@@ -243,13 +245,51 @@ function slotRests(m: IndexedMeasure, index: SongIndex): string {
   return Array.from({ length: m.slots }, () => `x${len}`).join(" ");
 }
 
-function header(index: SongIndex, opts: LineAbcOptions): string[] {
+/** Which of the seven letters (C = 0 … B = 6) each pitch class sits on, sharps ignored. */
+const STEP_OF_PC = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6] as const;
+const ABC_LETTERS = ["C", "D", "E", "F", "G", "A", "B"] as const;
+/**
+ * How far above the song's highest note the hidden note sits, in staff steps: the stem or beam
+ * of a high note on the line itself reaches this much higher than its head.
+ */
+const STEM_STEPS = 6;
+
+/** ABC for a note a stem's height above the song's highest (only its height matters). */
+function highestNote(index: SongIndex): string {
+  let top = 0;
+  for (const m of index.measures) {
+    for (const n of m.melody) if (n.midi !== null && n.midi > top) top = n.midi;
+  }
+  const step = (Math.floor(top / 12) - 1) * 7 + STEP_OF_PC[top % 12]! + STEM_STEPS;
+  const octave = Math.floor(step / 7);
+  const letter = ABC_LETTERS[step % 7]!;
+  return octave >= 5
+    ? letter.toLowerCase() + "'".repeat(octave - 5)
+    : letter + ",".repeat(4 - octave);
+}
+
+/**
+ * The hidden voice's measure: the song's highest note on the first slot of the line, rests
+ * elsewhere. The voice is hidden with CSS (class abcjs-v2) but abcjs still makes room for it, so
+ * every line has the same headroom and every line's chords share one height.
+ */
+function floorRests(m: IndexedMeasure, index: SongIndex, first: boolean, note: string): string {
+  const len = lengthSuffix(index.rollUnit / index.unitLength);
+  return Array.from({ length: m.slots }, (_, i) =>
+    first && i === 0 ? `${note}${len}` : `x${len}`,
+  ).join(" ");
+}
+
+function header(index: SongIndex, opts: LineAbcOptions, voices = "(1 2)"): string[] {
   return [
     "X:1",
     opts.showMeter ? `M:${index.meter.num}/${index.meter.den}` : "M:none",
     index.headerLines.find((l) => l.startsWith("L:")) ?? "L:1/8",
     ...(opts.fill ? ["%%stretchlast 1"] : []),
-    "%%score (1 2)",
+    // abcjs lays out the page for the chord font it is told about, so say the real one: then
+    // it leaves room for the letters and draws ending brackets above them, not through them.
+    `%%gchordfont Arial ${opts.chordSize ?? 20} bold`,
+    `%%score ${voices}`,
     index.headerLines.find((l) => l.startsWith("K:")) ?? "K:C",
   ];
 }
@@ -283,6 +323,10 @@ export function lineAbc(
   let melody =
     (first.startRepeat ? "|:" : "") + (first.ending !== undefined ? `[${first.ending} ` : "");
   let slots = "";
+  // A third voice holds the song's highest note, hidden, so every line's chords sit at the same
+  // height above the staff, whatever notes the line itself has.
+  let floor = "";
+  const highest = highestNote(index);
   // The chord in force at the start of this line (from the measures before it).
   let carried: string | null = null;
   if (opts.chordEveryMeasure) {
@@ -298,16 +342,29 @@ export function lineAbc(
     if (last) carried = last.chord;
     melody += cleanMusic(abc.slice(m.startChar, m.contentEnd));
     slots += slotRests(m, index);
+    floor += floorRests(m, index, i === 0, highest);
     const next = ms[i + 1];
     if (next) {
       melody += ` ${between(m, next)}`;
       slots += " | ";
+      floor += " | ";
     } else {
       melody += m.endRepeat ? " :|" : ` ${glyph(m)}`;
       slots += m.barRight === "final" ? " |]" : " |";
+      floor += m.barRight === "final" ? " |]" : " |";
     }
   });
 
   const words = opts.showLyrics ? lyricLines(ms, index.verses) : [];
-  return [...header(index, opts), "V:1", melody, ...words, "V:2", slots, ""].join("\n");
+  return [
+    ...header(index, opts, "(1 2 3)"),
+    "V:1",
+    melody,
+    ...words,
+    "V:2",
+    slots,
+    "V:3",
+    floor,
+    "",
+  ].join("\n");
 }

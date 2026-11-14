@@ -197,3 +197,29 @@ test("every measure of a song names its chord, in bold letters", async ({ page }
     .evaluate((e) => getComputedStyle(e).fontWeight);
   expect(Number(weight)).toBeGreaterThanOrEqual(600);
 });
+
+for (const song of ["cripple-creek", "wildwood-flower", "will-the-circle-be-unbroken"]) {
+  test(`${song}: chord letters sit at one height above the staff on every line`, async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await openSong(page, song);
+    const gaps = await page.evaluate(() =>
+      [...document.querySelectorAll(".notation")].flatMap((n) => {
+        const staff = n.querySelector(".abcjs-staff");
+        const chords = [...n.querySelectorAll(".abcjs-chord")];
+        if (!staff || chords.length === 0) return [];
+        const tops = chords.map((c) => Math.round(c.getBoundingClientRect().top));
+        const staffTop = staff.getBoundingClientRect().top;
+        // Within a line, every chord is level; across lines, the gap to the staff is the same.
+        return [
+          { level: Math.max(...tops) - Math.min(...tops), gap: staffTop - Math.min(...tops) },
+        ];
+      }),
+    );
+    expect(gaps.length).toBeGreaterThan(1);
+    for (const g of gaps) expect(g.level).toBeLessThanOrEqual(1);
+    const spread = Math.max(...gaps.map((g) => g.gap)) - Math.min(...gaps.map((g) => g.gap));
+    expect(spread).toBeLessThanOrEqual(4); // the old uneven heights differed by 8 to 25 px
+  });
+}
