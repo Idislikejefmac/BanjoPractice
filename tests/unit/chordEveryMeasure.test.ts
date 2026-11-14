@@ -86,3 +86,41 @@ describe("one chord height on every line", () => {
     expect(line).toContain("%%gchordfont Arial 24 bold");
   });
 });
+
+describe("section labels written in quotes", () => {
+  it("splits words that are not chords from the music, and keeps the chords", async () => {
+    const { splitLabels } = await import("../../src/core/song/layoutAbc.ts");
+    expect(splitLabels('"Chorus""G"GABc')).toEqual({ music: '"G"GABc', labels: ["Chorus"] });
+    expect(splitLabels('"^Verse 2""D7"dcBA')).toEqual({ music: '"D7"dcBA', labels: ["Verse 2"] });
+    expect(splitLabels('"@-8,12 Tag" abc')).toEqual({ music: "abc", labels: ["Tag"] });
+    expect(splitLabels('"Am7"abc "D/F#"def')).toEqual({
+      music: '"Am7"abc "D/F#"def',
+      labels: [],
+    });
+    // Nothing in a label can break the ABC field it is set in.
+    expect(splitLabels('"^a]b|c"x').labels).toEqual(["a b c"]);
+  });
+
+  it("sets a label as a part label, and does not carry it as a chord or repeat the chord twice", () => {
+    const abc = [
+      "X:1",
+      "T:Test",
+      "M:4/4",
+      "L:1/4",
+      "K:G",
+      '"G"GABc|"D"defg|"Verse""G"gfed|cBAG|"C"dcBA|',
+      "",
+    ].join("\n");
+    const index = indexAbc(abc);
+    const line = lineAbc(
+      abc,
+      index,
+      { from: 2, to: 5 },
+      { showMeter: false, chordEveryMeasure: true },
+    );
+    const melody = line.split("\n")[line.split("\n").indexOf("V:1") + 1]!;
+    expect(melody).toContain("[P:Verse]");
+    expect(melody).not.toMatch(/"Verse"|"D""G"|"Verse\nG"/);
+    expect(chordsIn(melody)).toEqual(["G", "G", "C"]); // the label is not a chord; no carried D
+  });
+});

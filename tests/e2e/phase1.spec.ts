@@ -223,3 +223,64 @@ for (const song of ["cripple-creek", "wildwood-flower", "will-the-circle-be-unbr
     expect(spread).toBeLessThanOrEqual(4); // the old uneven heights differed by 8 to 25 px
   });
 }
+
+for (const [name, label] of [
+  ["a ^ annotation", '"^Chorus"'],
+  ["a bare word", '"Chorus"'],
+] as const) {
+  test(`a section label (${name}) does not move the chords: one height on every line`, async ({
+    page,
+  }) => {
+    const abc = (label: string) =>
+      [
+        "X:1",
+        "T:Label test",
+        "M:4/4",
+        "L:1/8",
+        "K:G",
+        `${label}"G"GABc d2 B2|"C"cdef g2 e2|"G"dBGB d2 g2|"D"agfe d4|`,
+        `"G"GABc d2 B2|"C"cdef g2 e2|"G"dBGB d2 g2|"D"f2 d2 A2 B2|`,
+        `${label.replace("Chorus", "Verse")}"G"g2 g2 d2 B2|"C"e2 e2 c2 A2|"G"B2 G2 d4|"D"A2 F2 D4|`,
+        `"G"gabg d2 B2|"C"e2 e2 c2 A2|"G"B2 G2 "D"A2 B2|"G"B2 G2 d4|]`,
+        "",
+      ].join("\n");
+    await page.goto("/");
+    await page.waitForSelector(".toolbar");
+    await page.evaluate((text) => {
+      const t = window.__banjoTest!;
+      const base = t.store.songList.value.find((s) => s.id === "cripple-creek")!;
+      const { tab: _tab, ...rest } = base as unknown as Record<string, unknown>;
+      void _tab;
+      t.store.songList.value = [
+        ...t.store.songList.value,
+        {
+          ...rest,
+          id: "label-test",
+          title: "Label test",
+          source: "user",
+          abc: text,
+          tags: [],
+        } as never,
+      ];
+      t.store.openSong("label-test");
+    }, abc(label));
+    await page.waitForSelector("svg.tab");
+    await page.waitForTimeout(500);
+    const gaps = await page.evaluate(() =>
+      [...document.querySelectorAll(".notation")].map((n) => {
+        const staff = n.querySelector(".abcjs-staff")!.getBoundingClientRect().top;
+        return [...n.querySelectorAll(".abcjs-chord")].map((c) =>
+          Math.round(staff - c.getBoundingClientRect().top),
+        );
+      }),
+    );
+    expect(gaps.length).toBeGreaterThan(3);
+    const all = gaps.flat();
+    // Chords on one line are level, and every line's are at (nearly) the same height.
+    for (const row of gaps) expect(Math.max(...row) - Math.min(...row)).toBeLessThanOrEqual(1);
+    expect(Math.max(...all) - Math.min(...all)).toBeLessThanOrEqual(5);
+    // The words are still shown, as part labels, not as chords.
+    expect(await page.locator(".notation").first().textContent()).toContain("Chorus");
+    expect(await page.locator(".abcjs-chord", { hasText: "Chorus" }).count()).toBe(0);
+  });
+}

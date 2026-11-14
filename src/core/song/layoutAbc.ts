@@ -9,6 +9,7 @@
 // The app chooses the line breaks and renders one line at a time, so each line of notation
 // can have its line of tab directly underneath.
 
+import { parseChord } from "../music/chords.ts";
 import type { IndexedMeasure, SongIndex } from "./abcIndex.ts";
 
 export interface DisplayLine {
@@ -146,6 +147,42 @@ export function splitLines(lines: readonly DisplayLine[], cuts: readonly number[
       .sort((a, b) => a - b);
     const points = [line.from, ...inside, line.to];
     return points.slice(1).map((to, i) => ({ from: points[i]!, to }));
+  });
+}
+
+/**
+ * Words written in quotes that are not chords ("Chorus", "Verse", "^Tag") are section labels.
+ * abcjs would stack such a word with the chord above the same measure, which makes the whole
+ * line's chord row two rows tall and drops the other measures' chords onto the lower row. So
+ * they are taken out of the music and set as part labels (`[P:Chorus]`), which abcjs draws in
+ * a row of their own above the chords.
+ */
+export function splitLabels(text: string): { music: string; labels: string[] } {
+  const labels: string[] = [];
+  const music = text.replace(/"([^"]*)"/g, (whole, inner: string) => {
+    const marked = /^[\^_<>@]/.test(inner);
+    if (!marked && parseChord(inner) !== null) return whole; // a chord: leave it
+    const words = inner
+      .replace(/^@-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?\s*/, "")
+      .replace(/^[\^_<>]/, "")
+      .replace(/[[\]:|"\\]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (words) labels.push(words);
+    return "";
+  });
+  return { music: music.replace(/\s+/g, " ").trim(), labels };
+}
+
+/**
+ * The chords of a measure that are chords, not section labels written in quotes. A word and a
+ * chord written together ("Verse""G") reach us as one stacked chord, "Verse\nG": its chord is the
+ * last line that is one.
+ */
+function realChords(m: IndexedMeasure): { atSlot: number; chord: string }[] {
+  return m.chords.flatMap((c) => {
+    const chord = c.chord.split("\n").findLast((line) => parseChord(line) !== null);
+    return chord === undefined ? [] : [{ atSlot: c.atSlot, chord }];
   });
 }
 
@@ -331,16 +368,19 @@ export function lineAbc(
   let carried: string | null = null;
   if (opts.chordEveryMeasure) {
     for (const m of index.measures.slice(0, line.from)) {
-      const last = m.chords[m.chords.length - 1];
+      const last = realChords(m).at(-1);
       if (last) carried = last.chord;
     }
   }
   ms.forEach((m, i) => {
-    const named = m.chords[0]?.atSlot === 0;
+    const chords = realChords(m);
+    const named = chords[0]?.atSlot === 0;
+    const { music, labels } = splitLabels(cleanMusic(abc.slice(m.startChar, m.contentEnd)));
+    if (labels.length > 0) melody += `[P:${labels.join(" ")}]`;
     if (opts.chordEveryMeasure && carried && !named) melody += `"${carried}"`;
-    const last = m.chords[m.chords.length - 1];
+    const last = chords.at(-1);
     if (last) carried = last.chord;
-    melody += cleanMusic(abc.slice(m.startChar, m.contentEnd));
+    melody += music;
     slots += slotRests(m, index);
     floor += floorRests(m, index, i === 0, highest);
     const next = ms[i + 1];
