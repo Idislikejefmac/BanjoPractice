@@ -83,6 +83,25 @@ export function exerciseChordAt(chosen: ChordOverrides, position: number): strin
   return "G";
 }
 
+export const EXERCISE_ID_PREFIX = "exercise:";
+export const LESSON_ID_PREFIX = "lesson:";
+/** The tempo a roll's lesson starts at: slow, while the pattern is new (F36). */
+export const LESSON_START_BPM = 60;
+
+/** The roll a song id belongs to, whether it is the full exercise or its two-measure lesson. */
+export function rollIdOfSong(id: string | null | undefined): string | null {
+  if (!id) return null;
+  if (id.startsWith(EXERCISE_ID_PREFIX)) return id.slice(EXERCISE_ID_PREFIX.length);
+  if (id.startsWith(LESSON_ID_PREFIX)) return id.slice(LESSON_ID_PREFIX.length);
+  return null;
+}
+export const isLessonSongId = (id: string | null | undefined): boolean =>
+  id?.startsWith(LESSON_ID_PREFIX) ?? false;
+
+/** True when a chord is one he can choose (the same list as in the exercise). */
+export const isChordChoice = (c: unknown): c is string =>
+  EXERCISE_CHORD_CHOICES.some((o) => o.chord === c);
+
 const G_KEY = parseKey("G")!;
 
 /** ABC pitch for a written MIDI note in G (key signature has F♯). */
@@ -166,6 +185,52 @@ export function rollExercise(rollId: string, chosen: ChordOverrides = {}): Song 
     tags: ["exercise"],
     credit: roll.use,
   };
+}
+
+/**
+ * The roll's lesson: two measures of one chord, the roll on every slot. It is a song of its own
+ * (so tempo, count-in and the transport are the ones he already knows) that repeats until stopped.
+ */
+export function rollLesson(rollId: string, chord = "G"): Song | null {
+  const roll = rollById(rollId);
+  if (!roll) return null;
+  const c = isChordChoice(chord) ? chord : "G";
+  const header = `X:1
+T:${roll.name} roll
+M:4/4
+L:1/8
+Q:1/4=${LESSON_START_BPM}
+K:G
+`;
+  const idx = indexAbc(header + `"${c}"z8|"${c}"z8|`);
+  const rollFor = new Map(idx.measures.map((m) => [m.index, roll.id]));
+  const measures = arrange(idx, { overrides: rollFor }).arrangement.measures;
+  const bars = measures.map((m) => {
+    const notes = Array.from({ length: m.slots }, (_, slot) => {
+      const here = m.notes.filter((n) => n.slot === slot);
+      if (here.length === 0) return "x";
+      const top = here.reduce((a, b) =>
+        pitchAt(OPEN_G, a.string, a.fret) >= pitchAt(OPEN_G, b.string, b.fret) ? a : b,
+      );
+      return abcPitch(pitchAt(OPEN_G, top.string, top.fret) + 12);
+    });
+    return `"${c}"${notes.slice(0, 4).join("")} ${notes.slice(4).join("")}`;
+  });
+  return {
+    schemaVersion: SONG_SCHEMA_VERSION,
+    id: `${LESSON_ID_PREFIX}${roll.id}`,
+    title: `${roll.name} roll`,
+    source: "builtin",
+    abc: `${header}${bars.join("|")}|]
+`,
+    tab: serializeTab(measures),
+    tags: ["lesson"],
+    credit: roll.use,
+  };
+}
+
+export function allRollLessons(): Song[] {
+  return ROLLS.map((r) => rollLesson(r.id)).filter((s): s is Song => s !== null);
 }
 
 export function allRollExercises(): Song[] {

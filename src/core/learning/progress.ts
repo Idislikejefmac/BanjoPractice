@@ -3,7 +3,7 @@
 
 import { ROLLS } from "../banjo/rolls.ts";
 import { INITIAL_FADE, parseFadeState } from "./fade.ts";
-import type { FadeLevel, FadeState } from "./fade.ts";
+import type { FadeState } from "./fade.ts";
 
 export const LEARNING_VERSION = 1;
 
@@ -31,12 +31,13 @@ export function readProgress(value: unknown): LearningProgress {
   for (const id of Object.keys(raw)) {
     if (!KNOWN.has(id)) continue;
     const state = parseFadeState((raw as Record<string, unknown>)[id]);
-    if (state.level !== INITIAL_FADE.level) {
-      rolls[id] = state;
-    }
+    if (!isInitial(state)) rolls[id] = state;
   }
   return { version: LEARNING_VERSION, rolls };
 }
+
+const isInitial = (s: FadeState): boolean =>
+  s.level === INITIAL_FADE.level && s.chord === INITIAL_FADE.chord && s.view === INITIAL_FADE.view;
 
 export function fadeFor(progress: LearningProgress, rollId: string): FadeState {
   return Object.hasOwn(progress.rolls, rollId)
@@ -44,26 +45,30 @@ export function fadeFor(progress: LearningProgress, rollId: string): FadeState {
     : INITIAL_FADE;
 }
 
-/** The progress after he moves a roll to a step. Step 1 is the start, so it keeps no entry. */
-export function setRollLevel(
+/**
+ * The progress after he changes something about a roll: its step, its lesson chord or its view.
+ * A roll back at its starting state keeps no entry; an unknown roll changes nothing.
+ */
+export function updateRoll(
   progress: LearningProgress,
   rollId: string,
-  level: FadeLevel,
+  patch: Partial<FadeState>,
 ): LearningProgress {
   if (!KNOWN.has(rollId)) return progress;
+  const next: FadeState = { ...fadeFor(progress, rollId), ...patch };
   const rolls = Object.fromEntries(Object.entries(progress.rolls).filter(([id]) => id !== rollId));
-  if (level !== INITIAL_FADE.level) rolls[rollId] = { level };
+  if (!isInitial(next)) rolls[rollId] = next;
   return { version: LEARNING_VERSION, rolls };
 }
 
 /**
- * Combines two records (a restore onto an iPad that already has some). The step is only a place
- * marker, so a roll the iPad has already moved keeps its own step; otherwise the backup's is used.
+ * Combines two records (a restore onto an iPad that already has some). These are only place
+ * markers, so a roll the iPad has already changed keeps its own; otherwise the backup's is used.
  */
 export function mergeProgress(a: LearningProgress, b: LearningProgress): LearningProgress {
   const rolls: Record<string, FadeState> = {};
   for (const id of new Set([...Object.keys(a.rolls), ...Object.keys(b.rolls)])) {
-    rolls[id] = fadeFor(a, id).level !== INITIAL_FADE.level ? fadeFor(a, id) : fadeFor(b, id);
+    rolls[id] = !isInitial(fadeFor(a, id)) ? fadeFor(a, id) : fadeFor(b, id);
   }
   return { version: LEARNING_VERSION, rolls };
 }

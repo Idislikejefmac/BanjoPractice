@@ -48,7 +48,11 @@ describe("fade ladder (F37)", () => {
     expect(parseFadeState("x")).toEqual(INITIAL_FADE);
     expect(parseFadeState({ level: 9 })).toEqual(INITIAL_FADE);
     // Older saves also held "Got it" / "Again" counters; only the step is kept.
-    expect(parseFadeState({ level: 3, gotItRun: 2, againRun: 1 })).toEqual({ level: 3 });
+    expect(parseFadeState({ level: 3, gotItRun: 2, againRun: 1 })).toEqual({
+      level: 3,
+      chord: "G",
+      view: "learn",
+    });
   });
 });
 

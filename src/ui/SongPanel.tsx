@@ -7,6 +7,7 @@ import type { AppStore } from "../app/store.ts";
 import { indexAbc } from "../core/song/abcIndex.ts";
 import { formatKey } from "../core/music/keys.ts";
 import type { Song } from "../core/song/song.ts";
+import { rollIdOfSong } from "../core/banjo/exercises.ts";
 
 const SEARCH_THRESHOLD = 15;
 
@@ -22,7 +23,11 @@ function songMeta(song: Song): string {
 }
 
 function SongRow({ store, song, section }: { store: AppStore; song: Song; section: string }) {
-  const current = store.session.value.songId === song.id;
+  // A roll is current whether it is open as its lesson or as its full exercise.
+  const open = store.session.value.songId;
+  const current =
+    open === song.id ||
+    (song.id.startsWith("exercise:") && rollIdOfSong(open) === rollIdOfSong(song.id));
   const favorite = store.prefs.value.get(song.id)?.favorite ?? false;
   return (
     <li class={current ? "song-row current" : "song-row"}>
@@ -142,7 +147,9 @@ export function SongPanel({ store }: { store: AppStore }) {
   const q = query.trim().toLowerCase();
   const match = (s: Song) => q === "" || s.title.toLowerCase().includes(q);
   const isExercise = (s: Song) => s.tags.includes("exercise");
-  const builtins = all.filter((s) => s.source === "builtin" && !isExercise(s) && match(s));
+  const builtins = all.filter(
+    (s) => s.source === "builtin" && !isExercise(s) && !s.tags.includes("lesson") && match(s),
+  );
   const exercises = all.filter((s) => isExercise(s) && match(s));
   const mine = all.filter((s) => s.source === "user" && match(s));
 

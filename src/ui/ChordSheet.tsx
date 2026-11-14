@@ -5,12 +5,14 @@
 import { useEffect, useRef } from "preact/hooks";
 import { EXERCISE_CHORD_CHOICES, exerciseChordAt } from "../core/banjo/exercises.ts";
 import type { AppStore } from "../app/store.ts";
+import { fadeFor } from "../core/learning/progress.ts";
 
 export function ChordSheet({
   store,
   position,
   display,
   onClose,
+  lessonRollId,
 }: {
   store: AppStore;
   /** Which measure of the exercise (0-based), shown to him 1-based. */
@@ -18,9 +20,13 @@ export function ChordSheet({
   /** A chord (as G-shape name) written the way the notation writes it in the current key. */
   display: (shapeName: string) => string;
   onClose: () => void;
+  /** Set to choose the chord of a roll's two-measure lesson instead of one exercise measure. */
+  lessonRollId?: string;
 }) {
   const chosen = store.settings.value.exerciseChords;
-  const current = exerciseChordAt(chosen, position);
+  const current = lessonRollId
+    ? fadeFor(store.learning.value, lessonRollId).chord
+    : exerciseChordAt(chosen, position);
   const listRef = useRef<HTMLDivElement>(null);
 
   // Bring the current chord to the middle of the list.
@@ -31,7 +37,8 @@ export function ChordSheet({
   }, [position]);
 
   const choose = (chord: string) => {
-    store.updateSettings({ exerciseChords: { ...chosen, [String(position)]: chord } });
+    if (lessonRollId) store.setRollChord(lessonRollId, chord);
+    else store.updateSettings({ exerciseChords: { ...chosen, [String(position)]: chord } });
     onClose();
   };
 
@@ -40,14 +47,21 @@ export function ChordSheet({
       <div
         class="chord-sheet"
         role="dialog"
-        aria-label={`Choose the chord for measure ${position + 1}`}
+        aria-label={
+          lessonRollId
+            ? "Choose the chord for the lesson"
+            : `Choose the chord for measure ${position + 1}`
+        }
         data-testid="chord-sheet"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === "Escape") onClose();
         }}
       >
-        <p class="chord-sheet-title">Measure {position + 1}: slide, then touch a chord</p>
+        <p class="chord-sheet-title">
+          {lessonRollId ? "The lesson's chord" : `Measure ${position + 1}`}: slide, then touch a
+          chord
+        </p>
         <div class="chord-list" ref={listRef}>
           {(["key", "seventh"] as const).map((group) => (
             <div class="chord-group" key={group} role="group">

@@ -6,27 +6,29 @@ import {
   EMPTY_PROGRESS,
   fadeFor,
   readProgress,
-  setRollLevel,
+  updateRoll,
 } from "../../src/core/learning/progress.ts";
 
 describe("saved learning progress (F37)", () => {
   it("starts empty and moves one roll at a time", () => {
     expect(fadeFor(EMPTY_PROGRESS, "forward")).toEqual(INITIAL_FADE);
-    const p = setRollLevel(EMPTY_PROGRESS, "forward", 2);
+    const p = updateRoll(EMPTY_PROGRESS, "forward", { level: 2 });
     expect(fadeFor(p, "forward").level).toBe(2);
     expect(fadeFor(p, "backward")).toEqual(INITIAL_FADE);
     // The old value is untouched (the record is immutable).
     expect(EMPTY_PROGRESS.rolls).toEqual({});
   });
 
-  it("ignores a roll it doesn't know, and step 1 keeps no entry", () => {
-    expect(setRollLevel(EMPTY_PROGRESS, "no-such-roll", 3)).toBe(EMPTY_PROGRESS);
-    const p = setRollLevel(setRollLevel(EMPTY_PROGRESS, "forward", 3), "forward", 1);
+  it("ignores a roll it doesn't know, and a roll back at its starting state keeps no entry", () => {
+    expect(updateRoll(EMPTY_PROGRESS, "no-such-roll", { level: 3 })).toBe(EMPTY_PROGRESS);
+    const p = updateRoll(updateRoll(EMPTY_PROGRESS, "forward", { level: 3 }), "forward", {
+      level: 1,
+    });
     expect(p.rolls).toEqual({});
   });
 
   it("round-trips through JSON", () => {
-    const p = setRollLevel(EMPTY_PROGRESS, "backward", 4);
+    const p = updateRoll(EMPTY_PROGRESS, "backward", { level: 4 });
     expect(readProgress(JSON.parse(JSON.stringify(p)))).toEqual(p);
   });
 
@@ -53,7 +55,7 @@ describe("saved learning progress (F37)", () => {
         "nonsense":{"level":4}}}`),
     );
     expect(Object.keys(mixed.rolls)).toEqual(["forward"]);
-    expect(fadeFor(mixed, "forward")).toEqual({ level: 3 });
+    expect(fadeFor(mixed, "forward")).toEqual({ level: 3, chord: "G", view: "learn" });
     expect(fadeFor(mixed, "constructor")).toEqual(INITIAL_FADE);
     expect(fadeFor(mixed, "__proto__")).toEqual(INITIAL_FADE);
   });
@@ -92,5 +94,29 @@ describe("lesson diagram cells (F36, F37)", () => {
           .map((c) => c.slot),
       ).toEqual([...roll.accents]);
     }
+  });
+});
+
+describe("a roll's lesson chord and view (F36)", () => {
+  it("saves a chosen chord and view, and keeps the step", () => {
+    let p = updateRoll(EMPTY_PROGRESS, "forward", { level: 2 });
+    p = updateRoll(p, "forward", { chord: "D7", view: "full" });
+    expect(fadeFor(p, "forward")).toEqual({ level: 2, chord: "D7", view: "full" });
+    expect(fadeFor(p, "backward")).toEqual(INITIAL_FADE);
+    expect(readProgress(JSON.parse(JSON.stringify(p)))).toEqual(p);
+  });
+
+  it("a view or chord alone is kept; going back to the defaults drops the entry", () => {
+    const p = updateRoll(EMPTY_PROGRESS, "forward", { view: "full" });
+    expect(Object.keys(p.rolls)).toEqual(["forward"]);
+    expect(updateRoll(p, "forward", { view: "learn" }).rolls).toEqual({});
+  });
+
+  it("ignores a chord that isn't on offer and a view it doesn't know", () => {
+    const read = readProgress({
+      version: 1,
+      rolls: { forward: { level: 2, chord: "C#m9", view: "sideways" } },
+    });
+    expect(fadeFor(read, "forward")).toEqual({ level: 2, chord: "G", view: "learn" });
   });
 });

@@ -27,7 +27,9 @@ import { measureNotation, renderNotationLine } from "../render/notation.ts";
 import type { MeasureGeometry, TabLayoutOptions } from "../render/tabLayout.ts";
 import { evenGeometry, layoutTabLine } from "../render/tabLayout.ts";
 import { TabSvg } from "../render/TabSvg.tsx";
-import { EXERCISE_PREFIX, RollLesson } from "./RollLesson.tsx";
+import { RollLesson, RollViewSwitch } from "./RollLesson.tsx";
+import { isLessonSongId, rollIdOfSong } from "../core/banjo/exercises.ts";
+import { fadeFor } from "../core/learning/progress.ts";
 import { ChordSheet } from "./ChordSheet.tsx";
 
 /** Notation is drawn a little smaller than the tab: Dad reads mainly tab (F4). */
@@ -336,7 +338,9 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
   };
   const follow = player.follow.value;
   const current = follow.measure;
-  const isExercise = song?.id.startsWith(EXERCISE_PREFIX) ?? false;
+  const rollId = rollIdOfSong(song?.id);
+  const isExercise = rollId !== null;
+  const isLesson = isLessonSongId(song?.id);
   // F45: the measure whose chord is being changed (exercises only).
   const [editing, setEditing] = useState<number | null>(null);
   useEffect(() => setEditing(null), [song?.id]);
@@ -556,8 +560,16 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
           </p>
         )}
       </header>
-      {song.id.startsWith(EXERCISE_PREFIX) && (
-        <RollLesson store={store} rollId={song.id.slice(EXERCISE_PREFIX.length)} />
+      {rollId && (
+        <RollViewSwitch store={store} rollId={rollId} view={isLesson ? "learn" : "full"} />
+      )}
+      {rollId && isLesson && (
+        <RollLesson
+          store={store}
+          rollId={rollId}
+          chordName={showChord(fadeFor(store.learning.value, rollId).chord)}
+          onPickChord={() => setEditing(0)}
+        />
       )}
       {isExercise && editing !== null && (
         <ChordSheet
@@ -565,6 +577,7 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
           position={editing}
           display={showChord}
           onClose={() => setEditing(null)}
+          {...(isLesson && rollId ? { lessonRollId: rollId } : {})}
         />
       )}
       <div class={isExercise ? "song-lines exercise" : "song-lines"} ref={containerRef}>

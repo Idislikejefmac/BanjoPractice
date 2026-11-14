@@ -101,20 +101,77 @@ for (const width of [744, 820, 1180]) {
   });
 }
 
-test("the fold button hides the lesson, leaves the tab, and is remembered across rolls", async ({
+test("a roll opens in its two-measure lesson, which loops, at 60 beats a minute", async ({
   page,
 }) => {
   await openLesson(page);
-  const fold = page.locator('[data-action="lesson-fold"]');
-  await expect(fold).toHaveAttribute("aria-expanded", "true");
-  await fold.click();
-  await expect(fold).toHaveAttribute("aria-expanded", "false");
-  await expect(page.locator(".lane-note")).toHaveCount(0);
-  await expect(page.locator("svg.tab").first()).toBeVisible();
-  // Still folded on another roll; the step he was on is untouched.
-  await page.click('[data-song="exercise:backward"][data-section="exercises"]');
-  await expect(page.locator(".lane-note")).toHaveCount(0);
-  await fold.click();
-  await expect(page.locator(".lane-note")).toHaveCount(8);
+  await expect(page.locator('[data-action="view-learn"]')).toHaveAttribute("aria-pressed", "true");
+  const info = await page.evaluate(() => {
+    const t = window.__banjoTest!;
+    return {
+      id: t.store.currentSong.value!.id,
+      abc: t.store.currentSong.value!.abc,
+      repeat: t.store.practice.value.autoRepeat,
+    };
+  });
+  expect(info.id).toBe("lesson:forward");
+  expect(info.abc).toContain("Q:1/4=60");
+  expect(info.repeat).toBe(true);
+  await expect(page.locator(".notation .abcjs-chord")).toHaveCount(2);
+});
+
+test("the switch goes to the full exercise and back, and each roll remembers its own view", async ({
+  page,
+}) => {
+  await openLesson(page);
+  await page.click('[data-action="view-full"]');
+  await expect(page.getByTestId("roll-lesson")).toHaveCount(0);
+  expect(await page.locator(".notation .abcjs-chord").count()).toBeGreaterThan(2);
+  const id = () => page.evaluate(() => window.__banjoTest!.store.currentSong.value!.id);
+  expect(await id()).toBe("exercise:forward");
+  expect(await page.evaluate(() => window.__banjoTest!.store.practice.value.autoRepeat)).toBe(
+    false,
+  );
+
+  // Remembered: opening it again, and after a reload, goes straight to the full exercise.
+  await page.waitForTimeout(600);
+  await page.reload();
+  await page.waitForSelector("svg.tab");
+  expect(await id()).toBe("exercise:forward");
+  await page.click('[data-song="exercise:forward"][data-section="exercises"]');
+  expect(await id()).toBe("exercise:forward");
+  // Another roll still starts in its lesson, and the panel marks the roll as current.
+  await openLesson(page, "backward");
+  expect(await id()).toBe("lesson:backward");
+  await expect(
+    page.locator('[data-song="exercise:backward"][data-section="exercises"]'),
+  ).toHaveAttribute("aria-current", "page");
+  // And back to the lesson, with the step kept.
+  await page.click('[data-song="exercise:forward"][data-section="exercises"]');
+  await page.click('[data-action="view-learn"]');
+  expect(await id()).toBe("lesson:forward");
   await expect(page.getByTestId("lesson-step")).toContainText("Step 1 of 4");
+});
+
+test("the lesson's chord comes from the same list, fills both measures and is saved", async ({
+  page,
+}) => {
+  await openLesson(page);
+  await page.click('[data-action="lesson-chord"]');
+  await page.click('.chord-option[data-chord="D7"]');
+  await expect(page.locator(".notation .abcjs-chord")).toHaveText(["D7", "D7"]);
+  await expect(page.locator('[data-action="lesson-chord"]')).toContainText("D7");
+  // Touching a chord letter in the notation opens the same list.
+  await page.locator(".notation .abcjs-chord").nth(1).click();
+  await page.click('.chord-option[data-chord="C"]');
+  await expect(page.locator(".notation .abcjs-chord")).toHaveText(["C", "C"]);
+  await page.waitForTimeout(600);
+  await page.reload();
+  await page.waitForSelector("svg.tab");
+  await expect(page.locator(".notation .abcjs-chord")).toHaveText(["C", "C"]);
+  // The full exercise's own chords are untouched.
+  await page.click('[data-action="view-full"]');
+  expect(
+    await page.evaluate(() => window.__banjoTest!.store.settings.value.exerciseChords),
+  ).toEqual({});
 });

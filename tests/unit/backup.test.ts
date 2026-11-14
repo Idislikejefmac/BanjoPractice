@@ -12,7 +12,7 @@ import {
 import { DEFAULT_SETTINGS, MODEL_SCHEMA_VERSION } from "../../src/app/model.ts";
 import type { Song } from "../../src/core/song/song.ts";
 import { SONG_SCHEMA_VERSION } from "../../src/core/song/song.ts";
-import { EMPTY_PROGRESS, mergeProgress, setRollLevel } from "../../src/core/learning/progress.ts";
+import { EMPTY_PROGRESS, mergeProgress, updateRoll } from "../../src/core/learning/progress.ts";
 import { createMemoryStore } from "../../src/platform/fakes.ts";
 
 let n = 0;
@@ -170,7 +170,7 @@ describe("F18 backup", () => {
 });
 
 describe("F37 learning progress in backups", () => {
-  const progress = setRollLevel(EMPTY_PROGRESS, "forward", 2);
+  const progress = updateRoll(EMPTY_PROGRESS, "forward", { level: 2 });
 
   it("is exported, read back, and restored into the meta store", () => {
     const backup = makeBackup({
@@ -217,7 +217,7 @@ describe("F37 learning progress in backups", () => {
   });
 
   it("restoring a backup keeps the step already chosen on this iPad", () => {
-    const behind = setRollLevel(EMPTY_PROGRESS, "forward", 3);
+    const behind = updateRoll(EMPTY_PROGRESS, "forward", { level: 3 });
     const backup = makeBackup({
       appVersion: "1",
       songs: [],

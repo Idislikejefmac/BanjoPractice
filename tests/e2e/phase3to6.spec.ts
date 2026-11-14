@@ -17,6 +17,8 @@ test.beforeEach(async ({ page }) => {
 
 test("roll exercises are in the library and use their roll throughout (F15)", async ({ page }) => {
   await openSong(page, "exercise:forward-reverse", "exercises");
+  await page.click('[data-action="view-full"]'); // a roll opens in its two-measure lesson first
+  await expect(page.locator('[data-action="view-full"]')).toHaveAttribute("aria-pressed", "true");
   const labels = await page.locator(".tab-roll").allTextContents();
   expect(labels.length).toBeGreaterThan(8);
   expect(labels.every((l) => l === "Forward-reverse")).toBe(true);

@@ -3,13 +3,21 @@
 // A roll lesson fades its help in four steps. The app can't hear him play, so it never decides
 // he is ready: the step is only where he chose to be, and he moves it himself.
 
+import { isChordChoice } from "../banjo/exercises.ts";
+
 export type FadeLevel = 1 | 2 | 3 | 4;
+
+/** Which of a roll's two views he is in: the two-measure lesson, or the full exercise. */
+export type RollView = "learn" | "full";
 
 export interface FadeState {
   readonly level: FadeLevel;
+  /** The chord the lesson's two measures use (one of the exercise's chord choices). */
+  readonly chord: string;
+  readonly view: RollView;
 }
 
-export const INITIAL_FADE: FadeState = { level: 1 };
+export const INITIAL_FADE: FadeState = { level: 1, chord: "G", view: "learn" };
 
 /** One step toward more (-1) or less (+1) help, kept inside 1 to 4. */
 export function stepLevel(level: FadeLevel, by: -1 | 1): FadeLevel {
@@ -39,11 +47,17 @@ export function hiddenSlots(level: FadeLevel, kind: HintKind, slots = 8): number
 
 /**
  * Reads back a stored state defensively: anything malformed becomes the starting state. Older
- * saves also held "Got it" / "Again" counters; only the step is kept.
+ * saves held only the step (once also "Got it" / "Again" counters); the lesson chord and the
+ * view then start at their defaults.
  */
 export function parseFadeState(value: unknown): FadeState {
   if (typeof value !== "object" || value === null) return INITIAL_FADE;
-  const level = (value as Record<string, unknown>).level;
+  const v = value as Record<string, unknown>;
+  const level = v.level;
   if (level !== 1 && level !== 2 && level !== 3 && level !== 4) return INITIAL_FADE;
-  return { level };
+  return {
+    level,
+    chord: isChordChoice(v.chord) ? v.chord : INITIAL_FADE.chord,
+    view: v.view === "full" ? "full" : "learn",
+  };
 }

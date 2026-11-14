@@ -2,7 +2,7 @@ import { render } from "preact";
 import { App } from "./ui/App.tsx";
 import { ErrorBoundary } from "./ui/ErrorBoundary.tsx";
 import { builtinSongs } from "./app/builtins.ts";
-import { allRollExercises } from "./core/banjo/exercises.ts";
+import { allRollExercises, allRollLessons } from "./core/banjo/exercises.ts";
 import { createServices } from "./app/services.ts";
 import { Player } from "./app/player.ts";
 import { AppStore } from "./app/store.ts";
@@ -51,7 +51,7 @@ async function start(): Promise<void> {
   }
   const store = new AppStore(
     services,
-    [...builtinSongs(), ...testSongs, ...allRollExercises()],
+    [...builtinSongs(), ...testSongs, ...allRollExercises(), ...allRollLessons()],
     local,
   );
   await store.load();

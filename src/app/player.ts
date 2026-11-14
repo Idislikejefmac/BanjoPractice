@@ -27,6 +27,7 @@ import type {
 } from "../platform/types.ts";
 import { AudioUnavailableError } from "../platform/types.ts";
 import type { Diagnostics } from "../platform/diagnostics.ts";
+import { rollIdOfSong } from "../core/banjo/exercises.ts";
 import { DEFAULT_TEMPO } from "./model.ts";
 import type { AppStore } from "./store.ts";
 
@@ -124,7 +125,7 @@ export class Player {
       if (!p.speedBuilder.enabled) this.scheduler.setTempo(this.tempoFor(p.tempoBpm));
       // A roll exercise has no melody: the roll over the chords is the point, so the melody
       // stays silent there whatever he has chosen for songs (his choice is kept for them).
-      const exercise = store.session.value.songId?.startsWith("exercise:") ?? false;
+      const exercise = rollIdOfSong(store.session.value.songId) !== null;
       for (const part of ["melody", "chords", "banjo"] as const) {
         const on = p.parts[part].on && !(exercise && part === "melody");
         this.scheduler.setPart(part, on, p.parts[part].volume);

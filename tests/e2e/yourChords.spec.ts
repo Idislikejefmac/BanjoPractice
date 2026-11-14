@@ -11,6 +11,9 @@ async function openExercise(page: Page, roll = "forward") {
   }
   await page.click(`[data-song="exercise:${roll}"][data-section="exercises"]`);
   await page.waitForSelector("svg.tab");
+  // A roll opens in its two-measure lesson first; these tests are about the full exercise.
+  await page.click('[data-action="view-full"]');
+  await expect(page.locator('[data-action="view-full"]')).toHaveAttribute("aria-pressed", "true");
 }
 
 const chords = (page: Page) => page.locator(".notation .abcjs-chord");

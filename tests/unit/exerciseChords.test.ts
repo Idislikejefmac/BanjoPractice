@@ -129,3 +129,34 @@ describe("saved exercise chords", () => {
     expect(chordsOf(b.currentSong.value!.abc)).toEqual(expected);
   });
 });
+
+describe("the roll lesson song (F36)", () => {
+  it("is two measures of one chord, the roll on both, at a slow tempo", async () => {
+    const { rollLesson, LESSON_START_BPM } = await import("../../src/core/banjo/exercises.ts");
+    const { indexAbc } = await import("../../src/core/song/abcIndex.ts");
+    for (const chord of ["G", "C", "D7", "Em", "B7"]) {
+      const song = rollLesson("forward", chord)!;
+      const idx = indexAbc(song.abc);
+      expect(idx.measures).toHaveLength(2);
+      expect(idx.tempoBpm).toBe(LESSON_START_BPM);
+      expect(song.id).toBe("lesson:forward");
+      expect(song.tags).toEqual(["lesson"]);
+      expect(song.tab).toBeTruthy();
+      for (const m of idx.measures) expect(m.chords[0]?.chord).toBe(chord);
+    }
+  });
+
+  it("falls back to G for a chord that isn't on offer, and knows no unknown roll", async () => {
+    const { rollLesson } = await import("../../src/core/banjo/exercises.ts");
+    expect(rollLesson("forward", "C#m9")?.abc).toContain('"G"');
+    expect(rollLesson("no-such-roll")).toBeNull();
+  });
+
+  it("maps both song ids to the roll", async () => {
+    const { rollIdOfSong } = await import("../../src/core/banjo/exercises.ts");
+    expect(rollIdOfSong("exercise:forward")).toBe("forward");
+    expect(rollIdOfSong("lesson:forward")).toBe("forward");
+    expect(rollIdOfSong("cripple-creek")).toBeNull();
+    expect(rollIdOfSong(null)).toBeNull();
+  });
+});

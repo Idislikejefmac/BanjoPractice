@@ -12,6 +12,7 @@ import { ROLLS } from "../core/banjo/rolls.ts";
 import { songParts } from "../core/playback/parts.ts";
 import { practicePlan } from "../core/song/practiceArrangement.ts";
 import { formatKey, sameKey } from "../core/music/keys.ts";
+import { rollIdOfSong } from "../core/banjo/exercises.ts";
 
 const PART_LABEL: Readonly<Record<PartId, string>> = {
   melody: "Melody",
@@ -90,7 +91,7 @@ export function PracticeBar({ store, player }: { store: AppStore; player: Player
   const state = player.state.value;
   const follow = player.follow.value;
   const settings = store.settings.value;
-  const exercise = store.session.value.songId?.startsWith("exercise:") ?? false;
+  const exercise = rollIdOfSong(store.session.value.songId) !== null;
   const [tapCount, setTapCount] = useState(0);
   const tap = useTapTempo((bpm) => store.updatePractice({ tempoBpm: bpm }));
   if (!loaded) return null;

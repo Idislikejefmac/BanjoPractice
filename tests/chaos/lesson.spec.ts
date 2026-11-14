@@ -10,7 +10,18 @@ async function openLesson(page: Page, roll = "forward") {
   const panel = page.locator(".song-panel");
   if (!(await panel.isVisible())) await toggleSongs(page);
   await page.click(`[data-song="exercise:${roll}"][data-section="exercises"]`);
+  await page.waitForSelector("svg.tab");
+  // A roll opens in the view he last used for it; these tests are about the lesson.
+  if (!(await page.getByTestId("roll-lesson").isVisible())) {
+    await page.click('[data-action="view-learn"]');
+  }
   await expect(page.getByTestId("roll-lesson")).toBeVisible();
+}
+
+const CHORDS = ["G", "C", "D7", "Em", "B7"];
+async function pickChord(page: Page, chord: string) {
+  await page.click('[data-action="lesson-chord"]');
+  await page.click(`.chord-option[data-chord="${chord}"]`);
 }
 
 async function start(page: Page, errors: string[]) {
@@ -118,8 +129,19 @@ test("a seeded storm of step changes, reloads and disk faults ends with shown = 
         await page.click('[data-action="lesson-reveal"]');
       } else if (r < 0.62) {
         const n = 1 + Math.floor(random() * 4);
-        trace.push(`lesson-step-${n}`);
-        await page.click(`[data-action="lesson-step-${n}"]`);
+        const kind = random();
+        if (kind < 0.5) {
+          trace.push(`lesson-step-${n}`);
+          await page.click(`[data-action="lesson-step-${n}"]`);
+        } else if (kind < 0.75) {
+          const chord = CHORDS[Math.floor(random() * CHORDS.length)]!;
+          trace.push(`chord ${chord}`);
+          await pickChord(page, chord);
+        } else {
+          trace.push("view full, then learn");
+          await page.click('[data-action="view-full"]');
+          await page.click('[data-action="view-learn"]');
+        }
       } else if (r < 0.75) {
         const roll = rolls[Math.floor(random() * rolls.length)]!;
         trace.push(`open ${roll}`);
@@ -176,5 +198,48 @@ test("a chord picked with a full disk is kept, saved when space returns, and sur
   await page.reload();
   await page.waitForSelector("svg.tab");
   await expect(chords.nth(3)).toHaveText("Am");
+  expect(errors).toEqual([]);
+});
+
+test("a chord picked and a view switched with a full disk are kept, saved, and survive a reload (6.1)", async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  await start(page, errors);
+  await openLesson(page);
+  await page.evaluate(() =>
+    window.__banjoChaos!.arm({ service: "storage", op: "put", kind: "QuotaExceededError" }),
+  );
+  await pickChord(page, "D7");
+  await expect(page.locator(".notices")).toContainText("storage is full");
+  await expect(page.locator(".notation .abcjs-chord")).toHaveText(["D7", "D7"]);
+  await page.click('[data-action="view-full"]');
+  await expect(page.getByTestId("roll-lesson")).toHaveCount(0);
+  await page.evaluate(() => window.__banjoChaos!.disarmAll());
+  await waitForSaves(page);
+  await expect(page.locator(".notices")).toHaveCount(0);
+  await checkpoint(page);
+  await page.reload();
+  await page.waitForSelector(".toolbar");
+  const learning = await page.evaluate(() => window.__banjoTest!.store.learning.value);
+  expect(learning.rolls.forward).toEqual({ level: 1, chord: "D7", view: "full" });
+  await openLesson(page); // clicks back to the lesson if it opened as the full exercise
+  await expect(page.locator(".notation .abcjs-chord")).toHaveText(["D7", "D7"]);
+  expect(errors).toEqual([]);
+});
+
+test("switching view while the lesson plays stops it cleanly (6.4)", async ({ page }) => {
+  const errors: string[] = [];
+  await start(page, errors);
+  await openLesson(page);
+  await page.click('[data-action="play"]');
+  await expect
+    .poll(() => page.evaluate(() => window.__banjoTest!.player.state.value))
+    .not.toBe("stopped");
+  await page.click('[data-action="view-full"]');
+  await expect
+    .poll(() => page.evaluate(() => window.__banjoTest!.player.state.value))
+    .toBe("stopped");
+  await checkpoint(page);
   expect(errors).toEqual([]);
 });

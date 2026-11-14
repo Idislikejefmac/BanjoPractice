@@ -9,13 +9,20 @@
 import { batch, computed, signal } from "@preact/signals";
 import type { Song } from "../core/song/song.ts";
 import { songProblems } from "../core/song/song.ts";
-import type { FadeLevel } from "../core/learning/fade.ts";
+import type { FadeLevel, RollView } from "../core/learning/fade.ts";
 import type { LearningProgress } from "../core/learning/progress.ts";
-import { EMPTY_PROGRESS, readProgress, setRollLevel } from "../core/learning/progress.ts";
+import { EMPTY_PROGRESS, fadeFor, readProgress, updateRoll } from "../core/learning/progress.ts";
 import type { LogEvent, OpenSession, PracticeSession } from "./practiceLog.ts";
 import { applyLogEvent, close as closeSession, practiceSessionProblems } from "./practiceLog.ts";
 import type { KeyValueStore, StoreName } from "../platform/types.ts";
-import { rollExercise } from "../core/banjo/exercises.ts";
+import {
+  EXERCISE_ID_PREFIX,
+  LESSON_ID_PREFIX,
+  isLessonSongId,
+  rollExercise,
+  rollIdOfSong,
+  rollLesson,
+} from "../core/banjo/exercises.ts";
 import type { Services } from "./services.ts";
 import type { PracticePrefs, Session, Settings, SongPrefs, ViewMode } from "./model.ts";
 import {
@@ -92,8 +99,19 @@ export class AppStore {
       }
       return this.exerciseCache.song;
     }
+    // A roll's lesson is rebuilt with the chord he chose for it.
+    if (song && isLessonSongId(song.id)) {
+      const rollId = rollIdOfSong(song.id)!;
+      const chord = fadeFor(this.learning.value, rollId).chord;
+      const key = `${song.id}|${chord}`;
+      if (this.lessonCache?.key !== key) {
+        this.lessonCache = { key, song: rollLesson(rollId, chord) ?? song };
+      }
+      return this.lessonCache.song;
+    }
     return song;
   });
+  private lessonCache: { key: string; song: Song } | null = null;
   private exerciseCache: { key: string; song: Song } | null = null;
   readonly view = computed<ViewMode>(() => {
     const id = this.session.value.songId;
@@ -108,6 +126,8 @@ export class AppStore {
     // follows him from song to song, so it always comes from settings, never from the song.
     return {
       ...(p ? readPractice(p) : DEFAULT_PRACTICE),
+      // A roll's lesson loops until he stops it.
+      ...(isLessonSongId(id) ? { autoRepeat: true } : {}),
       parts: s.parts,
       metronome: s.metronome,
       clickVolume: s.clickVolume,
@@ -117,7 +137,14 @@ export class AppStore {
     this.songs.filter((s) => this.prefs.value.get(s.id)?.favorite),
   );
   readonly recent = computed(() =>
-    recentSongIds([...this.prefs.value.values()])
+    // A roll opened in its lesson counts as the roll's exercise, so each shows once.
+    [
+      ...new Set(
+        recentSongIds([...this.prefs.value.values()]).map((id) =>
+          isLessonSongId(id) ? EXERCISE_ID_PREFIX + rollIdOfSong(id) : id,
+        ),
+      ),
+    ]
       .map((id) => this.songs.find((s) => s.id === id))
       .filter((s): s is Song => s !== undefined),
   );
@@ -349,7 +376,16 @@ export class AppStore {
 
   // --- Actions --------------------------------------------------------------------------
 
-  openSong(id: string): void {
+  openSong(requested: string): void {
+    // A roll opens in the view he last used for it (the lesson, the first time).
+    const rollId = requested.startsWith(EXERCISE_ID_PREFIX) ? rollIdOfSong(requested) : null;
+    const lesson = rollId ? LESSON_ID_PREFIX + rollId : null;
+    const id =
+      lesson &&
+      fadeFor(this.learning.value, rollId!).view === "learn" &&
+      this.songs.some((s) => s.id === lesson)
+        ? lesson
+        : requested;
     if (!this.songs.some((s) => s.id === id)) return;
     batch(() => {
       this.updateSession({ songId: id, topMeasure: 0 });
@@ -483,10 +519,25 @@ export class AppStore {
     this.write("practiceLog", s.id, s);
   }
 
+  private saveLearning(next: typeof EMPTY_PROGRESS): void {
+    this.learning.value = next;
+    this.write("meta", LEARNING_KEY, next);
+  }
+
   /** F37: Dad moved a roll lesson to a step (1 = everything shown, 4 = all hidden). */
   setRollStep(rollId: string, level: FadeLevel): void {
-    this.learning.value = setRollLevel(this.learning.value, rollId, level);
-    this.write("meta", LEARNING_KEY, this.learning.value);
+    this.saveLearning(updateRoll(this.learning.value, rollId, { level }));
+  }
+
+  /** F36: the chord the roll's two-measure lesson uses (from the exercise's own choices). */
+  setRollChord(rollId: string, chord: string): void {
+    this.saveLearning(updateRoll(this.learning.value, rollId, { chord }));
+  }
+
+  /** F36: switch a roll between its lesson and its full exercise; the choice is remembered. */
+  setRollView(rollId: string, view: RollView): void {
+    this.saveLearning(updateRoll(this.learning.value, rollId, { view }));
+    this.openSong((view === "learn" ? LESSON_ID_PREFIX : EXERCISE_ID_PREFIX) + rollId);
   }
 
   /** Records that a backup was made (F18 "Last backup: N days ago"). */
