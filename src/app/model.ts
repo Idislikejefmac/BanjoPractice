@@ -3,6 +3,8 @@
 // make loading defensive: a corrupt record is replaced by defaults, never crashes the app.
 
 import type { ChordOverrides } from "../core/banjo/exercises.ts";
+import { validChordPatterns } from "../core/banjo/chordPatterns.ts";
+import type { ChordPattern } from "../core/banjo/chordPatterns.ts";
 import { validChordOverrides } from "../core/banjo/exercises.ts";
 import { songProblems } from "../core/song/song.ts";
 import { practiceSessionProblems } from "./practiceLog.ts";
@@ -117,6 +119,10 @@ export interface Settings {
   readonly clickVolume: number;
   /** Chords he chose for single measures of the roll exercises (measure position → chord). */
   readonly exerciseChords: ChordOverrides;
+  /** F46: chord patterns he saved for the roll exercises ("the D7 version"). */
+  readonly chordPatterns: readonly ChordPattern[];
+  /** The saved pattern he last loaded or saved (its chords may have been changed since). */
+  readonly activeChordPattern: string | null;
 }
 
 /** The practice keys that are kept as preferences (in Settings) instead of per song. */
@@ -139,6 +145,8 @@ export const DEFAULT_SETTINGS: Settings = {
   metronome: DEFAULT_PRACTICE.metronome,
   clickVolume: DEFAULT_PRACTICE.clickVolume,
   exerciseChords: {},
+  chordPatterns: [],
+  activeChordPattern: null,
 };
 
 export const SIZE_STEPS = [0.85, 1, 1.25, 1.55] as const;
@@ -208,6 +216,10 @@ export function settingsProblems(v: unknown): string[] {
     p.push("clickVolume");
   }
   if (!validChordOverrides(v.exerciseChords)) p.push("exerciseChords");
+  if (!validChordPatterns(v.chordPatterns)) p.push("chordPatterns");
+  if (v.activeChordPattern !== null && typeof v.activeChordPattern !== "string") {
+    p.push("activeChordPattern");
+  }
   return p;
 }
 

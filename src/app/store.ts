@@ -16,6 +16,12 @@ import type { LogEvent, OpenSession, PracticeSession } from "./practiceLog.ts";
 import { applyLogEvent, close as closeSession, practiceSessionProblems } from "./practiceLog.ts";
 import type { KeyValueStore, StoreName } from "../platform/types.ts";
 import {
+  addPattern,
+  removePattern,
+  renamePattern,
+  replacePatternChords,
+} from "../core/banjo/chordPatterns.ts";
+import {
   EXERCISE_ID_PREFIX,
   LESSON_ID_PREFIX,
   isLessonSongId,
@@ -538,6 +544,55 @@ export class AppStore {
   setRollView(rollId: string, view: RollView): void {
     this.saveLearning(updateRoll(this.learning.value, rollId, { view }));
     this.openSong((view === "learn" ? LESSON_ID_PREFIX : EXERCISE_ID_PREFIX) + rollId);
+  }
+
+  // --- Saved chord patterns for the roll exercises (F46) -----------------------------------
+
+  /** Saves the exercise's chords as a new named pattern. Returns why not, or null when saved. */
+  saveChordPattern(name: string): string | null {
+    const s = this.settings.value;
+    const id = crypto.randomUUID();
+    const r = addPattern(s.chordPatterns, name, s.exerciseChords, id);
+    if (!r.ok) return r.reason;
+    this.updateSettings({ chordPatterns: r.patterns, activeChordPattern: id });
+    return null;
+  }
+
+  /** Puts the exercise's current chords into the pattern he has loaded ("Update"). */
+  updateChordPattern(): void {
+    const s = this.settings.value;
+    const id = s.activeChordPattern;
+    if (id === null || !s.chordPatterns.some((p) => p.id === id)) return;
+    this.updateSettings({
+      chordPatterns: replacePatternChords(s.chordPatterns, id, s.exerciseChords),
+    });
+  }
+
+  /** Loads a saved pattern into the exercise; null goes back to the exercise's own chords. */
+  loadChordPattern(id: string | null): void {
+    const s = this.settings.value;
+    const pattern = id === null ? null : s.chordPatterns.find((p) => p.id === id);
+    if (id !== null && !pattern) return;
+    this.updateSettings({
+      exerciseChords: pattern ? { ...pattern.chords } : {},
+      activeChordPattern: pattern ? pattern.id : null,
+    });
+  }
+
+  /** Renames a pattern. Returns why not, or null when renamed. */
+  renameChordPattern(id: string, name: string): string | null {
+    const r = renamePattern(this.settings.value.chordPatterns, id, name);
+    if (!r.ok) return r.reason;
+    this.updateSettings({ chordPatterns: r.patterns });
+    return null;
+  }
+
+  deleteChordPattern(id: string): void {
+    const s = this.settings.value;
+    this.updateSettings({
+      chordPatterns: removePattern(s.chordPatterns, id),
+      activeChordPattern: s.activeChordPattern === id ? null : s.activeChordPattern,
+    });
   }
 
   /** Records that a backup was made (F18 "Last backup: N days ago"). */

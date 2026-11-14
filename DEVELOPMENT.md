@@ -440,6 +440,7 @@ Only instruments in use are loaded, and each is cached after first use (~1–3 M
 | F39 | "Why this note?" box in step mode | C10, F28 | 3 |
 | F41 | Listen-for cue per roll (in the lesson) | C10, F36 | 3 |
 | F45 | Roll exercises: touch a measure's chord letter (large, bold) and a sheet slides up with the key's chords; the measure's chord and its roll change. Saved in settings (`exerciseChords`, measure → chord) and used by every roll. Exercises have no melody (switch greyed, silent) | F15, C6 | 3 |
+| F46 | Saved chord patterns for the roll exercises: name the chords chosen for the exercise ("the D7 version"), then load, update, rename or delete them; shared by every roll, not offered on sheet music. Saved in settings (`chordPatterns`, `activeChordPattern`; backup and chaos covered) | F45 | 3 |
 | F47 | Control bar: two rows (about 100 px at 1180 wide); each volume slider sits right of its button; Songs, Tab only, Rolls, Loop and More playback are in the ⚙ page (a loop or roll choice in force still shows in the bar); the song list has its ‹ › tabs | F1, F2, F6, F8 | 3 |
 | F46 | Mix preferences: melody/chords/banjo on-off and volumes, count-in mode and click volume are saved in settings and follow him between songs (not per song). Changing key or chords while playing restarts with the count-in | F6, F9, F11 | 3 |
 

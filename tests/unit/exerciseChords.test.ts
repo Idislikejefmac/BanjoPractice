@@ -160,3 +160,82 @@ describe("the roll lesson song (F36)", () => {
     expect(rollIdOfSong(null)).toBeNull();
   });
 });
+
+describe("saved chord patterns (F46)", () => {
+  const songs = ["forward", "backward"].map((r) => rollExercise(r)!);
+
+  it("are part of the settings, and a damaged list is repaired field by field", () => {
+    const good = { id: "a", name: "D7 version", chords: { "5": "D7" } };
+    const read = (v: unknown) => readSettings({ ...DEFAULT_SETTINGS, chordPatterns: v });
+    expect(read([good]).chordPatterns).toEqual([good]);
+    expect(read([good, good]).chordPatterns).toEqual([]); // a repeated id
+    expect(read("x").chordPatterns).toEqual([]);
+    expect(read([{ ...good, chords: { "5": "H#" } }]).chordPatterns).toEqual([]);
+    // Settings saved before patterns existed have none, and everything else is kept.
+    const { chordPatterns: _p, activeChordPattern: _a, ...old } = DEFAULT_SETTINGS;
+    void _p;
+    void _a;
+    const upgraded = readSettings({ ...old, size: 3 });
+    expect(upgraded.chordPatterns).toEqual([]);
+    expect(upgraded.activeChordPattern).toBeNull();
+    expect(upgraded.size).toBe(3);
+  });
+
+  it("save, load, update, rename and delete; each is saved and survives a restart", async () => {
+    const storage = createMemoryStore();
+    const a = new AppStore(fakeServices(storage), songs, null);
+    await a.load();
+    a.updateSettings({ exerciseChords: { "3": "Em", "5": "D7" } });
+    expect(a.saveChordPattern("D7 version")).toBeNull();
+    const [saved] = a.settings.value.chordPatterns;
+    expect(saved).toMatchObject({ name: "D7 version", chords: { "3": "Em", "5": "D7" } });
+    expect(a.settings.value.activeChordPattern).toBe(saved!.id);
+
+    // A second pattern; the first is untouched by working on the second.
+    a.updateSettings({ exerciseChords: { "4": "G7" } });
+    expect(a.saveChordPattern("d7 VERSION")).toMatch(/already a pattern/); // refused, nothing changes
+    expect(a.saveChordPattern("Plain G7")).toBeNull();
+    expect(a.settings.value.chordPatterns).toHaveLength(2);
+
+    a.loadChordPattern(saved!.id);
+    expect(a.settings.value.exerciseChords).toEqual({ "3": "Em", "5": "D7" });
+    a.updateSettings({ exerciseChords: { "3": "Am" } });
+    a.updateChordPattern();
+    expect(a.settings.value.chordPatterns[0]!.chords).toEqual({ "3": "Am" });
+    expect(a.renameChordPattern(saved!.id, "Minor start")).toBeNull();
+    expect(a.renameChordPattern(saved!.id, "plain g7")).toMatch(/already a pattern/);
+    await settle();
+
+    const b = new AppStore(fakeServices(storage), songs, null);
+    await b.load();
+    expect(b.settings.value.chordPatterns.map((p) => p.name)).toEqual(["Minor start", "Plain G7"]);
+    expect(b.settings.value.activeChordPattern).toBe(saved!.id);
+    expect(b.settings.value.exerciseChords).toEqual({ "3": "Am" });
+
+    // Standard chords, then delete: the chords stay, the pattern and its "in use" mark go.
+    b.loadChordPattern(null);
+    expect(b.settings.value.exerciseChords).toEqual({});
+    expect(b.settings.value.activeChordPattern).toBeNull();
+    b.loadChordPattern(saved!.id);
+    b.deleteChordPattern(saved!.id);
+    expect(b.settings.value.chordPatterns.map((p) => p.name)).toEqual(["Plain G7"]);
+    expect(b.settings.value.activeChordPattern).toBeNull();
+    expect(b.settings.value.exerciseChords).toEqual({ "3": "Am" });
+    b.loadChordPattern("no-such-pattern"); // does nothing
+    expect(b.settings.value.exerciseChords).toEqual({ "3": "Am" });
+  });
+
+  it("the open exercise follows a loaded pattern", async () => {
+    const a = new AppStore(fakeServices(createMemoryStore()), songs, null);
+    await a.load();
+    a.openSong("exercise:forward");
+    a.updateSettings({ exerciseChords: { "5": "D7" } });
+    a.saveChordPattern("D7 version");
+    a.loadChordPattern(null);
+    expect(chordsOf(a.currentSong.value!.abc)).toEqual(chordsOf(rollExercise("forward")!.abc));
+    a.loadChordPattern(a.settings.value.chordPatterns[0]!.id);
+    expect(chordsOf(a.currentSong.value!.abc)).toEqual(
+      chordsOf(rollExercise("forward", { "5": "D7" })!.abc),
+    );
+  });
+});

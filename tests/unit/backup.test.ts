@@ -252,3 +252,24 @@ describe("F37 learning progress in backups", () => {
     expect(parsed.ok && parsed.backup.learning).toEqual(EMPTY_PROGRESS);
   });
 });
+
+describe("F46 saved chord patterns in backups", () => {
+  it("are exported with the settings and read back, and a damaged list is dropped", () => {
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      exerciseChords: { "5": "D7" },
+      chordPatterns: [{ id: "a", name: "D7 version", chords: { "5": "D7" } }],
+      activeChordPattern: "a",
+    };
+    const text = JSON.stringify(
+      makeBackup({ appVersion: "1", songs: [], songPrefs: [], settings, practiceLog: [] }),
+    );
+    const parsed = parseBackup(text);
+    expect(parsed.ok && parsed.backup.settings).toEqual(settings);
+    const damaged = JSON.parse(text);
+    damaged.settings.chordPatterns = [{ id: "a", name: "x", chords: { "0": "Q" } }];
+    const again = parseBackup(JSON.stringify(damaged));
+    expect(again.ok && again.backup.settings?.chordPatterns).toEqual([]);
+    expect(again.ok && again.backup.settings?.exerciseChords).toEqual({ "5": "D7" });
+  });
+});

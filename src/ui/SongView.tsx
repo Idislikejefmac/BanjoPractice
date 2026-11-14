@@ -27,6 +27,7 @@ import { measureNotation, renderNotationLine } from "../render/notation.ts";
 import type { MeasureGeometry, TabLayoutOptions } from "../render/tabLayout.ts";
 import { evenGeometry, layoutTabLine } from "../render/tabLayout.ts";
 import { TabSvg } from "../render/TabSvg.tsx";
+import { ChordPatterns } from "./ChordPatterns.tsx";
 import { RollLesson, RollViewSwitch } from "./RollLesson.tsx";
 import { isLessonSongId, rollIdOfSong } from "../core/banjo/exercises.ts";
 import { ROLLS, rollById } from "../core/banjo/rolls.ts";
@@ -597,6 +598,7 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
       {rollId && (
         <RollViewSwitch store={store} rollId={rollId} view={isLesson ? "learn" : "full"} />
       )}
+      {rollId && !isLesson && <ChordPatterns store={store} />}
       {rollId && isLesson && (
         <RollLesson
           store={store}
