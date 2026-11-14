@@ -41,6 +41,21 @@ async function clickIfVisible(ctx: MonkeyContext, selector: string): Promise<boo
   return true;
 }
 
+/**
+ * Touches a row in the song list. A notice banner at the bottom of the screen can sit on top of
+ * the lowest rows (the built-in songs are now below the exercises), so, as he would, the monkey
+ * scrolls the row to the top of the list and touches it again.
+ */
+async function openRow(ctx: MonkeyContext, selector: string): Promise<void> {
+  const row = ctx.page.locator(selector);
+  try {
+    await row.click({ timeout: 3000 });
+  } catch {
+    await row.evaluate((e) => e.scrollIntoView({ block: "start" }));
+    await row.click({ timeout: 7000 });
+  }
+}
+
 async function ensurePanel(ctx: MonkeyContext): Promise<void> {
   if (!(await ctx.page.locator(".song-panel").isVisible())) await toggleSongs(ctx.page);
 }
@@ -74,7 +89,7 @@ const ACTIONS: Action[] = [
       await closeSettings(ctx);
       await ensurePanel(ctx);
       const id = ctx.pick(SONGS);
-      await ctx.page.click(`[data-song="${id}"][data-section="builtin"]`);
+      await openRow(ctx, `[data-song="${id}"][data-section="builtin"]`);
       return id;
     },
   },
@@ -458,7 +473,7 @@ const ACTIONS: Action[] = [
       const del = ctx.page.locator("[data-delete]").first();
       if (!(await del.isVisible().catch(() => false))) return null;
       const id = await del.getAttribute("data-delete");
-      await ctx.page.click(`[data-song="${id}"][data-section="mine"]`);
+      await openRow(ctx, `[data-song="${id}"][data-section="mine"]`);
       await clickIfVisible(ctx, '[data-action="play"]');
       // On a narrow (portrait) screen, opening a song closes the song list, so reopen it
       // and find the button again (seed 2 timed out here at step 249).
