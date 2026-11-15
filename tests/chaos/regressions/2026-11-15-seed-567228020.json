@@ -1,0 +1,5 @@
+{
+  "seed": 567228020,
+  "steps": 380,
+  "note": "I16 once failed in a real-time monkey run on Chromium (2026-11-15, step 380): after a reload the top line was 3, not 1. The monkey had just started playback, so the page was auto-scrolling to follow the music between the snapshot and the reload. The same seed passed 500 steps on Chromium and on WebKit when replayed, so this is a timing flake, not a reproduced bug. No app change; kept so the sequence is replayed on every run."
+}
