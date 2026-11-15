@@ -186,8 +186,12 @@ test("the lesson says where the roll's pattern comes from, Deering first", async
   await openLesson(page, "forward-thumb-ending");
   await expect(source).toContainText("tutorial sites");
   await expect(page.locator(".lesson-rule")).toContainText("T I M T I M T M");
-  await openLesson(page, "middle-leading");
+  await openLesson(page, "index-leading");
   await expect(source).toContainText("no published source");
+  await openLesson(page, "forward-reverse");
+  await expect(source).toContainText("Deering");
+  await expect(source).toContainText("Tony Trischka");
+  await expect(source).toContainText("Jens Kruger");
 });
 
 test("the exercise's title and page say where the roll comes from", async ({ page }) => {
@@ -199,5 +203,5 @@ test("the exercise's title and page say where the roll comes from", async ({ pag
   await page.click('[data-action="view-full"]');
   await expect(page.getByTestId("exercise-source")).toContainText("Deering");
   await openLesson(page, "middle-leading");
-  await expect(page.locator(".song h2")).toHaveText("Middle-leading roll (our own pattern)");
+  await expect(page.locator(".song h2")).toHaveText("Osborne roll (Tony Trischka)");
 });

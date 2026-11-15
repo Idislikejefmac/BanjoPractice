@@ -84,6 +84,6 @@ describe("roll labels", () => {
     expect(rollLabel("forward")).toBe("Forward");
     expect(rollLabel("alt-thumb")).toBe("Alternating thumb");
     expect(rollLabel("lick:slide-3")).toBe("Lick: slide 3");
-    expect(rollLabel("middle-leading+pull-off")).toBe("Middle-leading + pull off");
+    expect(rollLabel("middle-leading+pull-off")).toBe("Osborne + pull off");
   });
 });

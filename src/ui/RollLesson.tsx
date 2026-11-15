@@ -5,7 +5,8 @@
 
 import { useRef, useState } from "preact/hooks";
 import type { AppStore } from "../app/store.ts";
-import { ROLL_SOURCE_LABEL, rollById } from "../core/banjo/rolls.ts";
+import { rollById, rollSourceLabel } from "../core/banjo/rolls.ts";
+import { INSTRUCTORS, lessonsOnRoll } from "../core/learning/lessons.ts";
 import type { Finger } from "../core/banjo/types.ts";
 import { FINGER_NAME } from "../core/banjo/types.ts";
 import { listenCue } from "../core/learning/cues.ts";
@@ -15,6 +16,29 @@ import { FADE_LEVEL_NAME, lessonCells } from "../core/learning/lesson.ts";
 import { fadeFor } from "../core/learning/progress.ts";
 
 const LANES: readonly Finger[] = ["T", "I", "M"];
+
+/** Buttons that open the instructors' lessons that state this roll (none if no lesson does). */
+export function RollLessonLinks({ store, rollId }: { store: AppStore; rollId: string }) {
+  const lessons = lessonsOnRoll(rollId);
+  if (lessons.length === 0) return null;
+  return (
+    <p class="lesson-instructors" data-testid="roll-lesson-links">
+      <span>Lessons on this roll:</span>{" "}
+      {lessons.map((l) => (
+        <button
+          key={l.id}
+          type="button"
+          class="plain-button"
+          data-action="roll-lesson-link"
+          data-lesson-link={l.id}
+          onClick={() => (store.lessonsOpen.value = { lessonId: l.id })}
+        >
+          {INSTRUCTORS[l.instructor].name}: {l.title}
+        </button>
+      ))}
+    </p>
+  );
+}
 
 /** The switch between a roll's two-measure lesson and its full exercise (remembered per roll). */
 export function RollViewSwitch({
@@ -139,8 +163,9 @@ export function RollLesson({
       </p>
       <p class="lesson-cue">{listenCue(roll)}</p>
       <p class="lesson-source" data-testid="lesson-source">
-        Pattern from: {ROLL_SOURCE_LABEL[roll.source]}
+        Pattern from: {rollSourceLabel(roll)}
       </p>
+      <RollLessonLinks store={store} rollId={roll.id} />
       <nav class="lesson-nav" aria-label="Lesson steps">
         <button
           type="button"

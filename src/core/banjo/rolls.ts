@@ -1,26 +1,27 @@
 // C3 · Roll library (style guide §5). Each roll is a finger template; the arranger chooses
 // strings and frets to fit the melody. Example strings are the usual ones over open G.
 //
-// Where each roll comes from (`source`): Deering's "The Four Essential 5-String Banjo Rolls"
-// (blog.deeringbanjos.com, L. Witt, 2023) is the first-tier reference, chosen by Jeff because
-// Dad plays and trusts Deering. It defines four rolls: forward, backward (reverse),
-// forward-reverse and alternating (mixed). Where other tutorials differ, the Deering version is
-// the roll of that name and the other version is kept under a name that says how it differs.
-// The two with source "app" are our own labels: no published source was found for them.
+// Where each roll comes from (`sources`): three instructors are first tier, chosen by Jeff
+// because Dad plays and trusts them: Deering ("The Four Essential 5-String Banjo Rolls",
+// blog.deeringbanjos.com, L. Witt, 2023), Jens Kruger and Tony Trischka (ArtistWorks). A roll
+// lists every first-tier source that describes it the same way. Where other tutorials differ,
+// the first-tier version is the roll of that name and the other version is kept under a name that
+// says how it differs. A roll with source "app" is our own label: no published source was found.
 
 import type { ArrangedMeasure, Finger, StringNo, TabNote } from "./types.ts";
 
 /**
- * Where a roll's pattern comes from. Deering and Jens Kruger are first tier (Jens Kruger is
- * Dad's favourite player; no roll is defined from him yet, so nothing uses "jens-kruger" until
- * his patterns are written down from his videos or DVDs); then tutorial sites; then our own label.
+ * Where a roll's pattern comes from. Deering, Jens Kruger and Tony Trischka are first tier; then
+ * tutorial sites; then our own label. A roll names a source only when that instructor states the
+ * pattern (checked against the transcripts of their videos, see the compendium notes).
  */
-export type RollSource = "deering" | "jens-kruger" | "tutorials" | "app";
+export type RollSource = "deering" | "jens-kruger" | "tony-trischka" | "tutorials" | "app";
 
 export const ROLL_SOURCE_LABEL: Readonly<Record<RollSource, string>> = {
   deering: "Deering, The Four Essential 5-String Banjo Rolls",
   "jens-kruger": "Jens Kruger",
-  tutorials: "tutorial sites (not Deering)",
+  "tony-trischka": "Tony Trischka (ArtistWorks)",
+  tutorials: "tutorial sites (not a first-tier instructor)",
   app: "this app's own pattern (no published source found)",
 };
 
@@ -28,6 +29,7 @@ export const ROLL_SOURCE_LABEL: Readonly<Record<RollSource, string>> = {
 export const ROLL_SOURCE_SHORT: Readonly<Record<RollSource, string>> = {
   deering: "Deering",
   "jens-kruger": "Jens Kruger",
+  "tony-trischka": "Tony Trischka",
   tutorials: "tutorial sites",
   app: "our own pattern",
 };
@@ -40,7 +42,8 @@ export interface RollTemplate {
   /** 0-based accented slots. Forward rolls group 3+3+2 (slots 1, 4, 7); others the downbeats. */
   readonly accents: readonly number[];
   readonly use: string;
-  readonly source: RollSource;
+  /** Every source that describes this roll the same way, first-tier ones first. */
+  readonly sources: readonly RollSource[];
 }
 
 const FORWARD_ACCENTS = [0, 3, 6] as const;
@@ -56,7 +59,7 @@ export const ROLLS: readonly RollTemplate[] = [
     exampleStrings: [5, 2, 1, 5, 2, 1, 2, 1],
     accents: FORWARD_ACCENTS,
     use: "The simplest roll: a rising pattern, bubbly and bright",
-    source: "deering",
+    sources: ["deering"],
   },
   {
     // The forward roll most tab books print: the same, ending on the thumb.
@@ -66,7 +69,7 @@ export const ROLLS: readonly RollTemplate[] = [
     exampleStrings: [3, 2, 1, 5, 2, 1, 5, 1],
     accents: FORWARD_ACCENTS,
     use: "The core Scruggs drive, with a firmer thumb ending",
-    source: "tutorials",
+    sources: ["tutorials"],
   },
   {
     id: "forward-thumb-start",
@@ -76,7 +79,7 @@ export const ROLLS: readonly RollTemplate[] = [
     exampleStrings: [3, 1, 5, 2, 1, 5, 2, 1],
     accents: DOWNBEAT_ACCENTS,
     use: "More power from the thumb on the downbeat",
-    source: "tutorials",
+    sources: ["tutorials"],
   },
   {
     id: "backward",
@@ -85,7 +88,7 @@ export const ROLLS: readonly RollTemplate[] = [
     exampleStrings: [1, 2, 5, 1, 2, 5, 1, 2],
     accents: DOWNBEAT_ACCENTS,
     use: "A falling pattern, plaintive; melody on the 1st string",
-    source: "deering",
+    sources: ["deering", "tony-trischka"],
   },
   {
     id: "forward-reverse",
@@ -94,7 +97,7 @@ export const ROLLS: readonly RollTemplate[] = [
     exampleStrings: [3, 2, 1, 5, 1, 2, 3, 1],
     accents: DOWNBEAT_ACCENTS,
     use: "Melody on strings 1 and 3; up, then down",
-    source: "deering",
+    sources: ["deering", "tony-trischka", "jens-kruger"],
   },
   {
     id: "alternating-thumb",
@@ -103,7 +106,7 @@ export const ROLLS: readonly RollTemplate[] = [
     exampleStrings: [3, 2, 5, 1, 4, 2, 5, 1],
     accents: DOWNBEAT_ACCENTS,
     use: "Melody on the 2nd and 3rd strings; the thumb plays every other note",
-    source: "deering",
+    sources: ["deering", "tony-trischka"],
   },
   {
     id: "foggy-mountain",
@@ -112,16 +115,18 @@ export const ROLLS: readonly RollTemplate[] = [
     exampleStrings: [2, 1, 2, 1, 5, 2, 1, 5],
     accents: DOWNBEAT_ACCENTS,
     use: "Thumb crosses to the 2nd string",
-    source: "tutorials",
+    sources: ["tony-trischka"],
   },
   {
+    // Tony Trischka calls this the Osborne roll (after Sonny Osborne); some call it the Dillard
+    // roll. The id stays "middle-leading": it is stored in songs and tabs.
     id: "middle-leading",
-    name: "Middle-leading",
+    name: "Osborne",
     fingers: ["M", "I", "M", "T", "M", "I", "M", "T"],
     exampleStrings: [1, 2, 1, 5, 1, 2, 1, 5],
     accents: DOWNBEAT_ACCENTS,
-    use: "Melody repeated on the 1st string",
-    source: "app",
+    use: "Melody repeated on the 1st string; also called the Dillard roll",
+    sources: ["tony-trischka"],
   },
   {
     id: "index-leading",
@@ -130,13 +135,18 @@ export const ROLLS: readonly RollTemplate[] = [
     exampleStrings: [2, 3, 2, 1, 2, 3, 2, 1],
     accents: DOWNBEAT_ACCENTS,
     use: "Melody repeated on the 2nd string",
-    source: "app",
+    sources: ["app"],
   },
 ];
 
 /** A roll's title with where it comes from: "Forward roll (Deering)". */
 export function rollTitle(roll: RollTemplate): string {
-  return `${roll.name} roll (${ROLL_SOURCE_SHORT[roll.source]})`;
+  return `${roll.name} roll (${roll.sources.map((x) => ROLL_SOURCE_SHORT[x]).join(", ")})`;
+}
+
+/** The long form for a "Pattern from" line: every source, first tier first. */
+export function rollSourceLabel(roll: RollTemplate): string {
+  return roll.sources.map((x) => ROLL_SOURCE_LABEL[x]).join("; ");
 }
 
 export function rollById(id: string): RollTemplate | undefined {

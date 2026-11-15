@@ -34,25 +34,44 @@ describe("roll library (style guide §5)", () => {
         const roll = ROLLS.find((r) => r.id === id)!;
         expect(roll.fingers.join(" ")).toBe(fingers);
         expect(roll.exampleStrings.join(" ")).toBe(strings);
-        expect(roll.source).toBe("deering");
+        expect(roll.sources[0]).toBe("deering");
       });
     }
 
     it("is the only roll set with source 'deering'", () => {
-      expect(ROLLS.filter((r) => r.source === "deering").map((r) => r.id)).toEqual(
+      expect(ROLLS.filter((r) => r.sources.includes("deering")).map((r) => r.id)).toEqual(
         Object.keys(deering),
+      );
+    });
+
+    it("lists a first-tier instructor only for a roll that instructor states", () => {
+      // Checked against the transcripts (sheet-music/compendium): Tony Trischka video 1 and Jens
+      // Kruger Lesson 2 say the forward-backward roll string by string; Tony says alternating
+      // thumb (3 2 5 1), backward (1 2 5) and the Osborne roll (1 2 1 5); his Foggy Mountain video
+      // confirms the first four notes. Jens does not state any other roll.
+      const by = (who: string) =>
+        ROLLS.filter((r) => (r.sources as readonly string[]).includes(who)).map((r) => r.id);
+      expect(by("jens-kruger")).toEqual(["forward-reverse"]);
+      expect(by("tony-trischka").sort()).toEqual(
+        [
+          "alternating-thumb",
+          "backward",
+          "foggy-mountain",
+          "forward-reverse",
+          "middle-leading",
+        ].sort(),
       );
     });
 
     it("rolls that differ from Deering's keep a name that says how, and a lower tier", () => {
       const ending = ROLLS.find((r) => r.id === "forward-thumb-ending")!;
       expect(ending.fingers.join(" ")).toBe("T I M T I M T M");
-      expect(ending.source).toBe("tutorials");
+      expect(ending.sources).toEqual(["tutorials"]);
       // Every roll says where it comes from; the two without a published source say so.
-      expect(ROLLS.filter((r) => r.source === "app").map((r) => r.id)).toEqual([
-        "middle-leading",
+      expect(ROLLS.filter((r) => r.sources.includes("app")).map((r) => r.id)).toEqual([
         "index-leading",
       ]);
+      for (const r of ROLLS) expect(r.sources.length).toBeGreaterThan(0);
     });
   });
 
@@ -87,9 +106,13 @@ describe("a roll's title says where it comes from", () => {
     const { rollTitle, ROLL_SOURCE_SHORT } = await import("../../src/core/banjo/rolls.ts");
     const title = (id: string) => rollTitle(ROLLS.find((r) => r.id === id)!);
     expect(title("forward")).toBe("Forward roll (Deering)");
-    expect(title("alternating-thumb")).toBe("Alternating thumb roll (Deering)");
+    expect(title("alternating-thumb")).toBe("Alternating thumb roll (Deering, Tony Trischka)");
+    expect(title("forward-reverse")).toBe(
+      "Forward-reverse roll (Deering, Tony Trischka, Jens Kruger)",
+    );
     expect(title("forward-thumb-ending")).toBe("Forward (thumb ending) roll (tutorial sites)");
-    expect(title("middle-leading")).toBe("Middle-leading roll (our own pattern)");
+    expect(title("middle-leading")).toBe("Osborne roll (Tony Trischka)");
+    expect(title("index-leading")).toBe("Index-leading roll (our own pattern)");
     expect(ROLL_SOURCE_SHORT["jens-kruger"]).toBe("Jens Kruger");
   });
 
@@ -99,9 +122,5 @@ describe("a roll's title says where it comes from", () => {
       expect(song.title).toBe("Forward roll (Deering)");
       expect(song.abc).toContain("T:Forward roll (Deering)");
     }
-  });
-
-  it("no roll claims Jens Kruger until his patterns are written down from his own material", () => {
-    expect(ROLLS.filter((r) => r.source === "jens-kruger")).toEqual([]);
   });
 });

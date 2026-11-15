@@ -85,6 +85,8 @@ export class AppStore {
   readonly prefs = signal<ReadonlyMap<string, SongPrefs>>(new Map());
   readonly session = signal<Session>(DEFAULT_SESSION);
   readonly settingsOpen = signal(false);
+  /** F47: the Lessons page is open (optionally on one lesson), or null. */
+  readonly lessonsOpen = signal<{ readonly lessonId?: string } | null>(null);
   /** Which playback panel is open under the toolbar (tempo, rolls, loop, more playback). */
   readonly practicePanel = signal<PracticePanel>("none");
   /** F16 chord finder: open with this chord symbol, or null when closed. */

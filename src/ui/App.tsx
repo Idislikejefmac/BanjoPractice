@@ -15,6 +15,7 @@ import { ChordFinder } from "./ChordFinder.tsx";
 import { PracticeTools } from "./PracticeTools.tsx";
 import { SongEditor } from "./SongEditor.tsx";
 import { PracticeBar } from "./PracticeBar.tsx";
+import { LessonsPage } from "./LessonsPage.tsx";
 import { SettingsPage } from "./SettingsPage.tsx";
 import { SongPanel } from "./SongPanel.tsx";
 import { SongView } from "./SongView.tsx";
@@ -140,6 +141,13 @@ function Toolbar({ store, player }: { store: AppStore; player: Player }) {
           </button>
           <button
             class="tool"
+            data-action="lessons"
+            onClick={() => (store.lessonsOpen.value = store.lessonsOpen.value === null ? {} : null)}
+          >
+            Lessons
+          </button>
+          <button
+            class="tool"
             data-action="settings"
             aria-label="Settings"
             onClick={() => (store.settingsOpen.value = !store.settingsOpen.value)}
@@ -253,6 +261,7 @@ export function App({
         </main>
       </div>
       {store.settingsOpen.value && <SettingsPage store={store} services={services} />}
+      {store.lessonsOpen.value !== null && <LessonsPage store={store} />}
       {store.chordFinder.value !== null && <ChordFinder store={store} player={player} />}
       {store.editing.value !== null && <SongEditor key={store.editing.value} store={store} />}
       {store.practiceTools.value !== null && (
