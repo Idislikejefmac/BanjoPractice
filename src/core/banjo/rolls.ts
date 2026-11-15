@@ -15,12 +15,13 @@ import type { ArrangedMeasure, Finger, StringNo, TabNote } from "./types.ts";
  * tutorial sites; then our own label. A roll names a source only when that instructor states the
  * pattern (checked against the transcripts of their videos, see the compendium notes).
  */
-export type RollSource = "deering" | "jens-kruger" | "tony-trischka" | "tutorials" | "app";
+export type RollSource = "deering" | "jens-kruger" | "tony-trischka" | "dad" | "tutorials" | "app";
 
 export const ROLL_SOURCE_LABEL: Readonly<Record<RollSource, string>> = {
   deering: "Deering, The Four Essential 5-String Banjo Rolls",
   "jens-kruger": "Jens Kruger",
   "tony-trischka": "Tony Trischka (ArtistWorks)",
+  dad: "your own page, 3 Finger Scruggs style",
   tutorials: "tutorial sites (not a first-tier instructor)",
   app: "this app's own pattern (no published source found)",
 };
@@ -30,6 +31,7 @@ export const ROLL_SOURCE_SHORT: Readonly<Record<RollSource, string>> = {
   deering: "Deering",
   "jens-kruger": "Jens Kruger",
   "tony-trischka": "Tony Trischka",
+  dad: "your notes",
   tutorials: "tutorial sites",
   app: "our own pattern",
 };
@@ -59,7 +61,7 @@ export const ROLLS: readonly RollTemplate[] = [
     exampleStrings: [5, 2, 1, 5, 2, 1, 2, 1],
     accents: FORWARD_ACCENTS,
     use: "The simplest roll: a rising pattern, bubbly and bright",
-    sources: ["deering"],
+    sources: ["deering", "dad"],
   },
   {
     // The forward roll most tab books print: the same, ending on the thumb.
@@ -79,7 +81,7 @@ export const ROLLS: readonly RollTemplate[] = [
     exampleStrings: [3, 1, 5, 2, 1, 5, 2, 1],
     accents: DOWNBEAT_ACCENTS,
     use: "More power from the thumb on the downbeat",
-    sources: ["tutorials"],
+    sources: ["tutorials", "dad"],
   },
   {
     id: "backward",
@@ -88,7 +90,7 @@ export const ROLLS: readonly RollTemplate[] = [
     exampleStrings: [1, 2, 5, 1, 2, 5, 1, 2],
     accents: DOWNBEAT_ACCENTS,
     use: "A falling pattern, plaintive; melody on the 1st string",
-    sources: ["deering", "tony-trischka"],
+    sources: ["deering", "tony-trischka", "dad"],
   },
   {
     id: "forward-reverse",
@@ -106,7 +108,7 @@ export const ROLLS: readonly RollTemplate[] = [
     exampleStrings: [3, 2, 5, 1, 4, 2, 5, 1],
     accents: DOWNBEAT_ACCENTS,
     use: "Melody on the 2nd and 3rd strings; the thumb plays every other note",
-    sources: ["deering", "tony-trischka"],
+    sources: ["deering", "tony-trischka", "dad"],
   },
   {
     id: "foggy-mountain",
@@ -147,6 +149,17 @@ export function rollTitle(roll: RollTemplate): string {
 /** The long form for a "Pattern from" line: every source, first tier first. */
 export function rollSourceLabel(roll: RollTemplate): string {
   return roll.sources.map((x) => ROLL_SOURCE_LABEL[x]).join("; ");
+}
+
+/**
+ * The notes of a roll that a bar of `slots` slots uses. A full bar of six (3/4 waltz time, or 6/8)
+ * takes the roll's FIRST six notes, as Dad writes his waltz rolls (the thumb on the first beat).
+ * Any other short bar is a pickup: it takes the roll's last notes, so the roll leads into the
+ * next downbeat.
+ */
+export function rollSlice<T>(items: readonly T[], slots: number): T[] {
+  if (slots >= items.length) return [...items];
+  return slots === 6 ? items.slice(0, 6) : items.slice(items.length - slots);
 }
 
 export function rollById(id: string): RollTemplate | undefined {

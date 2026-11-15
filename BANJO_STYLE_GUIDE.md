@@ -102,17 +102,31 @@ What the transcripts say (checked 2026-11-15): Jens Kruger's Beginner Lesson 2 t
 
 | Roll | Fingers | Example strings (G chord) | Source | Typical use |
 | --- | --- | --- | --- | --- |
-| Forward | T I M T I M I M | 5 2 1 5 2 1 2 1 | **Deering** | The simplest roll; rising; 3+3+2 accents. Deering writes it I M T I M T I M (strings 2 1 5 2 1 5 2 1) and says the first two notes can be moved to the end, which gives this thumb-first form |
+| Forward | T I M T I M I M | 5 2 1 5 2 1 2 1 | **Deering**, and **Dad's page** (I M T I M T I M, the same pattern) | The simplest roll; rising; 3+3+2 accents. Deering writes it I M T I M T I M (strings 2 1 5 2 1 5 2 1) and says the first two notes can be moved to the end, which gives this thumb-first form |
 | Forward (thumb ending) | T I M T I M T M | 3 2 1 5 2 1 5 1 | tutorials | The forward roll most tab books print, ending on the thumb |
-| Forward (thumb-start variant) | T M T I M T I M | (varies; our own example) | tutorials (Dummies) | More power from the thumb on the downbeat |
-| Backward (reverse) | M I T M I T M I | 1 2 5 1 2 5 1 2 | **Deering, Tony Trischka** | Falling; melody on the 1st string. Dummies gives the strings as 1 2 5 1 2 5 2 1; Deering's are used |
+| Forward (thumb-start variant) | T M T I M T I M | (varies; our own example) | tutorials (Dummies), and **Dad's page** (waltz bar, first six notes) | More power from the thumb on the downbeat |
+| Backward (reverse) | M I T M I T M I | 1 2 5 1 2 5 1 2 | **Deering, Tony Trischka**, and **Dad's page** (waltz bar, first six notes) | Falling; melody on the 1st string. Dummies gives the strings as 1 2 5 1 2 5 2 1; Deering's are used |
 | Forward-reverse | T I M T M I T M | 3 2 1 5 1 2 3 1 | **Deering, Tony Trischka, Jens Kruger** (all three state it; Tony and Jens call it forward-backward) | Up, then down; typically four strings; melody on strings 1 and 3 |
-| Alternating thumb ("mixed", "thumb-in-and-out") | T I T M T I T M | 3 2 5 1 4 2 5 1 | **Deering, Tony Trischka** (Tony: first half 3 2 5 1, or 4 3 5 1) | The thumb plays every other note; uses all five strings; Cripple Creek and I'll Fly Away |
+| Alternating thumb ("mixed", "thumb-in-and-out") | T I T M T I T M | 3 2 5 1 4 2 5 1 | **Deering, Tony Trischka** (Tony: first half 3 2 5 1, or 4 3 5 1), and **Dad's page** (T I T M T I T M) | The thumb plays every other note; uses all five strings; Cripple Creek and I'll Fly Away |
 | Foggy Mountain | I M T M T I M T | 2 1 2 1 5 2 1 5 | **Tony Trischka** (his video confirms the first four notes; the full pattern is from the ArtistWorks Roll Trainer) | Thumb crosses to the 2nd string |
 | Osborne (id `middle-leading`) | M I M T M I M T | 1 2 1 5 1 2 1 5 | **Tony Trischka** ("the Osborne roll", after Sonny Osborne; also the Dillard roll; M I M T on 1 2 1 5) | Melody repeated on the 1st string |
 | Index-leading | I T I M I T I M | 2 3 2 1 2 3 2 1 | **our own label** (no published source found in Deering, Jens or Tony) | Melody repeated on the 2nd string |
 
 The Deering page's tab images could not be read when this was checked, so the four rolls above come from its numbered "pluck the Nth string with your … finger" lists. Check them against the tab images the next time someone opens the page.
+
+**Dad's own page, "3 Finger Scruggs style" (read 2026-11-15 from his handwritten photo; the photo stays private).** He wrote the finger letters for eight patterns, with note heads drawn at rough pitches but no string numbers:
+
+| His label | Meter | Fingers he wrote | Against the library |
+| --- | --- | --- | --- |
+| Alternating thumb roll (two examples, the second unlabeled) | 4/4 | T I T M T I T M | **Matches** (Deering, Tony Trischka). The note heads of the two examples differ, so he probably uses different strings for the thumb; not recorded. |
+| Forward roll | 4/4 | I M T I M T I M | **Matches Deering exactly** (index, middle, thumb, repeated, ending index-middle). The library's forward roll is the same pattern starting two notes later (T I M T I M I M). Not the thumb-ending form (T I M T I M T M) that most tab books print. |
+| **Forward/Reverse** | 4/4 | **T M T I M I T M** | **Contradicts** Deering, Tony Trischka and Jens Kruger, who all give T I M T M I T M. Only the first half differs (his T M T I against T I M T); his second half, M I T M, is the standard one. It is also unlike his own waltz forward and reverse. **Open question: ask Dad which he plays.** |
+| Waltz: Forward & Reverse | 3/4 | T I M T M I | Matches the first six notes of the standard forward-reverse. |
+| Waltz: Backward roll | 3/4 | M I T M I T | Matches the first six notes of the backward roll. |
+| Waltz: Forward roll | 3/4 | T I M T I M | Matches the first six notes of the forward roll. |
+| Waltz: (second forward roll, unlabeled) | 3/4 | T M T I M T | Matches the first six notes of the thumb-start variant (T M T I M T I M). |
+
+**Waltz (3/4) rule, from Dad's page.** A full bar of six slots (3/4, or 6/8) uses the **first six notes** of a roll, with the thumb (or the roll's own first finger) on the first beat. Until 2026-11-15 the arranger took the **last** six notes (so its waltz bars started on the middle finger), which is right only for a pickup bar, where the end of the roll leads into the downbeat. The arranger now takes the first six for a full six-slot bar and the last notes for any other short bar (`rollSlice` in `rolls.ts`). Dad's songs with waltz time are Angel Band, In Tall Buildings, In the Pines and Kentucky Waltz.
 
 **Pinches:** two or three strings struck at once, most often T+M (strings 5 and 1) or T+I+M. Used on strong beats, phrase endings and as the last note of a piece. A **thumb–pinch–thumb–pinch** pattern is a common way to fill long held notes.
 

@@ -105,8 +105,10 @@ describe("a roll's title says where it comes from", () => {
   it("shows the source beside the name", async () => {
     const { rollTitle, ROLL_SOURCE_SHORT } = await import("../../src/core/banjo/rolls.ts");
     const title = (id: string) => rollTitle(ROLLS.find((r) => r.id === id)!);
-    expect(title("forward")).toBe("Forward roll (Deering)");
-    expect(title("alternating-thumb")).toBe("Alternating thumb roll (Deering, Tony Trischka)");
+    expect(title("forward")).toBe("Forward roll (Deering, your notes)");
+    expect(title("alternating-thumb")).toBe(
+      "Alternating thumb roll (Deering, Tony Trischka, your notes)",
+    );
     expect(title("forward-reverse")).toBe(
       "Forward-reverse roll (Deering, Tony Trischka, Jens Kruger)",
     );
@@ -119,8 +121,8 @@ describe("a roll's title says where it comes from", () => {
   it("is the title of the exercise and of the lesson, and in their ABC", async () => {
     const { rollExercise, rollLesson } = await import("../../src/core/banjo/exercises.ts");
     for (const song of [rollExercise("forward")!, rollLesson("forward")!]) {
-      expect(song.title).toBe("Forward roll (Deering)");
-      expect(song.abc).toContain("T:Forward roll (Deering)");
+      expect(song.title).toBe("Forward roll (Deering, your notes)");
+      expect(song.abc).toContain("T:Forward roll (Deering, your notes)");
     }
   });
 });

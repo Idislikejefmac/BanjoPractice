@@ -17,7 +17,7 @@ import { chordPitchClasses, parseChord } from "../music/chords.ts";
 import { scalePitchClasses } from "../music/keys.ts";
 import { mod12 } from "../music/notes.ts";
 import type { IndexedMeasure, SongIndex } from "../song/abcIndex.ts";
-import { ROLLS } from "./rolls.ts";
+import { ROLLS, rollSlice } from "./rolls.ts";
 import type { CapoPlan, Tuning } from "./tuning.ts";
 import { NO_CAPO, OPEN_G, pitchAt } from "./tuning.ts";
 import { validate } from "./validator.ts";
@@ -393,8 +393,7 @@ function measureOptions(
   w: ArrangeWeights,
 ): Option[] {
   const slots = m.slots;
-  const tokens =
-    slots === tpl.tokens.length ? tpl.tokens : tpl.tokens.slice(tpl.tokens.length - slots);
+  const tokens = rollSlice(tpl.tokens, slots);
   if (tokens.length !== slots) return [];
   const forward = tpl.name.startsWith("forward");
   const pinchCost = w.pinchFill * (tpl.kind === "fill" ? 0.3 : 1);
@@ -651,8 +650,8 @@ function fallbackMeasure(
   scale: ReadonlySet<number>,
 ): ArrangedMeasure {
   const roll = ROLLS[0]!;
-  const fingers = roll.fingers.slice(roll.fingers.length - m.slots);
-  const strings = roll.exampleStrings.slice(roll.exampleStrings.length - m.slots);
+  const fingers = rollSlice(roll.fingers, m.slots);
+  const strings = rollSlice(roll.exampleStrings, m.slots);
   const notes: TabNote[] = fingers.map((f, i) => {
     const chord = chordAt(parsed, i, startChord);
     const pcs = chord ? chordPitchClasses(chord) : new Set<number>();
@@ -760,7 +759,7 @@ export function arrange(index: SongIndex, opts: ArrangeOptions = {}): ArrangeRes
     // The allowed rolls come first; the others only fill in so a legal join always exists.
     for (const tpl of [...allowed, ...TEMPLATES.filter((t) => !allowed.includes(t))]) {
       if (tpl.kind === "fill" || firstFingers.size >= 3) continue;
-      const first = tpl.tokens[tpl.tokens.length - m.slots] ?? "";
+      const first = rollSlice(tpl.tokens, m.slots)[0] ?? "";
       if (firstFingers.has(first)) continue;
       const opt = measureOptions(tpl, m, noMelody, w)[0];
       if (!opt) continue;
