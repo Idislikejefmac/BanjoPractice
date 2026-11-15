@@ -14,7 +14,7 @@ import type { Song } from "../song/song.ts";
 import { SONG_SCHEMA_VERSION } from "../song/song.ts";
 import { serializeTab } from "../tab/tabText.ts";
 import { arrange } from "./arranger.ts";
-import { ROLLS, rollById } from "./rolls.ts";
+import { ROLLS, rollById, rollTitle } from "./rolls.ts";
 import { OPEN_G, pitchAt } from "./tuning.ts";
 
 export const EXERCISE_PROGRESSIONS: readonly {
@@ -144,7 +144,7 @@ export function rollExercise(rollId: string, chosen: ChordOverrides = {}): Song 
   const chordsOnly = progressions
     .map((p) => `P:${p.label}\n` + p.chords.map((c) => `"${c}"z8`).join("|") + "|")
     .join("\n");
-  const header = `X:1\nT:${roll.name} roll\nM:4/4\nL:1/8\nQ:1/4=80\nK:G\n`;
+  const header = `X:1\nT:${rollTitle(roll)}\nM:4/4\nL:1/8\nQ:1/4=80\nK:G\n`;
   const idx = indexAbc(header + chordsOnly);
   const rollFor = new Map(idx.measures.map((m) => [m.index, roll.id]));
   const result = arrange(idx, { overrides: rollFor });
@@ -178,7 +178,7 @@ export function rollExercise(rollId: string, chosen: ChordOverrides = {}): Song 
   return {
     schemaVersion: SONG_SCHEMA_VERSION,
     id: `exercise:${roll.id}`,
-    title: `${roll.name} roll`,
+    title: rollTitle(roll),
     source: "builtin",
     abc,
     tab: serializeTab(measures),
@@ -196,7 +196,7 @@ export function rollLesson(rollId: string, chord = "G"): Song | null {
   if (!roll) return null;
   const c = isChordChoice(chord) ? chord : "G";
   const header = `X:1
-T:${roll.name} roll
+T:${rollTitle(roll)}
 M:4/4
 L:1/8
 Q:1/4=${LESSON_START_BPM}
@@ -219,7 +219,7 @@ K:G
   return {
     schemaVersion: SONG_SCHEMA_VERSION,
     id: `${LESSON_ID_PREFIX}${roll.id}`,
-    title: `${roll.name} roll`,
+    title: rollTitle(roll),
     source: "builtin",
     abc: `${header}${bars.join("|")}|]
 `,

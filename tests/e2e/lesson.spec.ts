@@ -189,3 +189,15 @@ test("the lesson says where the roll's pattern comes from, Deering first", async
   await openLesson(page, "middle-leading");
   await expect(source).toContainText("no published source");
 });
+
+test("the exercise's title and page say where the roll comes from", async ({ page }) => {
+  await openLesson(page, "forward");
+  await expect(page.locator(".song h2")).toHaveText("Forward roll (Deering)");
+  await expect(
+    page.locator('[data-song="exercise:forward"][data-section="exercises"]'),
+  ).toContainText("Forward roll (Deering)");
+  await page.click('[data-action="view-full"]');
+  await expect(page.getByTestId("exercise-source")).toContainText("Deering");
+  await openLesson(page, "middle-leading");
+  await expect(page.locator(".song h2")).toHaveText("Middle-leading roll (our own pattern)");
+});

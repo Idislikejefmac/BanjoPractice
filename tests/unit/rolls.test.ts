@@ -81,3 +81,27 @@ describe("roll library (style guide §5)", () => {
     expect(illegal).toBeGreaterThan(0);
   });
 });
+
+describe("a roll's title says where it comes from", () => {
+  it("shows the source beside the name", async () => {
+    const { rollTitle, ROLL_SOURCE_SHORT } = await import("../../src/core/banjo/rolls.ts");
+    const title = (id: string) => rollTitle(ROLLS.find((r) => r.id === id)!);
+    expect(title("forward")).toBe("Forward roll (Deering)");
+    expect(title("alternating-thumb")).toBe("Alternating thumb roll (Deering)");
+    expect(title("forward-thumb-ending")).toBe("Forward (thumb ending) roll (tutorial sites)");
+    expect(title("middle-leading")).toBe("Middle-leading roll (our own pattern)");
+    expect(ROLL_SOURCE_SHORT["jens-kruger"]).toBe("Jens Kruger");
+  });
+
+  it("is the title of the exercise and of the lesson, and in their ABC", async () => {
+    const { rollExercise, rollLesson } = await import("../../src/core/banjo/exercises.ts");
+    for (const song of [rollExercise("forward")!, rollLesson("forward")!]) {
+      expect(song.title).toBe("Forward roll (Deering)");
+      expect(song.abc).toContain("T:Forward roll (Deering)");
+    }
+  });
+
+  it("no roll claims Jens Kruger until his patterns are written down from his own material", () => {
+    expect(ROLLS.filter((r) => r.source === "jens-kruger")).toEqual([]);
+  });
+});

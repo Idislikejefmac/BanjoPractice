@@ -10,13 +10,26 @@
 
 import type { ArrangedMeasure, Finger, StringNo, TabNote } from "./types.ts";
 
-/** Where a roll's pattern comes from: Deering (first tier), tutorial sites, or our own label. */
-export type RollSource = "deering" | "tutorials" | "app";
+/**
+ * Where a roll's pattern comes from. Deering and Jens Kruger are first tier (Jens Kruger is
+ * Dad's favourite player; no roll is defined from him yet, so nothing uses "jens-kruger" until
+ * his patterns are written down from his videos or DVDs); then tutorial sites; then our own label.
+ */
+export type RollSource = "deering" | "jens-kruger" | "tutorials" | "app";
 
 export const ROLL_SOURCE_LABEL: Readonly<Record<RollSource, string>> = {
   deering: "Deering, The Four Essential 5-String Banjo Rolls",
+  "jens-kruger": "Jens Kruger",
   tutorials: "tutorial sites (not Deering)",
   app: "this app's own pattern (no published source found)",
+};
+
+/** The short form shown beside a roll's name: "Forward roll (Deering)". */
+export const ROLL_SOURCE_SHORT: Readonly<Record<RollSource, string>> = {
+  deering: "Deering",
+  "jens-kruger": "Jens Kruger",
+  tutorials: "tutorial sites",
+  app: "our own pattern",
 };
 
 export interface RollTemplate {
@@ -120,6 +133,11 @@ export const ROLLS: readonly RollTemplate[] = [
     source: "app",
   },
 ];
+
+/** A roll's title with where it comes from: "Forward roll (Deering)". */
+export function rollTitle(roll: RollTemplate): string {
+  return `${roll.name} roll (${ROLL_SOURCE_SHORT[roll.source]})`;
+}
 
 export function rollById(id: string): RollTemplate | undefined {
   return ROLLS.find((r) => r.id === id);

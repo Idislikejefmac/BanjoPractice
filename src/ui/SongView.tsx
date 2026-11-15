@@ -30,7 +30,7 @@ import { TabSvg } from "../render/TabSvg.tsx";
 import { ChordPatterns } from "./ChordPatterns.tsx";
 import { RollLesson, RollViewSwitch } from "./RollLesson.tsx";
 import { isLessonSongId, rollIdOfSong } from "../core/banjo/exercises.ts";
-import { ROLLS, rollById } from "../core/banjo/rolls.ts";
+import { ROLLS, ROLL_SOURCE_LABEL, rollById } from "../core/banjo/rolls.ts";
 import { fadeFor } from "../core/learning/progress.ts";
 import { ChordSheet } from "./ChordSheet.tsx";
 
@@ -597,6 +597,11 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
       )}
       {rollId && (
         <RollViewSwitch store={store} rollId={rollId} view={isLesson ? "learn" : "full"} />
+      )}
+      {rollId && !isLesson && (
+        <p class="lesson-source" data-testid="exercise-source">
+          Pattern from: {ROLL_SOURCE_LABEL[rollById(rollId)?.source ?? "app"]}
+        </p>
       )}
       {rollId && !isLesson && <ChordPatterns store={store} />}
       {rollId && isLesson && (
