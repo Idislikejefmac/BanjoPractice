@@ -19,9 +19,11 @@ test("shows the roll as finger lanes with everything visible at step 1", async (
   await expect(page.getByTestId("lesson-step")).toContainText("Step 1 of 4");
   const notes = page.locator(".lane-note");
   await expect(notes).toHaveCount(8);
-  await expect(page.locator(".lane-note .badge-T")).toHaveCount(3);
+  await expect(page.locator(".lane-note .badge-T")).toHaveCount(2);
   await expect(page.locator(".lane-note .badge-hidden")).toHaveCount(0);
-  await expect(page.locator(".lesson-cue")).toContainText("Listen for the thumb");
+  await expect(page.locator(".lesson-cue")).toContainText(
+    "Listen for the strong beats: thumb, thumb, index finger",
+  );
 });
 
 test("Next hides the second half; Peek reveals it; the step is saved", async ({ page }) => {
@@ -174,4 +176,16 @@ test("the lesson's chord comes from the same list, fills both measures and is sa
   expect(
     await page.evaluate(() => window.__banjoTest!.store.settings.value.exerciseChords),
   ).toEqual({});
+});
+
+test("the lesson says where the roll's pattern comes from, Deering first", async ({ page }) => {
+  await openLesson(page, "forward");
+  const source = page.getByTestId("lesson-source");
+  await expect(source).toContainText("Deering");
+  await expect(page.locator(".lesson-rule")).toContainText("T I M T I M I M");
+  await openLesson(page, "forward-thumb-ending");
+  await expect(source).toContainText("tutorial sites");
+  await expect(page.locator(".lesson-rule")).toContainText("T I M T I M T M");
+  await openLesson(page, "middle-leading");
+  await expect(source).toContainText("no published source");
 });

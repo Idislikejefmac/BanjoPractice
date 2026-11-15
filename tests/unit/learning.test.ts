@@ -96,7 +96,13 @@ describe("spaced review (F40)", () => {
 
 describe("cues and roll queries (F41, F44)", () => {
   it("derives the cue from the roll, so it is true for every roll", () => {
-    expect(listenCue(rollById("forward")!)).toBe("Listen for the thumb on every strong beat.");
+    // Deering's forward roll accents thumb, thumb, index (3+3+2); the thumb-ending one, the thumb.
+    expect(listenCue(rollById("forward")!)).toBe(
+      "Listen for the strong beats: thumb, thumb, index finger.",
+    );
+    expect(listenCue(rollById("forward-thumb-ending")!)).toBe(
+      "Listen for the thumb on every strong beat.",
+    );
     expect(listenCue(rollById("backward")!)).toBe(
       "Listen for the strong beats: middle finger, thumb, index finger, middle finger.",
     );
@@ -137,8 +143,22 @@ describe("why this note? (F39)", () => {
   it("labels a forward roll over G: drone, chord tones", () => {
     const m = rollMeasure(rollById("forward")!);
     const roles = classifyMeasure(m, ctx).map((x) => x.role);
-    // Strings 3,2,1,5,2,1,5,1 open over G: G, B, D are all G-chord tones; 5th string is the drone.
+    // Deering's strings 5,2,1,5,2,1,2,1 open over G: B and D are G-chord tones; the 5th is the drone.
     expect(roles).toEqual([
+      "drone",
+      "chord-tone",
+      "chord-tone",
+      "drone",
+      "chord-tone",
+      "chord-tone",
+      "chord-tone",
+      "chord-tone",
+    ]);
+    // The thumb-ending form: strings 3,2,1,5,2,1,5,1 (the 3rd string open is G, a chord tone).
+    const older = classifyMeasure(rollMeasure(rollById("forward-thumb-ending")!), ctx).map(
+      (x) => x.role,
+    );
+    expect(older).toEqual([
       "chord-tone",
       "chord-tone",
       "chord-tone",
@@ -171,9 +191,10 @@ describe("why this note? (F39)", () => {
     expect(classifyNote(m, melody, ctx)).toBe("melody");
     const hammer = { ...m.notes[0]!, technique: "hammer" as const, finger: null, fret: 2 };
     expect(classifyNote(m, hammer, ctx)).toBe("slur");
+    // (Slot 1 is on the 2nd string; the 5th-string drone is a drone whatever the chord.)
     const noChord = { ...m, chords: [{ atSlot: 0, chord: "???" }] };
-    expect(classifyNote(noChord, noChord.notes[0]!, ctx)).toBe("passing");
-    expect(classifyNote({ ...m, chords: [] }, m.notes[0]!, ctx)).toBe("passing");
+    expect(classifyNote(noChord, noChord.notes[1]!, ctx)).toBe("passing");
+    expect(classifyNote({ ...m, chords: [] }, m.notes[1]!, ctx)).toBe("passing");
   });
 });
 
@@ -185,7 +206,7 @@ describe("explainSlot (F39 step line)", () => {
       notes: [...m.notes, { ...m.notes[0]!, string: 5 as const, isMelody: true, pinchGroup: 1 }],
     };
     const info = explainSlot(pinch, 0, ctx);
-    expect(info.map((i) => i.role)).toEqual(["chord-tone", "melody"]);
+    expect(info.map((i) => i.role)).toEqual(["drone", "melody"]); // slot 1 is the 5th string
     expect(info[1]).toMatchObject({ string: 5, fret: 0, finger: "T", label: "Melody note" });
     expect(explainSlot(m, 3, ctx)).toHaveLength(1);
     expect(explainSlot(m, 99, ctx)).toEqual([]);

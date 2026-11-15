@@ -96,16 +96,21 @@ Notes for the arranger:
 
 Each roll is 8 slots. The finger sequences are standard; the string sequences are the usual examples over a G chord in open G. The arranger should treat each roll as a **finger template**, then choose strings (and frets) to fit the melody and chord.
 
-| Roll | Fingers | Example strings (G chord) | Typical use |
-| --- | --- | --- | --- |
-| Forward | T I M T I M T M | 3 2 1 5 2 1 5 1 | The core Scruggs drive; 3+3+2 accents |
-| Forward (thumb-start variant) | T M T I M T I M | (varies) | More power from the thumb on the downbeat |
-| Backward (reverse) | M I T M I T M I | 1 2 5 1 2 5 1 2 | Melody on the 1st string |
-| Forward-reverse | T I M T M I T M | 3 2 1 5 1 2 3 1 | Melody on strings 1 and 3; pivots midway |
-| Alternating thumb ("square") | T I T M T I T M | 3 2 5 1 4 2 5 1 | Melody on 2nd/3rd strings; thumb alternates |
-| Foggy Mountain | I M T M T I M T | 2 1 2 1 5 2 1 5 | Thumb crosses to the 2nd string |
-| Middle-leading ("Osborne") | M I M T M I M T | 1 2 1 5 1 2 1 5 | Melody repeated on the 1st string |
-| Index-leading | I T I M I T I M | 2 3 2 1 2 3 2 1 | Melody repeated on the 2nd string |
+**Sources and tiers (decided 2026-11-14).** Dad plays and trusts Deering, so Deering's article [The Four Essential 5-String Banjo Rolls](https://blog.deeringbanjos.com/the-four-essential-5-string-banjo-rolls) (Lawrence Witt, 2023) is the **first-tier** reference for the four rolls it defines (forward, backward, forward-reverse, alternating). Where another tutorial differs, the Deering version carries the plain name and the other version is kept under a name that says how it differs. Rolls with no Deering definition are second tier (tutorial sites) or, where no published source was found, marked as this app's own. The app shows each roll's source in the roll lesson.
+
+| Roll | Fingers | Example strings (G chord) | Source | Typical use |
+| --- | --- | --- | --- | --- |
+| Forward | T I M T I M I M | 5 2 1 5 2 1 2 1 | **Deering** | The simplest roll; rising; 3+3+2 accents. Deering writes it I M T I M T I M (strings 2 1 5 2 1 5 2 1) and says the first two notes can be moved to the end, which gives this thumb-first form |
+| Forward (thumb ending) | T I M T I M T M | 3 2 1 5 2 1 5 1 | tutorials | The forward roll most tab books print, ending on the thumb |
+| Forward (thumb-start variant) | T M T I M T I M | (varies; our own example) | tutorials (Dummies) | More power from the thumb on the downbeat |
+| Backward (reverse) | M I T M I T M I | 1 2 5 1 2 5 1 2 | **Deering** | Falling; melody on the 1st string. Dummies gives the strings as 1 2 5 1 2 5 2 1; Deering's are used |
+| Forward-reverse | T I M T M I T M | 3 2 1 5 1 2 3 1 | **Deering** | Up, then down; typically four strings; melody on strings 1 and 3 |
+| Alternating thumb ("mixed", "thumb-in-and-out") | T I T M T I T M | 3 2 5 1 4 2 5 1 | **Deering** | The thumb plays every other note; uses all five strings; Cripple Creek and I'll Fly Away |
+| Foggy Mountain | I M T M T I M T | 2 1 2 1 5 2 1 5 | tutorials (ArtistWorks, T. Trischka) | Thumb crosses to the 2nd string |
+| Middle-leading | M I M T M I M T | 1 2 1 5 1 2 1 5 | **our own label** (no published source found; "Osborne" not confirmed) | Melody repeated on the 1st string |
+| Index-leading | I T I M I T I M | 2 3 2 1 2 3 2 1 | **our own label** (no published source found) | Melody repeated on the 2nd string |
+
+The Deering page's tab images could not be read when this was checked, so the four rolls above come from its numbered "pluck the Nth string with your … finger" lists. Check them against the tab images the next time someone opens the page.
 
 **Pinches:** two or three strings struck at once, most often T+M (strings 5 and 1) or T+I+M. Used on strong beats, phrase endings and as the last note of a piece. A **thumb–pinch–thumb–pinch** pattern is a common way to fill long held notes.
 
@@ -283,6 +288,7 @@ Keep the validator (§4.1) as a pure function: `validate(measures: ArrangedMeasu
 
 ## Sources
 
+- [Deering: The Four Essential 5-String Banjo Rolls](https://blog.deeringbanjos.com/the-four-essential-5-string-banjo-rolls) (Lawrence Witt, 2023): **first-tier** source for the forward, backward, forward-reverse and alternating rolls.
 - [Bluegrass Banjo For Dummies: Roll patterns on the banjo](https://www.dummies.com/article/roll-patterns-on-the-banjo-155951): roll finger sequences and string orders.
 - [Bluegrass Banjo For Dummies: Scruggs, melodic and single-string styles](https://dummies.com/article/academics-the-arts/music/instruments/banjo/playing-scruggs-melodic-and-single-string-banjo-a-bluegrass-crash-course-158282): "a different right-hand finger consecutively for each eighth note".
 - [Bluegrass Banjo For Dummies: Creating your own solos](https://dummies.com/article/how-to-create-your-own-bluegrass-banjo-solos-158299): building breaks from melody and rolls.

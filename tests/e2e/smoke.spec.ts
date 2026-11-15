@@ -9,8 +9,8 @@ test("the app opens with no errors and shows the roll library", async ({ page })
 
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Banjo Practice" })).toBeVisible();
-  await expect(page.locator(".roll")).toHaveCount(8);
-  await expect(page.locator(".check.ok")).toHaveCount(8);
+  await expect(page.locator(".roll")).toHaveCount(9);
+  await expect(page.locator(".check.ok")).toHaveCount(9);
   expect(errors).toEqual([]);
 });
 

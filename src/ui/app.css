@@ -1721,3 +1721,9 @@ h2 {
   margin: 4px 0 12px;
   color: var(--ink-soft);
 }
+
+.lesson-source {
+  margin: 2px 0 8px;
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+}

@@ -1,7 +1,23 @@
 // C3 · Roll library (style guide §5). Each roll is a finger template; the arranger chooses
 // strings and frets to fit the melody. Example strings are the usual ones over open G.
+//
+// Where each roll comes from (`source`): Deering's "The Four Essential 5-String Banjo Rolls"
+// (blog.deeringbanjos.com, L. Witt, 2023) is the first-tier reference, chosen by Jeff because
+// Dad plays and trusts Deering. It defines four rolls: forward, backward (reverse),
+// forward-reverse and alternating (mixed). Where other tutorials differ, the Deering version is
+// the roll of that name and the other version is kept under a name that says how it differs.
+// The two with source "app" are our own labels: no published source was found for them.
 
 import type { ArrangedMeasure, Finger, StringNo, TabNote } from "./types.ts";
+
+/** Where a roll's pattern comes from: Deering (first tier), tutorial sites, or our own label. */
+export type RollSource = "deering" | "tutorials" | "app";
+
+export const ROLL_SOURCE_LABEL: Readonly<Record<RollSource, string>> = {
+  deering: "Deering, The Four Essential 5-String Banjo Rolls",
+  tutorials: "tutorial sites (not Deering)",
+  app: "this app's own pattern (no published source found)",
+};
 
 export interface RollTemplate {
   readonly id: string;
@@ -11,6 +27,7 @@ export interface RollTemplate {
   /** 0-based accented slots. Forward rolls group 3+3+2 (slots 1, 4, 7); others the downbeats. */
   readonly accents: readonly number[];
   readonly use: string;
+  readonly source: RollSource;
 }
 
 const FORWARD_ACCENTS = [0, 3, 6] as const;
@@ -18,12 +35,25 @@ const DOWNBEAT_ACCENTS = [0, 2, 4, 6] as const;
 
 export const ROLLS: readonly RollTemplate[] = [
   {
+    // Deering: index, middle, thumb, repeated, ending index-middle (strings 2 1 5 2 1 5 2 1); "the
+    // first two notes can be moved to the end", which gives this thumb-first form, 3+3+2.
     id: "forward",
     name: "Forward",
+    fingers: ["T", "I", "M", "T", "I", "M", "I", "M"],
+    exampleStrings: [5, 2, 1, 5, 2, 1, 2, 1],
+    accents: FORWARD_ACCENTS,
+    use: "The simplest roll: a rising pattern, bubbly and bright",
+    source: "deering",
+  },
+  {
+    // The forward roll most tab books print: the same, ending on the thumb.
+    id: "forward-thumb-ending",
+    name: "Forward (thumb ending)",
     fingers: ["T", "I", "M", "T", "I", "M", "T", "M"],
     exampleStrings: [3, 2, 1, 5, 2, 1, 5, 1],
     accents: FORWARD_ACCENTS,
-    use: "The core Scruggs drive",
+    use: "The core Scruggs drive, with a firmer thumb ending",
+    source: "tutorials",
   },
   {
     id: "forward-thumb-start",
@@ -33,6 +63,7 @@ export const ROLLS: readonly RollTemplate[] = [
     exampleStrings: [3, 1, 5, 2, 1, 5, 2, 1],
     accents: DOWNBEAT_ACCENTS,
     use: "More power from the thumb on the downbeat",
+    source: "tutorials",
   },
   {
     id: "backward",
@@ -40,7 +71,8 @@ export const ROLLS: readonly RollTemplate[] = [
     fingers: ["M", "I", "T", "M", "I", "T", "M", "I"],
     exampleStrings: [1, 2, 5, 1, 2, 5, 1, 2],
     accents: DOWNBEAT_ACCENTS,
-    use: "Melody on the 1st string",
+    use: "A falling pattern, plaintive; melody on the 1st string",
+    source: "deering",
   },
   {
     id: "forward-reverse",
@@ -48,7 +80,8 @@ export const ROLLS: readonly RollTemplate[] = [
     fingers: ["T", "I", "M", "T", "M", "I", "T", "M"],
     exampleStrings: [3, 2, 1, 5, 1, 2, 3, 1],
     accents: DOWNBEAT_ACCENTS,
-    use: "Melody on strings 1 and 3",
+    use: "Melody on strings 1 and 3; up, then down",
+    source: "deering",
   },
   {
     id: "alternating-thumb",
@@ -56,7 +89,8 @@ export const ROLLS: readonly RollTemplate[] = [
     fingers: ["T", "I", "T", "M", "T", "I", "T", "M"],
     exampleStrings: [3, 2, 5, 1, 4, 2, 5, 1],
     accents: DOWNBEAT_ACCENTS,
-    use: "Melody on the 2nd and 3rd strings",
+    use: "Melody on the 2nd and 3rd strings; the thumb plays every other note",
+    source: "deering",
   },
   {
     id: "foggy-mountain",
@@ -65,6 +99,7 @@ export const ROLLS: readonly RollTemplate[] = [
     exampleStrings: [2, 1, 2, 1, 5, 2, 1, 5],
     accents: DOWNBEAT_ACCENTS,
     use: "Thumb crosses to the 2nd string",
+    source: "tutorials",
   },
   {
     id: "middle-leading",
@@ -73,6 +108,7 @@ export const ROLLS: readonly RollTemplate[] = [
     exampleStrings: [1, 2, 1, 5, 1, 2, 1, 5],
     accents: DOWNBEAT_ACCENTS,
     use: "Melody repeated on the 1st string",
+    source: "app",
   },
   {
     id: "index-leading",
@@ -81,6 +117,7 @@ export const ROLLS: readonly RollTemplate[] = [
     exampleStrings: [2, 3, 2, 1, 2, 3, 2, 1],
     accents: DOWNBEAT_ACCENTS,
     use: "Melody repeated on the 2nd string",
+    source: "app",
   },
 ];
 
