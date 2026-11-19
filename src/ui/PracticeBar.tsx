@@ -8,7 +8,7 @@ import type { AppStore, PracticePanel } from "../app/store.ts";
 import type { MetronomeMode, PartId, PracticePrefs } from "../app/model.ts";
 import { DEFAULT_TEMPO, TEMPO_MAX, TEMPO_MIN } from "../app/model.ts";
 import { MELODY_INSTRUMENTS } from "../audio/engine.ts";
-import { defaultRollIds } from "../core/banjo/hand.ts";
+import { advancedNote, defaultRollIds } from "../core/banjo/hand.ts";
 import { ROLLS } from "../core/banjo/rolls.ts";
 import { songParts } from "../core/playback/parts.ts";
 import { practicePlan } from "../core/song/practiceArrangement.ts";
@@ -632,6 +632,7 @@ export function PracticeBar({ store, player }: { store: AppStore; player: Player
                       <span>
                         {r.name}
                         <small> {r.use}</small>
+                        {advancedNote(r) && <small class="advanced-note"> {advancedNote(r)}</small>}
                       </span>
                     </label>
                   );

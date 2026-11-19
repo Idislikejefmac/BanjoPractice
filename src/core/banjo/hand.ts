@@ -5,6 +5,8 @@
 // strings too, but long jumps by one finger still cost.
 
 import { ROLLS } from "./rolls.ts";
+import type { RollTemplate } from "./rolls.ts";
+import { FINGER_NAME } from "./types.ts";
 import type { Finger, StringNo } from "./types.ts";
 
 export type PlayerLevel = "beginner" | "experienced";
@@ -72,4 +74,32 @@ export function extraTravel(
 ): number {
   if (from === null || from === undefined) return 0;
   return Math.max(0, Math.abs(from - to) - profile.easyTravel[finger]);
+}
+
+const ORDINAL: Readonly<Record<StringNo, string>> = {
+  1: "1st",
+  2: "2nd",
+  3: "3rd",
+  4: "4th",
+  5: "5th",
+};
+
+/**
+ * A roll whose own pattern takes a finger outside a beginner's lanes is still taught as its
+ * sources play it (the Foggy Mountain roll's thumb on the 2nd string is Earl's), but it is called
+ * out as advanced wherever it is shown. Null when every note of the roll is in a beginner's lanes.
+ */
+export function advancedNote(roll: RollTemplate): string | null {
+  const lanes = HAND_PROFILES.beginner.strings;
+  const seen = new Set<string>();
+  const reaches: string[] = [];
+  roll.fingers.forEach((f, i) => {
+    const s = roll.exampleStrings[i];
+    if (s === undefined || lanes[f].includes(s) || seen.has(`${f}${s}`)) return;
+    seen.add(`${f}${s}`);
+    reaches.push(`the ${FINGER_NAME[f].toLowerCase()} plays the ${ORDINAL[s]} string`);
+  });
+  if (reaches.length === 0) return null;
+  const what = reaches.join(" and ");
+  return `Advanced: ${what}. Tabs written for a beginner leave it out unless you choose it.`;
 }

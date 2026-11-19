@@ -17,6 +17,7 @@ import { chordPitchClasses, parseChord } from "../music/chords.ts";
 import { scalePitchClasses } from "../music/keys.ts";
 import { mod12 } from "../music/notes.ts";
 import { arrange, droneClashes } from "./arranger.ts";
+import { advancedNote } from "./hand.ts";
 import type { RollTemplate } from "./rolls.ts";
 import { ROLLS, rollById, rollSlice, rollTitle } from "./rolls.ts";
 import { OPEN_G, pitchAt } from "./tuning.ts";
@@ -241,8 +242,8 @@ export function rollExercise(rollId: string, chosen: ChordOverrides = {}): Song 
     source: "builtin",
     abc,
     tab: serializeTab(measures),
-    tags: ["exercise"],
-    credit: roll.use,
+    tags: advancedNote(roll) ? ["exercise", "advanced"] : ["exercise"],
+    credit: rollCredit(roll),
   };
 }
 
@@ -286,9 +287,15 @@ K:G
     abc: `${header}${bars.join("|")}|]
 `,
     tab: serializeTab(measures),
-    tags: ["lesson"],
-    credit: roll.use,
+    tags: advancedNote(roll) ? ["lesson", "advanced"] : ["lesson"],
+    credit: rollCredit(roll),
   };
+}
+
+/** The roll's use, then the advanced call-out when it has one. */
+function rollCredit(roll: RollTemplate): string {
+  const note = advancedNote(roll);
+  return note ? `${roll.use}. ${note}` : roll.use;
 }
 
 export function allRollLessons(): Song[] {

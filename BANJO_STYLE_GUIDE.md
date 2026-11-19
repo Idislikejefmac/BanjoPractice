@@ -89,7 +89,8 @@ Notes for the arranger:
 - **Lanes are hard for the profile.** The arranger never puts a finger on a string outside its lane, so a beginner's thumb can't reach the 2nd string at all. A melody note it can't reach is played by another finger or another string, or left out (it costs like any missed melody note).
 - **Long jumps cost.** In both profiles, every string beyond the easy move costs `fingerTravel`, and the cost is checked across bar lines too. In the beginner profile the lanes already keep every move easy. In the experienced one this turns a 5-to-2 thumb jump from free into a last resort.
 - **A beginner stays on one roll.** Staying on the same roll as the measure before is worth more (−1, against −0.4), and splicing half of one roll onto half of another earns nothing.
-- **Explicit choices win.** A song's roll list can still name a left-out roll, which then is used, but in the beginner's lanes. Roll exercises and lessons use the experienced profile, because they teach the roll as its source plays it. C4's H4 still allows the guide's full "usual" and "occasionally" columns, so hand-written tabs aren't held to a beginner's lanes.
+- **Explicit choices win.** A song's roll list can still name a left-out roll, which then is used, but in the beginner's lanes. Roll exercises and lessons use the experienced profile, because they teach the roll as its source plays it.
+- **Sources win over the rule, and the clash is called out.** A roll whose own pattern puts a finger outside a beginner's lanes is taught as its sources play it, never bent to fit. Wherever it is shown (roll card, roll picker, lesson, exercise) it carries an "Advanced: …" note, worked out from the lanes (`advancedNote`). Today that is only the Foggy Mountain roll (the thumb on the 2nd string). C4's H4 still allows the guide's full "usual" and "occasionally" columns, so hand-written tabs aren't held to a beginner's lanes.
 
 Effect on Dad's 17 songs (789 measures), before → after:
 
@@ -144,7 +145,7 @@ What the transcripts say (checked 2026-11-15): Jens Kruger's Beginner Lesson 2 t
 | Backward (reverse) | M I T M I T M I | 1 2 5 1 2 5 1 2 | **Deering, Tony Trischka**, and **Dad's page** (waltz bar, first six notes) | Falling; melody on the 1st string. Dummies gives the strings as 1 2 5 1 2 5 2 1; Deering's are used |
 | Forward-reverse | T I M T M I T M | 3 2 1 5 1 2 3 1 | **Deering, Tony Trischka, Jens Kruger** (all three state it; Tony and Jens call it forward-backward) | Up, then down; typically four strings; melody on strings 1 and 3 |
 | Alternating thumb ("mixed", "thumb-in-and-out") | T I T M T I T M | 3 2 5 1 4 2 5 1 | **Deering, Tony Trischka** (Tony: first half 3 2 5 1, or 4 3 5 1), and **Dad's page** (T I T M T I T M) | The thumb plays every other note; uses all five strings; Cripple Creek and I'll Fly Away |
-| Foggy Mountain | I M T M T I M T | 2 1 2 1 5 2 1 5 | **Tony Trischka** (his video confirms the first four notes; the full pattern is from the ArtistWorks Roll Trainer) | Thumb crosses to the 2nd string |
+| Foggy Mountain | I M T M T I M T | 2 1 2 1 5 2 1 5 | **Tony Trischka** (his video confirms the first four notes; the full pattern is from the ArtistWorks Roll Trainer) | Earl Scruggs's roll in Foggy Mountain Breakdown and Train 45. **Advanced:** the thumb crosses to the 2nd string (§3.1) |
 | Osborne (id `middle-leading`) | M I M T M I M T | 1 2 1 5 1 2 1 5 | **Tony Trischka** ("the Osborne roll", after Sonny Osborne; also the Dillard roll; M I M T on 1 2 1 5) | Melody repeated on the 1st string |
 | Index-leading | I T I M I T I M | 2 3 2 1 2 3 2 1 | **our own label** (no published source found in Deering, Jens or Tony) | Melody repeated on the 2nd string |
 

@@ -5,6 +5,7 @@
 
 import { useRef, useState } from "preact/hooks";
 import type { AppStore } from "../app/store.ts";
+import { advancedNote } from "../core/banjo/hand.ts";
 import { rollById, rollSourceLabel } from "../core/banjo/rolls.ts";
 import { INSTRUCTORS, lessonsOnRoll } from "../core/learning/lessons.ts";
 import type { Finger } from "../core/banjo/types.ts";
@@ -161,6 +162,7 @@ export function RollLesson({
       <p class="lesson-rule">
         {cells.map((c) => c.finger ?? "?").join(" ")} <span class="lesson-use">· {roll.use}</span>
       </p>
+      {advancedNote(roll) && <p class="advanced-note">{advancedNote(roll)}</p>}
       <p class="lesson-cue">{listenCue(roll)}</p>
       <p class="lesson-source" data-testid="lesson-source">
         Pattern from: {rollSourceLabel(roll)}

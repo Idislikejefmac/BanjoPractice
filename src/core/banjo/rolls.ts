@@ -116,7 +116,7 @@ export const ROLLS: readonly RollTemplate[] = [
     fingers: ["I", "M", "T", "M", "T", "I", "M", "T"],
     exampleStrings: [2, 1, 2, 1, 5, 2, 1, 5],
     accents: DOWNBEAT_ACCENTS,
-    use: "Thumb crosses to the 2nd string",
+    use: "Earl Scruggs's roll in Foggy Mountain Breakdown and Train 45",
     sources: ["tony-trischka"],
   },
   {

@@ -7,6 +7,7 @@ import type { Player } from "../app/player.ts";
 import type { Services } from "../app/services.ts";
 import type { AppStore } from "../app/store.ts";
 import { SIZE_STEPS } from "../app/model.ts";
+import { advancedNote } from "../core/banjo/hand.ts";
 import { ROLLS, rollMeasure } from "../core/banjo/rolls.ts";
 import type { Finger } from "../core/banjo/types.ts";
 import { FINGER_NAME } from "../core/banjo/types.ts";
@@ -60,6 +61,7 @@ function RollCard({ roll }: { roll: (typeof ROLLS)[number] }) {
         </div>
       </div>
       <p class="use">{roll.use}</p>
+      {advancedNote(roll) && <p class="advanced-note">{advancedNote(roll)}</p>}
     </li>
   );
 }

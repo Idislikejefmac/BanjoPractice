@@ -11,7 +11,7 @@ import {
   rollLesson,
 } from "../../src/core/banjo/exercises.ts";
 import type { PlayerLevel } from "../../src/core/banjo/hand.ts";
-import { defaultRollIds, HAND_PROFILES } from "../../src/core/banjo/hand.ts";
+import { advancedNote, defaultRollIds, HAND_PROFILES } from "../../src/core/banjo/hand.ts";
 import { ROLLS } from "../../src/core/banjo/rolls.ts";
 import type { ArrangedMeasure, Finger, StringNo } from "../../src/core/banjo/types.ts";
 import { validate } from "../../src/core/banjo/validator.ts";
@@ -146,4 +146,24 @@ describe("roll exercises and lessons play the roll's own strings", () => {
       }
     });
   }
+});
+
+describe("rolls outside a beginner's lanes are called out, not changed", () => {
+  it("only the Foggy Mountain roll is advanced, and it says why", () => {
+    const advanced = ROLLS.filter((r) => advancedNote(r) !== null).map((r) => r.id);
+    expect(advanced).toEqual(["foggy-mountain"]);
+    expect(advancedNote(ROLLS.find((r) => r.id === "foggy-mountain")!)).toBe(
+      "Advanced: the thumb plays the 2nd string. Tabs written for a beginner leave it out unless you choose it.",
+    );
+  });
+
+  it("its exercise and lesson still play the thumb on the 2nd string, tagged advanced", () => {
+    for (const song of [rollExercise("foggy-mountain"), rollLesson("foggy-mountain")]) {
+      const notes = parseTab(song!.tab ?? "").measures.flatMap((m) => m.notes);
+      expect(notes.some((n) => n.finger === "T" && n.string === 2)).toBe(true);
+      expect(song!.tags).toContain("advanced");
+      expect(song!.credit).toContain("Advanced:");
+    }
+    expect(rollExercise("forward")!.tags).not.toContain("advanced");
+  });
 });

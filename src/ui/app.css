@@ -921,6 +921,12 @@ h2 {
   padding-bottom: 2px;
 }
 
+.advanced-note {
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
 .use {
   margin: 8px 0 0;
   font-size: 0.9rem;
