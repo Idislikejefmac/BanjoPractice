@@ -30,6 +30,8 @@ import { TabSvg } from "../render/TabSvg.tsx";
 import { ChordPatterns } from "./ChordPatterns.tsx";
 import { RollLesson, RollLessonLinks, RollViewSwitch } from "./RollLesson.tsx";
 import { isLessonSongId, rollIdOfSong } from "../core/banjo/exercises.ts";
+import type { PlayerLevel } from "../core/banjo/hand.ts";
+import { defaultRollIds } from "../core/banjo/hand.ts";
 import { ROLLS, rollById, rollSourceLabel } from "../core/banjo/rolls.ts";
 import { fadeFor } from "../core/learning/progress.ts";
 import { ChordSheet } from "./ChordSheet.tsx";
@@ -247,9 +249,9 @@ function SongLine({
   );
 }
 
-/** "The rolls enabled for this song are …" (every roll when he hasn't narrowed them). */
-function rollsEnabledText(chosen: readonly string[] | null): string {
-  const names = (chosen ?? ROLLS.map((r) => r.id)).map((id) => rollById(id)?.name ?? id);
+/** "The rolls enabled for this song are …" (the beginner's rolls when he hasn't narrowed them). */
+function rollsEnabledText(chosen: readonly string[] | null, level: PlayerLevel): string {
+  const names = (chosen ?? defaultRollIds(level)).map((id) => rollById(id)?.name ?? id);
   const list =
     names.length <= 1
       ? (names[0] ?? "none")
@@ -272,8 +274,11 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
   const shapeNotation = store.practice.value.notationKey === "shape";
   // The tab for this key: the hand-written one with a capo, or C6's in new shapes (F11, F14).
   const practiceTab = useMemo(
-    () => (loaded ? practiceArrangement(loaded, keyShift, settings.spikes, rolls) : null),
-    [loaded, keyShift, settings.spikes, rolls],
+    () =>
+      loaded
+        ? practiceArrangement(loaded, keyShift, settings.spikes, rolls, settings.playerLevel)
+        : null,
+    [loaded, keyShift, settings.spikes, rolls, settings.playerLevel],
   );
   const position = practiceTab?.plan ?? null;
   const arranged = practiceTab?.measures ?? null;
@@ -584,7 +589,7 @@ export function SongView({ store, player }: { store: AppStore; player: Player })
       </header>
       {!isExercise && (
         <p class="rolls-line" data-testid="rolls-line">
-          <span>{rollsEnabledText(store.practice.value.rolls)}</span>{" "}
+          <span>{rollsEnabledText(store.practice.value.rolls, settings.playerLevel)}</span>{" "}
           <button
             type="button"
             class="plain-button"

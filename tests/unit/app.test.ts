@@ -289,6 +289,18 @@ describe("the mix is a preference, not per-song state", () => {
     b.openSong("b-song");
     expect(b.practice.value.clickVolume).toBe(0.1);
 
+    // Settings saved before the player level existed read as a beginner (guide §3.1).
+    const noLevel: Record<string, unknown> = { ...DEFAULT_SETTINGS, size: 3 };
+    delete noLevel.playerLevel;
+    expect(readSettings(noLevel).playerLevel).toBe("beginner");
+    expect(readSettings(noLevel).size).toBe(3);
+    expect(readSettings({ ...DEFAULT_SETTINGS, playerLevel: "expert" }).playerLevel).toBe(
+      "beginner",
+    );
+    expect(readSettings({ ...DEFAULT_SETTINGS, playerLevel: "experienced" }).playerLevel).toBe(
+      "experienced",
+    );
+
     const old: Record<string, unknown> = { ...DEFAULT_SETTINGS };
     for (const k of ["parts", "metronome", "clickVolume"]) delete old[k];
     const s = readSettings(old);

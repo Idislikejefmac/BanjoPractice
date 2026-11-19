@@ -5,6 +5,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { arrange, melodyTargets } from "../../src/core/banjo/arranger.ts";
+import { HAND_PROFILES } from "../../src/core/banjo/hand.ts";
 import { validate } from "../../src/core/banjo/validator.ts";
 import { indexAbc } from "../../src/core/song/abcIndex.ts";
 import { checkConsistency } from "../../src/core/song/song.ts";
@@ -119,7 +120,7 @@ K:G
 });
 
 describe("C6 arranger on random melodies (property)", () => {
-  it(`always returns a legal arrangement, or flags the measure it couldn't place (${RUNS} runs)`, () => {
+  it(`always returns a legal arrangement in a beginner's lanes, or flags the measure it couldn't place (${RUNS} runs)`, () => {
     fc.assert(
       fc.property(
         fc.array(fc.tuple(fc.constantFrom(...CHORDS), measureArb), { minLength: 1, maxLength: 8 }),
@@ -130,6 +131,12 @@ describe("C6 arranger on random melodies (property)", () => {
           const { arrangement, problems } = arrange(idx);
           expect(arrangement.measures).toHaveLength(idx.measures.length);
           expect(errors(arrangement.measures)).toEqual([]);
+          // Every pick in the beginner's lanes (hand.ts), fallbacks and backups included.
+          const lanes = HAND_PROFILES.beginner.strings;
+          const outOfLane = arrangement.measures.flatMap((m) =>
+            m.notes.filter((n) => n.finger && !lanes[n.finger].includes(n.string)),
+          );
+          expect(outOfLane).toEqual([]);
           // Anything not placed is reported, never silent.
           for (const p of problems) expect(p.message.length).toBeGreaterThan(0);
         },

@@ -13,9 +13,15 @@ import { indexAbc } from "../song/abcIndex.ts";
 import type { Song } from "../song/song.ts";
 import { SONG_SCHEMA_VERSION } from "../song/song.ts";
 import { serializeTab } from "../tab/tabText.ts";
-import { arrange } from "./arranger.ts";
-import { ROLLS, rollById, rollTitle } from "./rolls.ts";
+import { chordPitchClasses, parseChord } from "../music/chords.ts";
+import { scalePitchClasses } from "../music/keys.ts";
+import { mod12 } from "../music/notes.ts";
+import { arrange, droneClashes } from "./arranger.ts";
+import type { RollTemplate } from "./rolls.ts";
+import { ROLLS, rollById, rollSlice, rollTitle } from "./rolls.ts";
 import { OPEN_G, pitchAt } from "./tuning.ts";
+import type { ArrangedMeasure, StringNo } from "./types.ts";
+import { isLegal } from "./validator.ts";
 
 export const EXERCISE_PROGRESSIONS: readonly {
   label: string;
@@ -103,6 +109,57 @@ export const isChordChoice = (c: unknown): c is string =>
   EXERCISE_CHORD_CHOICES.some((o) => o.chord === c);
 
 const G_KEY = parseKey("G")!;
+const G_SCALE = scalePitchClasses(G_KEY);
+
+/**
+ * A measure of the roll on its own strings (the pattern its source teaches, e.g. the Foggy
+ * Mountain roll's 2 1 2 1 5 2 1 5), each fretted on a chord tone: the chord shape held under
+ * the roll. The thumb takes the 4th string where the open 5th would clash with the chord.
+ * The arranger only picks strings by its own preferences (the thumb on the 5th), which changed
+ * the patterns; its measure is kept wherever the roll's strings would break a C4 rule.
+ */
+function onRollStrings(
+  m: ArrangedMeasure,
+  roll: RollTemplate,
+  prev: ArrangedMeasure | undefined,
+): ArrangedMeasure {
+  const chord = parseChord(m.chords[0]?.chord ?? "G");
+  if (!chord || m.chords.length !== 1 || m.notes.length !== m.slots) return m;
+  const pcs = chordPitchClasses(chord);
+  const fingers = rollSlice(roll.fingers, m.slots);
+  const strings = rollSlice(roll.exampleStrings, m.slots);
+  const clash = droneClashes(pitchAt(OPEN_G, 5, 0), pcs, G_SCALE);
+  const fretOn = (s: StringNo): number | null => {
+    if (s === 5) return 0;
+    for (let fret = 0; fret <= 4; fret++) if (pcs.has(mod12(pitchAt(OPEN_G, s, fret)))) return fret;
+    return null;
+  };
+  const notes = [];
+  for (let slot = 0; slot < m.slots; slot++) {
+    const s: StringNo = strings[slot] === 5 && clash ? 4 : strings[slot]!;
+    const fret = fretOn(s);
+    if (fret === null) return m;
+    notes.push({
+      slot,
+      durationSlots: 1,
+      string: s,
+      fret,
+      finger: fingers[slot]!,
+      technique: "pick" as const,
+      isMelody: false,
+      isAccent: m.notes.find((n) => n.slot === slot)?.isAccent ?? false,
+    });
+  }
+  const out: ArrangedMeasure = { ...m, notes };
+  return isLegal(prev ? [prev, out] : [out]) ? out : m;
+}
+
+/** Every measure of an exercise or lesson on the roll's own strings, where the rules allow. */
+function rollStrings(measures: readonly ArrangedMeasure[], roll: RollTemplate): ArrangedMeasure[] {
+  const out: ArrangedMeasure[] = [];
+  for (const m of measures) out.push(onRollStrings(m, roll, out.at(-1)));
+  return out;
+}
 
 /** ABC pitch for a written MIDI note in G (key signature has F♯). */
 function abcPitch(midi: number): string {
@@ -147,9 +204,11 @@ export function rollExercise(rollId: string, chosen: ChordOverrides = {}): Song 
   const header = `X:1\nT:${rollTitle(roll)}\nM:4/4\nL:1/8\nQ:1/4=80\nK:G\n`;
   const idx = indexAbc(header + chordsOnly);
   const rollFor = new Map(idx.measures.map((m) => [m.index, roll.id]));
-  const result = arrange(idx, { overrides: rollFor });
+  // The roll as its source teaches it (the Foggy Mountain roll keeps its thumb on the 2nd
+  // string), not the beginner lanes used for songs.
+  const result = arrange(idx, { overrides: rollFor, level: "experienced" });
   // Open-strings part: right hand only, every note open.
-  const measures = result.arrangement.measures.map((m, i) =>
+  const measures = rollStrings(result.arrangement.measures, roll).map((m, i) =>
     i < EXERCISE_PROGRESSIONS[0]!.chords.length
       ? { ...m, notes: m.notes.map((n) => ({ ...n, fret: 0, technique: "pick" as const })) }
       : m,
@@ -204,7 +263,10 @@ K:G
 `;
   const idx = indexAbc(header + `"${c}"z8|"${c}"z8|`);
   const rollFor = new Map(idx.measures.map((m) => [m.index, roll.id]));
-  const measures = arrange(idx, { overrides: rollFor }).arrangement.measures;
+  const measures = rollStrings(
+    arrange(idx, { overrides: rollFor, level: "experienced" }).arrangement.measures,
+    roll,
+  );
   const bars = measures.map((m) => {
     const notes = Array.from({ length: m.slots }, (_, slot) => {
       const here = m.notes.filter((n) => n.slot === slot);

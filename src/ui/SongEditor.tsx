@@ -161,6 +161,7 @@ export function SongEditor({ store }: { store: AppStore }) {
   // view will show, in the shapes and capo C8 gives for the song's key.
   const abc = abcMode ? abcText : toAbc(song);
   const spikes = store.settings.value.spikes;
+  const level = store.settings.value.playerLevel;
   const live = useMemo(() => {
     try {
       const idx = indexAbc(abc);
@@ -168,13 +169,14 @@ export function SongEditor({ store }: { store: AppStore }) {
       const plan = planFor(idx.key, { spikes });
       const { result } = arrangeForPlan(abc, idx, plan, {
         overrides: abcMode ? new Map() : overridesOf(song),
+        level,
       });
       return { idx, plan, result, error: null };
     } catch (e) {
       const error = e instanceof Error ? e.message : String(e);
       return { idx: null, plan: null, result: null, error };
     }
-  }, [abc, abcMode, song, spikes]);
+  }, [abc, abcMode, song, spikes, level]);
   const problem = live.result?.problems.find((p) => p.measure === current + 1);
   const previewMeasures = live.result?.arrangement.measures.slice(
     Math.max(0, current - 1),

@@ -17,6 +17,8 @@ import { chordPitchClasses, parseChord } from "../music/chords.ts";
 import { scalePitchClasses } from "../music/keys.ts";
 import { mod12 } from "../music/notes.ts";
 import type { IndexedMeasure, SongIndex } from "../song/abcIndex.ts";
+import type { HandProfile, PlayerLevel } from "./hand.ts";
+import { extraTravel, handProfile } from "./hand.ts";
 import { ROLLS, rollSlice } from "./rolls.ts";
 import type { CapoPlan, Tuning } from "./tuning.ts";
 import { NO_CAPO, OPEN_G, pitchAt } from "./tuning.ts";
@@ -30,7 +32,7 @@ import type {
   TabNote,
   Technique,
 } from "./types.ts";
-import { ARRANGEMENT_SCHEMA_VERSION } from "./types.ts";
+import { ARRANGEMENT_SCHEMA_VERSION, FINGERS } from "./types.ts";
 
 /** Written melody sounds 12 semitones lower on the banjo (C9). */
 const NOTATION_OCTAVE = 12;
@@ -38,19 +40,16 @@ const MAX_FIRST_POSITION_FRET = 5;
 /** Fretted notes under one chord fit in four adjacent frets (C4 H5). */
 const MAX_REACH = 3;
 
-/** Finger → strings it may pick (guide §3 usual + occasionally; C4 H4). */
+/**
+ * Finger → strings it may ever pick (guide §3 usual + occasionally; C4 H4). The arranger itself
+ * uses the narrower lanes of the player's hand profile (hand.ts).
+ */
 export const STRINGS_FOR: Readonly<Record<Finger, readonly StringNo[]>> = {
   T: [5, 4, 3, 2],
   I: [2, 3, 4],
   M: [1, 2],
 };
 const RANK: Readonly<Record<Finger, number>> = { T: 3, I: 2, M: 1 };
-/** Each finger's home string, used to break ties for filler notes. */
-const HOME: Readonly<Record<Finger, readonly StringNo[]>> = {
-  T: [5, 3, 4, 2],
-  I: [2, 3, 4],
-  M: [1, 2],
-};
 
 export interface ArrangeWeights {
   missingMelody: number;
@@ -71,6 +70,8 @@ export interface ArrangeWeights {
   /** A missed melody note on a weak (odd) slot costs this fraction of missingMelody. */
   weakSlotMelody: number;
   pinchFill: number;
+  /** Per string beyond a finger's easy reach between two of its own picks (hand.ts). */
+  fingerTravel: number;
 }
 
 /** Soft-preference weights (guide §4.2). Tuned against the hand-written built-ins. */
@@ -89,6 +90,7 @@ export const DEFAULT_WEIGHTS: ArrangeWeights = {
   extraSlurs: 2,
   weakSlotMelody: 0.15,
   pinchFill: 1.5,
+  fingerTravel: 4,
 };
 
 export interface ArrangeOptions {
@@ -104,6 +106,8 @@ export interface ArrangeOptions {
   readonly rolls?: readonly string[];
   /** Candidates kept per measure for the cross-measure search. */
   readonly beam?: number;
+  /** The picking hand to write for (hand.ts). Default: a beginner. */
+  readonly level?: PlayerLevel;
 }
 
 export interface ArrangeProblem {
@@ -158,15 +162,20 @@ function allTemplates(): Template[] {
 
 const TEMPLATES = allTemplates();
 
-/** The templates for an allowed-rolls list (see ArrangeOptions.rolls). */
-function allowedTemplates(rolls: readonly string[] | undefined): readonly Template[] {
-  if (!rolls || rolls.length === 0) return TEMPLATES;
-  const ok = new Set(rolls);
-  const chosen = TEMPLATES.filter((t) =>
-    t.kind === "fill" ? true : t.name.split("+").every((id) => ok.has(id)),
-  );
-  // A list of ids we don't know would leave only fills: use every roll instead.
-  return chosen.some((t) => t.kind !== "fill") ? chosen : TEMPLATES;
+/**
+ * The templates for an allowed-rolls list (see ArrangeOptions.rolls). Rolls the hand profile
+ * leaves out are used only when the list names them.
+ */
+function allowedTemplates(
+  rolls: readonly string[] | undefined,
+  hand: HandProfile,
+): readonly Template[] {
+  const named = rolls && rolls.length > 0 ? new Set(rolls) : null;
+  const ok = (id: string) => (named ? named.has(id) : !hand.excludedRolls.includes(id));
+  const chosen = TEMPLATES.filter((t) => (t.kind === "fill" ? true : t.name.split("+").every(ok)));
+  // A list of ids we don't know would leave only fills: use the default rolls instead.
+  if (chosen.some((t) => t.kind !== "fill")) return chosen;
+  return named ? allowedTemplates(undefined, hand) : TEMPLATES;
 }
 
 // --- Melody simplification -----------------------------------------------------------------
@@ -304,7 +313,15 @@ interface SlotState {
   reset: boolean;
   /** Lowest and highest fretted note under the current chord (H5), or null if none yet. */
   span: Span | null;
+  /**
+   * The string each finger last picked in this measure (for finger travel, hand.ts). Not part of
+   * stateKey, to keep the search small: of two states that differ only here, the cheaper wins.
+   */
+  at: FingerStrings;
 }
+
+type FingerStrings = Readonly<Record<Finger, StringNo | null>>;
+const NOWHERE: FingerStrings = { T: null, I: null, M: null };
 
 type Span = readonly [lo: number, hi: number];
 
@@ -391,7 +408,9 @@ function measureOptions(
   m: IndexedMeasure,
   info: readonly SlotInfo[],
   w: ArrangeWeights,
+  hand: HandProfile,
 ): Option[] {
+  const lanes = hand.strings;
   const slots = m.slots;
   const tokens = rollSlice(tpl.tokens, slots);
   if (tokens.length !== slots) return [];
@@ -402,7 +421,16 @@ function measureOptions(
   // the cheapest state per key is ever built: most of the search's time went on building the
   // ones that were thrown away.
   let states: SlotState[] = [
-    { cost: 0, notes: null, slurs: 0, pick: null, last: null, reset: false, span: null },
+    {
+      cost: 0,
+      notes: null,
+      slurs: 0,
+      pick: null,
+      last: null,
+      reset: false,
+      span: null,
+      at: NOWHERE,
+    },
   ];
   for (let slot = 0; slot < slots; slot++) {
     const tok = tokens[slot]!;
@@ -455,7 +483,7 @@ function measureOptions(
           let s: StringNo = f === "M" ? 1 : f === "I" ? 2 : droneClash ? 4 : 5;
           let fret: number | null = null;
           if (target && !melodyPlaced) {
-            for (const cand of STRINGS_FOR[f]) {
+            for (const cand of lanes[f]) {
               const fr = melody[cand] ?? null;
               if (fr !== null) {
                 s = cand;
@@ -484,13 +512,20 @@ function measureOptions(
         let span: Span | null | undefined = span0;
         for (const n of notes) if (span !== undefined) span = widen(span, n.string, n.fret);
         if (span === undefined) continue;
-        const cost = st.cost + pinchCost + (target && !melodyPlaced ? miss : 0);
+        let travel = 0;
+        const at = { ...st.at };
+        for (const n of notes) {
+          travel += extraTravel(hand, n.finger!, st.at[n.finger!], n.string);
+          at[n.finger!] = n.string;
+        }
+        const cost =
+          st.cost + pinchCost + travel * w.fingerTravel + (target && !melodyPlaced ? miss : 0);
         // A pinch resets the hand: the next single note isn't restricted by H1 (C4 H9).
         const key = stateKey(true, st.pick, null, span);
         if (!wanted(key, cost)) continue;
         let cells = st.notes;
         for (const note of notes) cells = { note, prev: cells };
-        best.set(key, { ...st, cost, notes: cells, last: null, span, reset: true });
+        best.set(key, { ...st, cost, notes: cells, last: null, span, reset: true, at });
         continue;
       }
 
@@ -537,7 +572,8 @@ function measureOptions(
         if (span === undefined) return;
         const handMove =
           st.last && fret > 0 && st.last.fret > 0 ? Math.abs(fret - st.last.fret) * w.handMove : 0;
-        const cost = st.cost + noteCost + handMove;
+        const travel = extraTravel(hand, f, st.at[f], s) * w.fingerTravel;
+        const cost = st.cost + noteCost + handMove + travel;
         const pick = { finger: f, string: s };
         const last = { string: s, fret };
         const key = stateKey(false, pick, last, span);
@@ -560,10 +596,11 @@ function measureOptions(
           last,
           span,
           reset: false,
+          at: { ...st.at, [f]: s },
         });
       };
-      const home = HOME[f];
-      for (const s of STRINGS_FOR[f]) {
+      const home = lanes[f];
+      for (const s of home) {
         if (!pickOk(prevPick, f, s)) continue;
         const fr = melody[s] ?? null;
         if (fr !== null) {
@@ -681,6 +718,18 @@ function fallbackMeasure(
 
 // --- Whole song ------------------------------------------------------------------------------
 
+/** The string each finger picks first and last in a measure (null if it doesn't pick). */
+function fingerEnds(m: ArrangedMeasure): { first: FingerStrings; last: FingerStrings } {
+  const first: Record<Finger, StringNo | null> = { T: null, I: null, M: null };
+  const last: Record<Finger, StringNo | null> = { T: null, I: null, M: null };
+  for (const n of m.notes) {
+    if (!n.finger) continue;
+    first[n.finger] ??= n.string;
+    last[n.finger] = n.string;
+  }
+  return { first, last };
+}
+
 interface Candidate {
   readonly measure: ArrangedMeasure;
   readonly cost: number;
@@ -689,9 +738,11 @@ interface Candidate {
 export function arrange(index: SongIndex, opts: ArrangeOptions = {}): ArrangeResult {
   const tuning = opts.tuning ?? OPEN_G;
   const plan = opts.plan ?? NO_CAPO;
-  const w = { ...DEFAULT_WEIGHTS, ...opts.weights };
+  const hand = handProfile(opts.level);
+  const w = { ...DEFAULT_WEIGHTS, ...hand.weights, ...opts.weights };
   const beam = opts.beam ?? 16;
-  const allowed = allowedTemplates(opts.rolls);
+  const allowed = allowedTemplates(opts.rolls, hand);
+  const fillIns = allowedTemplates(undefined, hand);
   const scale = scalePitchClasses(index.key);
   const problems: ArrangeProblem[] = [];
   const dropped = new Map<number, number>();
@@ -712,7 +763,7 @@ export function arrange(index: SongIndex, opts: ArrangeOptions = {}): ArrangeRes
     const info = slotInfos(m, targets, parsed, startChord, tuning, plan, w, scale);
     const found: { tpl: Template; o: Option; cost: number }[] = [];
     for (const tpl of templates) {
-      for (const o of measureOptions(tpl, m, info, w)) {
+      for (const o of measureOptions(tpl, m, info, w, hand)) {
         found.push({ tpl, o, cost: o.cost + (isLast && tpl.name === "tag" ? -1 : 0) });
       }
     }
@@ -756,12 +807,13 @@ export function arrange(index: SongIndex, opts: ArrangeOptions = {}): ArrangeRes
     // joins). They cost a lot, so they're only used when nothing else fits.
     const firstFingers = new Set<string>();
     const noMelody = slotInfos(m, [], parsed, startChord, tuning, plan, w, scale);
-    // The allowed rolls come first; the others only fill in so a legal join always exists.
-    for (const tpl of [...allowed, ...TEMPLATES.filter((t) => !allowed.includes(t))]) {
+    // The allowed rolls come first; the others only fill in so a legal join always exists
+    // (rolls the hand profile leaves out stay out: rolls starting on T and M cover every join).
+    for (const tpl of [...allowed, ...fillIns.filter((t) => !allowed.includes(t))]) {
       if (tpl.kind === "fill" || firstFingers.size >= 3) continue;
       const first = rollSlice(tpl.tokens, m.slots)[0] ?? "";
       if (firstFingers.has(first)) continue;
-      const opt = measureOptions(tpl, m, noMelody, w)[0];
+      const opt = measureOptions(tpl, m, noMelody, w, hand)[0];
       if (!opt) continue;
       const measure: ArrangedMeasure = {
         index: m.index,
@@ -778,12 +830,13 @@ export function arrange(index: SongIndex, opts: ArrangeOptions = {}): ArrangeRes
     return unique;
   });
 
-  // 4: Viterbi over measures, joins checked with C4.
+  // 4: Viterbi over measures, joins checked with C4 and finger travel scored across them.
+  const ends = perMeasure.map((cands) => cands.map((c) => fingerEnds(c.measure)));
   type Cell = { cost: number; back: number };
   const table: Cell[][] = [];
   perMeasure.forEach((cands, i) => {
     table.push(
-      cands.map((c) => {
+      cands.map((c, k) => {
         if (i === 0) return { cost: c.cost, back: -1 };
         let best: Cell = { cost: Infinity, back: -1 };
         perMeasure[i - 1]!.forEach((p, j) => {
@@ -794,7 +847,14 @@ export function arrange(index: SongIndex, opts: ArrangeOptions = {}): ArrangeRes
           );
           if (!legal) return;
           const continuity = p.measure.rollName === c.measure.rollName ? w.sameRollAsBefore : 0;
-          const total = prevCost + c.cost + continuity;
+          const from = ends[i - 1]![j]!.last;
+          const to = ends[i]![k]!.first;
+          let travel = 0;
+          for (const f of FINGERS) {
+            const s = to[f];
+            if (s !== null) travel += extraTravel(hand, f, from[f], s);
+          }
+          const total = prevCost + c.cost + continuity + travel * w.fingerTravel;
           if (total < best.cost) best = { cost: total, back: j };
         });
         return best;

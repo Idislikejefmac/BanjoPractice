@@ -180,6 +180,37 @@ test("a song says which rolls are enabled, and its button opens the rolls panel"
   await expect(page.getByTestId("rolls-line")).toContainText("Forward, ");
 });
 
+test("the beginner / experienced switch changes the rolls and the generated tab (C6, guide §3.1)", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await openSong(page, "old-joe-clark");
+  // In this key the tab is generated (new shapes), so the hand it's written for matters.
+  await page.evaluate(() => window.__banjoTest!.store.updatePractice({ keyShift: 7 }));
+  const thumbOn2 = () =>
+    page.evaluate(
+      () =>
+        window
+          .__banjoTest!.player.tab()!
+          .measures!.flatMap((m) => m.notes)
+          .filter((n) => n.finger === "T" && n.string === 2).length,
+    );
+  const line = page.getByTestId("rolls-line");
+  // A beginner by default: no Foggy Mountain roll, the thumb never on the 2nd string.
+  await expect(line).not.toContainText("Foggy Mountain");
+  expect(await thumbOn2()).toBe(0);
+  await page.click('[data-action="settings"]');
+  await page.locator('button[name="playerLevel"]', { hasText: "An experienced player" }).click();
+  await page.click("text=Done");
+  await expect(line).toContainText("Foggy Mountain");
+  expect(await thumbOn2()).toBeGreaterThan(0);
+  // Kept as a setting across a reload.
+  await page.waitForTimeout(600);
+  await page.reload();
+  await page.waitForSelector("svg.tab");
+  await expect(page.getByTestId("rolls-line")).toContainText("Foggy Mountain");
+});
+
 test("every measure of a song names its chord, in bold letters", async ({ page }) => {
   await page.goto("/");
   await openSong(page, "wildwood-flower");

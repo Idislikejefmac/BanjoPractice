@@ -215,6 +215,21 @@ export function SettingsPage({ store, services }: { store: AppStore; services: S
           Spikes are small hooks beside the 5th string. Without them, the app tells you to tune the
           5th string up instead.
         </p>
+        <Choice
+          label="Tabs the app arranges are written for"
+          name="playerLevel"
+          value={s.playerLevel}
+          options={[
+            { value: "beginner", label: "A beginner" },
+            { value: "experienced", label: "An experienced player" },
+          ]}
+          onChange={(v) => store.updateSettings({ playerLevel: v })}
+        />
+        <p class="setting-help">
+          For a beginner, each finger keeps to its own strings (thumb on 5, 4 and 3, index on 2 and
+          3, middle on 1) and the rolls stay the ones beginners learn. An experienced player's tabs
+          may put the thumb on the 2nd string and use every roll. Tabs written by hand don't change.
+        </p>
         <Toggle
           name="keepAwake"
           label="Keep the screen on while a song is open"

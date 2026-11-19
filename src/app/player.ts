@@ -153,7 +153,7 @@ export class Player {
           .catch(() => undefined);
       }
     });
-    // Changing the key (or the rolls the arranger may use) while playing starts the song again
+    // Changing the key (or the rolls or hand the arranger writes for) while playing starts the song again
     // from the top, with the count-in, in the new key. Changing only the notes of the song (a
     // chord picked in an exercise) lets it play on: the new notes are used as each measure
     // comes round, so he can change a measure just ahead of where it is.
@@ -161,7 +161,7 @@ export class Player {
       const p = store.practice.value;
       const id = store.session.value.songId;
       const song = store.currentSong.value;
-      const tune = JSON.stringify([p.keyShift, p.rolls]);
+      const tune = JSON.stringify([p.keyShift, p.rolls, store.settings.value.playerLevel]);
       const content = JSON.stringify([song?.abc, song?.tab]);
       const prev = this.lastTune;
       this.lastTune = { id, tune, content };
@@ -226,6 +226,7 @@ export class Player {
       this.store.practice.peek().keyShift,
       this.store.settings.peek().spikes,
       this.store.practice.peek().rolls,
+      this.store.settings.peek().playerLevel,
     );
   }
 

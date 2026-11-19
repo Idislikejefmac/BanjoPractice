@@ -11,6 +11,8 @@
 
 import type { ArrangeResult } from "../banjo/arranger.ts";
 import { arrange } from "../banjo/arranger.ts";
+import type { PlayerLevel } from "../banjo/hand.ts";
+import { DEFAULT_PLAYER_LEVEL } from "../banjo/hand.ts";
 import type { PositionPlan } from "../banjo/position.ts";
 import { planFor } from "../banjo/position.ts";
 import type { CapoPlan } from "../banjo/tuning.ts";
@@ -71,6 +73,8 @@ export function arrangeForPlan(
   opts: {
     readonly overrides?: ReadonlyMap<number, string>;
     readonly rolls?: readonly string[] | null;
+    /** The picking hand to write for (hand.ts); default a beginner. */
+    readonly level?: PlayerLevel;
   } = {},
 ): ShapeArrangement {
   const toShape = mod12(pitchClass(plan.shapeKey.tonic) - pitchClass(index.key.tonic));
@@ -83,6 +87,7 @@ export function arrangeForPlan(
     plan: shapePlan(plan),
     ...(opts.rolls ? { rolls: opts.rolls } : {}),
     ...(opts.overrides ? { overrides: opts.overrides } : {}),
+    ...(opts.level ? { level: opts.level } : {}),
   });
   return { abc: movedAbc, index: moved, result };
 }
@@ -93,6 +98,7 @@ function arrangeCached(
   loaded: LoadedSong,
   plan: PositionPlan,
   rolls: readonly string[] | null,
+  level: PlayerLevel,
 ): ShapeArrangement {
   const { song } = loaded;
   const key = [
@@ -102,11 +108,13 @@ function arrangeCached(
     shapePlan(plan).fifth.semitones,
     JSON.stringify(song.overrides ?? {}),
     rolls ? [...rolls].sort().join(",") : "all",
+    level,
   ].join(":");
   let r = cache.get(key);
   if (!r) {
     r = arrangeForPlan(song.abc, loaded.index, plan, {
       rolls,
+      level,
       ...(song.overrides
         ? {
             overrides: new Map(
@@ -148,6 +156,8 @@ export function practiceArrangement(
   spikes: readonly number[],
   /** Roll ids the auto-arranger may use; null = all. Hand-written tabs are left as they are. */
   rolls: readonly string[] | null = null,
+  /** The picking hand the auto-arranger writes for (hand.ts). */
+  level: PlayerLevel = DEFAULT_PLAYER_LEVEL,
 ): PracticeArrangement {
   const hand = handTab(loaded);
   const plan = practicePlan(loaded, keyShift, spikes);
@@ -162,7 +172,7 @@ export function practiceArrangement(
       arrangeResult: null,
     };
 
-  const r = arrangeCached(loaded, plan, rolls);
+  const r = arrangeCached(loaded, plan, rolls, level);
   return {
     plan,
     measures: r.result.arrangement.measures,

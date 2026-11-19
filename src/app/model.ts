@@ -2,6 +2,8 @@
 // The validators back invariant I7 (every stored record parses at the current schema) and
 // make loading defensive: a corrupt record is replaced by defaults, never crashes the app.
 
+import type { PlayerLevel } from "../core/banjo/hand.ts";
+import { DEFAULT_PLAYER_LEVEL } from "../core/banjo/hand.ts";
 import type { ChordOverrides } from "../core/banjo/exercises.ts";
 import { validChordPatterns } from "../core/banjo/chordPatterns.ts";
 import type { ChordPattern } from "../core/banjo/chordPatterns.ts";
@@ -102,6 +104,8 @@ export interface Settings {
   readonly fretNumbering: FretNumbering;
   /** 5th-string spike frets (C2). Default none. */
   readonly spikes: readonly number[];
+  /** The picking hand auto-arranged tabs are written for (C6, guide §3.1). */
+  readonly playerLevel: PlayerLevel;
   /** Keep the screen awake while a song is open (F12). */
   readonly keepAwake: boolean;
   readonly melodyInstrument: MelodyInstrumentId;
@@ -137,6 +141,7 @@ export const DEFAULT_SETTINGS: Settings = {
   colorBadges: true,
   fretNumbering: "actual",
   spikes: [],
+  playerLevel: DEFAULT_PLAYER_LEVEL,
   keepAwake: true,
   melodyInstrument: "violin",
   visualMetronome: true,
@@ -207,6 +212,7 @@ export function settingsProblems(v: unknown): string[] {
   if (!Array.isArray(v.spikes) || !v.spikes.every((s) => isInt(s) && s >= 6 && s <= 22)) {
     p.push("spikes");
   }
+  if (v.playerLevel !== "beginner" && v.playerLevel !== "experienced") p.push("playerLevel");
   if (!["violin", "flute", "mandolin"].includes(v.melodyInstrument as string)) {
     p.push("melodyInstrument");
   }

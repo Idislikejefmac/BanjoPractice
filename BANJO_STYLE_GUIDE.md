@@ -67,6 +67,42 @@ Notes for the arranger:
 - **The middle finger stays on the 1st string** for beginners and nearly all Scruggs patterns. The middle finger on the 3rd string is effectively never seen.
 - **The thumb owns the 5th string.**
 
+### 3.1 A beginner's hand (decided 2026-11-19)
+
+**Why.** Dad's banjo teacher looked at the app's generated tabs and said some thumb moves, like going from the 5th string to the 2nd, are beyond a beginner. An expert could do them, but would avoid them at speed. Before this change, 34 thumb jumps of three strings and 22 thumb notes on the 2nd string were spread through Dad's 17 songs.
+
+**What the literature says.**
+
+- **No published heuristic gives a number** for how far a picking finger may move between notes in Scruggs style. The fingering research that exists is about the guitar's fretting hand. Sayegh (1989), Radicioni et al. (2004) and Hori and Sagayama treat fingering as a shortest path with a cost on each transition, which is how the arranger already works (C6). The banjo rule below comes from what teachers say and from the rolls they teach.
+- **Each finger has its own strings.** Beginner lessons have the middle finger on the 1st string, the index on the 2nd and the thumb on the rest. One Banjo Hangout teacher tells a raw beginner that the middle finger only plays the 1st string. The 3rd string goes to the thumb or the index depending on the roll.
+- **The hand doesn't travel.** The ring and/or little finger rest on the head as an anchor, so each finger reaches only the strings near where it hangs (Mickey Cochran's lesson: "the right hand will now pivot from the little finger which remains stationary on the head").
+- **The thumb on the 2nd string is the hard move.** The Foggy Mountain roll exists to put it there, and lessons on it single out the thumb crossing to the 2nd string as the move to practise slowly on its own (Tony Trischka, ArtistWorks; Lynda's Foggy Mountain roll lesson).
+- **The rolls a beginner learns never need it.** In Deering's four essential rolls the thumb plays only strings 5, 4 and 3, and moves at most two strings between its own notes (3 → 5 in the forward-reverse and alternating-thumb rolls). The index plays only 2 and 3, and the middle only 1.
+
+**The rule (`src/core/banjo/hand.ts`).** Generated tabs are written for a hand profile, **beginner by default**, switched in Settings → Banjo:
+
+| Profile | Thumb | Index | Middle | Easy move between a finger's own notes | Rolls left out |
+| --- | --- | --- | --- | --- | --- |
+| Beginner | 5, 4, 3 | 2, 3 | 1 | thumb 2 strings, index 1 | Foggy Mountain (the thumb on 2nd); index-leading (no teacher teaches it) |
+| Experienced | 5, 4, 3, 2 | 2, 3, 4 | 1, 2 | thumb 2 strings, index 1, middle 1 | none |
+
+- **Lanes are hard for the profile.** The arranger never puts a finger on a string outside its lane, so a beginner's thumb can't reach the 2nd string at all. A melody note it can't reach is played by another finger or another string, or left out (it costs like any missed melody note).
+- **Long jumps cost.** In both profiles, every string beyond the easy move costs `fingerTravel`, and the cost is checked across bar lines too. In the beginner profile the lanes already keep every move easy. In the experienced one this turns a 5-to-2 thumb jump from free into a last resort.
+- **A beginner stays on one roll.** Staying on the same roll as the measure before is worth more (−1, against −0.4), and splicing half of one roll onto half of another earns nothing.
+- **Explicit choices win.** A song's roll list can still name a left-out roll, which then is used, but in the beginner's lanes. Roll exercises and lessons use the experienced profile, because they teach the roll as its source plays it. C4's H4 still allows the guide's full "usual" and "occasionally" columns, so hand-written tabs aren't held to a beginner's lanes.
+
+Effect on Dad's 17 songs (789 measures), before → after:
+
+- Thumb on the 2nd string: 22 → 0.
+- Index on the 4th string: 196 → 0.
+- Middle on the 2nd string: 72 → 0.
+- A finger jumping three or more strings: 34 → 0.
+- Melody notes placed: 1,675 → 1,632 (2.6% fewer).
+- Every measure still places.
+- The roll-continuity weights alone (measured with and without them) cut half-roll measures from 112 to 67 and roll changes from 304 to 278, for 12 of those melody notes.
+
+The experienced profile places 1,676 melody notes. It has no jumps of three strings and 4 thumb notes on the 2nd string, against 34 and 22 before.
+
 ---
 
 ## 4. Rules for picked notes
@@ -312,3 +348,4 @@ Keep the validator (§4.1) as a pure function: `validate(measures: ArrangedMeasu
 - [ArtistWorks: Banjo Roll Trainer](https://go.artistworks.com/banjo-roll-trainer): Foggy Mountain roll pattern.
 - [Banjo Hangout: which finger plays the 3rd string](https://www.banjohangout.org/topic/409119): finger-string conventions.
 - [Wikipedia: Banjo roll](https://en.wikipedia.org/wiki/Banjo_roll).
+- §3.1 (a beginner's hand): [Banjo Hangout: which finger plays the 3rd string](https://www.banjohangout.org/topic/409119) (middle finger on the 1st string only for a raw beginner); [Mickey Cochran, Lesson 1c: Right-hand positioning](https://creekdontrise.com/tabs_instr/banjo_tabs/mc_5_string/mc_five_string_lesson_1c.htm) (the hand pivots on the anchored little finger); [ArtistWorks: Tony Trischka on the Foggy Mountain roll](https://blog.artistworks.com/?p=1031) and [Lynda: Foggy Mountain Breakdown roll](https://lynda.com/Audio-Music-tutorials/Foggy-Mountain-Breakdown-roll/503755/516111-4.html) (the thumb crossing to the 2nd string is the move to practise); [Dummies: Foggy Mountain rolls](https://www.dummies.com/art-center/music/banjo/how-to-play-foggy-mountain-rolls-on-the-bluegrass-banjo/); fingering as a shortest path with transition costs (Sayegh 1989; Radicioni et al. 2004; Hori and Sagayama), surveyed in [MIDI-to-Tab (2024)](https://arxiv.org/html/2408.05024v1). Dad's teacher's comment, 2026-11.

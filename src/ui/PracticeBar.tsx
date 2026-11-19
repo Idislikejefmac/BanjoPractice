@@ -8,6 +8,7 @@ import type { AppStore, PracticePanel } from "../app/store.ts";
 import type { MetronomeMode, PartId, PracticePrefs } from "../app/model.ts";
 import { DEFAULT_TEMPO, TEMPO_MAX, TEMPO_MIN } from "../app/model.ts";
 import { MELODY_INSTRUMENTS } from "../audio/engine.ts";
+import { defaultRollIds } from "../core/banjo/hand.ts";
 import { ROLLS } from "../core/banjo/rolls.ts";
 import { songParts } from "../core/playback/parts.ts";
 import { practicePlan } from "../core/song/practiceArrangement.ts";
@@ -102,6 +103,8 @@ export function PracticeBar({ store, player }: { store: AppStore; player: Player
   const playing = state !== "stopped";
   const set = (patch: Partial<PracticePrefs>) => store.updatePractice(patch);
   // Measures the arranger couldn't fit into the chosen rolls (shown in the Rolls panel).
+  const defaultRolls = defaultRollIds(settings.playerLevel);
+  const beginner = settings.playerLevel === "beginner";
   const unfitted = panel === "rolls" ? (player.tab()?.arrangeResult?.problems.length ?? 0) : 0;
   const allKeys = Array.from({ length: 12 }, (_, shift) => {
     const plan = practicePlan(loaded, shift, settings.spikes);
@@ -581,7 +584,7 @@ export function PracticeBar({ store, player }: { store: AppStore; player: Player
               </p>
               <div class="button-row">
                 {[
-                  { label: "Every roll", ids: null },
+                  { label: beginner ? "Beginner rolls" : "Every roll", ids: null },
                   { label: "Forward and reverse", ids: ["forward", "forward-reverse"] },
                   { label: "Forward only", ids: ["forward"] },
                 ].map((preset) => {
@@ -607,7 +610,7 @@ export function PracticeBar({ store, player }: { store: AppStore; player: Player
               <fieldset class="setting-row choice">
                 <legend>Rolls to use</legend>
                 {ROLLS.map((r) => {
-                  const on = p.rolls === null || p.rolls.includes(r.id);
+                  const on = (p.rolls ?? defaultRolls).includes(r.id);
                   return (
                     <label key={r.id} class="setting-row">
                       <input
@@ -616,11 +619,14 @@ export function PracticeBar({ store, player }: { store: AppStore; player: Player
                         value={r.id}
                         checked={on}
                         onChange={() => {
-                          const now = p.rolls ?? ROLLS.map((x) => x.id);
+                          const now = p.rolls ?? defaultRolls;
                           const next = on ? now.filter((id) => id !== r.id) : [...now, r.id];
-                          // Keep at least one roll; all of them again is the same as "every roll".
+                          // Keep at least one roll; the beginner's set again is the same as null.
                           if (next.length === 0) return;
-                          set({ rolls: next.length === ROLLS.length ? null : next });
+                          const same =
+                            next.length === defaultRolls.length &&
+                            defaultRolls.every((id) => next.includes(id));
+                          set({ rolls: same ? null : next });
                         }}
                       />
                       <span>
@@ -636,6 +642,14 @@ export function PracticeBar({ store, player }: { store: AppStore; player: Player
                   {unfitted === 1
                     ? "1 measure can't fit the melody into these rolls, so it is a plain roll on the chord."
                     : `${unfitted} measures can't fit the melody into these rolls, so they are plain rolls on the chord.`}
+                </p>
+              )}
+              {beginner && (
+                <p class="hint">
+                  The beginner rolls leave out the Foggy Mountain roll (the thumb on the 2nd string)
+                  and the index-leading roll; tick them to use them. Fingers keep to their own
+                  strings: thumb on 5, 4 and 3, index on 2 and 3, middle on 1. Settings → Banjo
+                  changes this.
                 </p>
               )}
               <p class="hint">
