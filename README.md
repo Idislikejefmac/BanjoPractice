@@ -13,9 +13,10 @@ A practice app for a 5-string banjo in three-finger Scruggs style: pick a song, 
 
 ## Status
 
-Every phase (0–6) is built and runs on **staging**. Production (Dad's URL) still serves the
-phase-0 placeholder until the iPad checklist (CHAOS_TESTING.md §7) is done and someone runs
-*Promote to production*. Phase details: DEVELOPMENT.md §9.
+Every phase (0–6) is built and runs on **staging**. Production (Dad's URL) serves the commit
+the `production` tag points at (`718d551` since 2026-11-19), and moves only when someone runs
+*Promote to production* after the iPad checklist (CHAOS_TESTING.md §7). Current state and open
+work: [HANDOFF.md](HANDOFF.md). Phase details: DEVELOPMENT.md §9.
 
 | Phase | Built | Waiting on people |
 | --- | --- | --- |

@@ -1,138 +1,108 @@
-# Handoff: Dad's songs transcribed, multi-verse playback fix (2026-11-09)
+# Handoff: where things stand (updated 2026-11-24)
 
-Work done on a second Windows machine where npm is blocked by IT policy (no Node, so no tests,
-no `npm run verify`). This file brings the main development machine to the same place. **Do the
-steps in "Next steps" in order.** Delete this file (or move its lasting parts into README, TODO
-or DEVELOPMENT.md) once they're done.
+Read this first in a new session. It tells you what is done, the rules that are easy to miss,
+and what is still open. **Before ending a session, update this file**: the date above, "Where
+things stand", "Recently done" (keep about ten entries) and the open lists. Lasting decisions
+belong in DEVELOPMENT.md §16 or BANJO_STYLE_GUIDE.md; this file only points at them.
 
-## What happened
+## Where things stand
 
-1. **All 17 songs from Dad's bluegrass songbook were transcribed to ABC** from photos of the
-   printed pages: melody, chord symbols and words, never from memory (CLAUDE.md rule). They live
-   in a separate **private** repository, not here (see below).
-2. **A playback bug was found and fixed** on branch `multi-pass-endings`, **not yet tested or
-   merged**: most of these songs have three or four verses, and playback couldn't play them.
-3. `songs/STATUS.md` now says where the private songs live (already on `main`).
+- **main** = `3f1690b` (2026-11-19). Every phase 0–6 is built (README "Status" table) and the
+  learning phases L1–L3 have shipped (LEARNING_SPEC.md §8). The last full tier (`npm run check
+  -- --tier full`) passed on `f0465c3`: 168 e2e, 50 chaos, 0 failed. `3f1690b` passed the
+  feature tier.
+- **Staging** (`/staging/`) builds from every push to main.
+- **Production (Dad's URL)** builds from the **`production` tag**, pinned 2026-11-19 to
+  `718d551` (before the beginner-hand change). Before that there was no tag, so production
+  was following main. Only Jeff runs *Actions → Promote to production*, after checking staging
+  on the iPad. **Never promote, and never move or delete the tag yourself.**
+- **Uncommitted, not ours: leave alone.** In this repo: `.claude/`, `banjo-songs-abc.md`,
+  `scripts/yt_transcript.py`. In `sheet-music/` (the private repo): `compendium/`,
+  `transcripts/`, `photos/20261115_121459.jpg` (Dad's roll page). Ask Jeff before committing
+  these to the private repo.
 
-## The private songs repository
+## Rules (full versions in CLAUDE.md and memory)
 
-`https://github.com/Idislikejefmac/BanjoPractice-Songs` (**private**; never make it public, since
-most songs and the book's arrangements are copyrighted, and Dad owns the book: personal use
-only). This repository (BanjoPractice) is public and serves GitHub Pages, so song content must
-never be committed here.
+- **Staging only.** Commit and push to main after a verified milestone; never promote.
+- **No guessed songs.** Melodies, words and tabs come only from Dad's sheet music or a verified
+  public-domain printing, never from memory. **Song content never goes in this public repo**:
+  Dad's songs live in the private repo, cloned as `sheet-music/`
+  (`https://github.com/Idislikejefmac/BanjoPractice-Songs`, never make it public).
+- **Sources over rules.** Where first-tier sources (Deering, Jens Kruger, Tony Trischka, then
+  Dad's own page) define something that breaks one of our heuristics, keep the sources' version
+  and say so on screen (e.g. the Foggy Mountain roll's "Advanced:" note, guide §3.1). Don't bend
+  confirmed material to fit a rule.
+- **Tests.** Use `npm run check` (it picks the tier from what changed; `--dry` says why). Run
+  the full tier before pushing anything big. Run browser suites only through the runner and
+  never pipe them through `tail`. Every bug fix gets a regression test.
+- **Stuck?** After two failed fixes, or when a design needs rework, have Opus or Fable audit
+  it in a worktree. Give it the goal only, not your hypothesis.
+- **Code:** `src/core/**` is pure TS (`.ts` imports, `import type`); platform APIs only through
+  `src/platform/types.ts`. Slots are 0-based in code and 1-based on screen.
 
-Clone it as `sheet-music/` inside this folder (already git-ignored here):
+## Recently done
 
-```sh
-git clone https://github.com/Idislikejefmac/BanjoPractice-Songs.git sheet-music
-```
+- 2026-11-19 `3f1690b` Rolls outside a beginner's lanes get an "Advanced: …" note
+  (`advancedNote` in `hand.ts`). Only Foggy Mountain has one (the thumb on the 2nd string).
+- 2026-11-19 `f0465c3` **Beginner hand** (guide §3.1, `src/core/banjo/hand.ts`). Dad's teacher
+  said the 5th-to-2nd-string thumb jumps were expert-only. Generated tabs keep each finger to its
+  lane (thumb 5/4/3, index 2/3, middle 1), long moves cost, and Foggy Mountain and index-leading
+  are left out unless chosen. Settings → Banjo → "Tabs the app arranges are written for"
+  (beginner by default / experienced). Roll exercises and lessons now play each roll's own
+  strings (7 of 9 didn't).
+- 2026-11-15 Dad's handwritten roll page compared with the library; waltz bars fixed (`b39cedf`).
+  Lessons (F47) with first-tier sources (`8f81fd9`).
+- 2026-11-14 Roll lesson Learn / Full switch (F36/F37), saved chord patterns (F46), notation
+  chord-label fixes, an iPad audio-resume timeout.
+- 2026-11-11 Learning phases L1–L3, seventh chords in the exercises (F45), a shorter control bar.
+- 2026-11-09/10 Multi-verse playback (`[1,2` / `[3` endings), lyric placement fixes, per-song
+  roll choice, a singing voice, notation fills the column width, a faster arranger.
 
-| Path in it | What |
-| --- | --- |
-| `songs/<id>.abc` | 17 songs. `N:` lines give the form, Dad's pencil notes and every `N:Uncertain` reading |
-| `photos/` | The 20 photos the songs were transcribed from (`S:` in each song names its photo) |
-| `tools/abccheck.py` | Python checker used on the machine without Node: bar lengths and word alignment (see below) |
-| `CHECKLIST.md` | Every uncertain reading and transcription choice, as a checklist to tick off |
-| `README.md` | Layout, use, transcription rules |
+## Outstanding tasks
 
-Songs: Angel Band, Dark Hollow, Fox on the Run, Head Over Heels in Love with You, I'll Fly Away,
-In Tall Buildings, In the Pines, Keep on the Sunny Side, Kentucky Waltz, Long Journey Home,
-Mountain Dew, My Home's Across the Blue Ridge Mountains, Rocky Top, Roll in My Sweet Baby's
-Arms, Salty Dog Blues, The Long Black Veil, Wayfaring Stranger.
+1. **Dad's songs (private repo):** work through `sheet-music/CHECKLIST.md` (24 items, none
+   ticked) against the photos, look at each song in the app (words under the right notes, every
+   verse plays), then rebuild the pack with `node scripts/make-song-pack.ts` (the last one is
+   from 2026-11-09, before many app fixes) and load it on the iPad with Settings → Restore from a
+   backup.
+2. **Move the lyric-alignment check** from `sheet-music/tools/abccheck.py` into
+   `scripts/make-song-pack.ts`, so it runs everywhere.
+3. **Built-in songs waiting for sources** (`songs/STATUS.md`): Cripple Creek and Old Joe Clark
+   need Dad's sheet music; Wildwood Flower and Will the Circle Be Unbroken have public-domain
+   sources found but aren't transcribed yet.
+4. **iPad checks before any promotion** (Jeff): the CHAOS_TESTING.md §7 checklist, S1 (sound),
+   S3 (silent switch, calls, Bluetooth), S6 (tuner on a real banjo), and a look at the
+   beginner-hand tabs on staging.
+5. **Learning phases L4–L5** (LEARNING_SPEC.md §5): the F38 chord-tones card, the F44 chooser,
+   the F42 mastery map, and the F40 quiz (ask Dad first). Also left over from L1: a classifier
+   test over the built-in songs.
+6. **Proposed ideas, not committed** (DEVELOPMENT.md §7 "Ideas still only proposed"): Jeff or Dad
+   to accept or cut.
 
-## The playback fix (branch `multi-pass-endings`)
+## Open questions for Jeff and Dad
 
-**Bug:** `src/core/playback/order.ts` only recognised a first ending labelled exactly `"1"`
-and always played a repeat twice. A song written `|: verse … [1,2 … :|[3 …` (three verses) or
-`[1,2,3 … :|[4` (four) would play only two passes, and the `[1,2` ending wasn't treated as a
-first ending at all. `parts.ts` (F26 part detection) and `repeatEdges` in `song.ts` (C4 join
-checks) compared labels with `"1"`/`"2"` the same way.
+- **Forward/Reverse roll:** Dad's page has T M T I M I T M; Deering, Trischka and Kruger give
+  T I M T M I T M. Which does he play? (guide §5 table; pinned in `tests/unit/dadsPage.test.ts`)
+- What did the teacher think of the beginner-hand tabs? Any moves still too hard, or rolls
+  missing?
+- Which 5th-string spikes does his Deering Goodtime Artisan have (frets 7, 9, 10)? Does he want
+  a Bluetooth page-turner pedal? (DEVELOPMENT.md §14)
+- Dad to rate two generated arrangements "playable" (phase 3 exit), and to enter one song in
+  the editor unaided (phase 5 exit).
+- LEARNING_SPEC.md §6: a one-line rule beside the picture, or the picture alone? Is 3 "Got it"
+  in a row right for fading a step? Is a quiz welcome?
+- The `sheet-music/CHECKLIST.md` readings (for example Long Black Veil's last note, B or C♯).
 
-**Fix:**
-- New `endingPasses(label)` in `order.ts`: `"1"` → [1], `"1,2"` → [1,2], `"1-3"` → [1,2,3];
-  unreadable labels count as pass 1. `isFirstEnding(measure)` = an ending that plays on pass 1.
-- `playbackOrder` plays a repeated section as many times as its ending labels name (minimum 2).
-  An ending before the `:|` runs to the next ending or the `:|` and plays only on its passes;
-  endings right after the `:|` play on the last pass, which then carries on.
-- `parts.ts` and `song.ts` use `isFirstEnding` instead of comparing with `"1"`/`"2"`.
-- New tests in `tests/unit/playback.test.ts`: three passes for `[1,2 … :|[3`, a two-measure
-  ending skipped on pass 4 of `[1-3 … :|[4`, and the label parser. The two existing order tests
-  were traced by hand against the new code and should still pass. **Nothing has been run.**
+## Things learned the hard way
 
-## Things learned that aren't written down elsewhere
-
-- **A note tied from the previous note takes no lyric syllable** in the songs' `w:` lines, as in
-  printed music. In `w:` lines, don't put `_` on a tied-to note: the hold moves onto the next
-  note and every later word shifts one note late. *(Correction, 2026-11-09: abcjs itself does
-  NOT skip tied notes; it hands them the next word. The app now moves the words back onto the
-  next note that starts a sound in `abcIndex.ts` (`skipTiedNotes`), and `lyricLines` writes an
-  explicit `*` for tied notes. Tests in `tests/unit/lyrics.test.ts`. So `tools/abccheck.py`'s
-  rule is the right one for the songs, and the app now agrees with it.)*
-- **A later verse with words only in an ending** (Head Over Heels, Roll in My Sweet Baby's Arms,
-  The Long Black Veil) used to be read as verse 1, because abcjs stops adding blank entries once
-  a `w:` line's words run out. `abcIndex.ts` now parses each verse on its own (`verseLyrics`).
-- **In `w:` lines, `|` means "move past the next bar line"**, not "one segment per bar": a pickup
-  can share a segment with the bar after it, and `|||Now` puts "Now" in the fourth bar.
-- **A hyphen always splits a syllable**, even without a space (`cap-tain` is two notes; write
-  `captain` for one note). `~` joins several words onto one note (`he~said~he`).
-- **D.S. / D.C. / Coda aren't followed by playback**, so the transcriptions write the sung form out
-  with repeats and endings (each song's `N:` lines describe its printed form).
-- **The `make-song-pack.ts` check doesn't catch lyric misalignment**: it checks the ABC reads and
-  the tab follows the rules. `tools/abccheck.py` in the songs repo checks words against notes.
-- Song conventions used in all 17 files: `M:2/2` for cut time, `L:1/8`, chords where they change,
-  one `w:` line per verse under the same notes, `"^Chorus"` as a text label (not `P:`), ties
-  inside a bar written as one longer note, instrumental slash bars and "solo over verse" left out.
-  `In Tall Buildings` changes key with an inline `[K:E]`.
-
-## Readings to check against the book (each is also an `N:Uncertain` line in its song)
-
-The full list, with checkboxes, is **`sheet-music/CHECKLIST.md`** in the private songs repo (it
-includes word readings and transcription choices too). The main ones:
-
-| Song | Check |
-| --- | --- |
-| The Long Black Veil | Last held note: B or C♯ |
-| Wayfaring Stranger | Bars 10–12: D7 carries on (no main chord printed), maybe Dm meant; middle bar of the coda (moderate confidence) |
-| Keep on the Sunny Side | Chorus bar 13: C or B |
-| Roll in My Sweet Baby's Arms | The eighth on "the" in "shack 'til the": C or B |
-| Head Over Heels | Coda "love" eighth has no flat, the chorus has B♭: probably a missing accidental in the book |
-| Kentucky Waltz | Bar 9 has an eighth too many for 3/4 (written as a triplet; Dad pencilled "3"); bar 29's printed sharp read as B♯ |
-| Angel Band | Chorus bar 15: D or E; bar 19: F or G |
-| Rocky Top | Chorus "me." whole note: E or F |
-| Fox on the Run | The book's two printed choruses differ in two bars; both kept as printed |
-
-## Progress (2026-11-09, main machine)
-
-Steps 1–3 below are **done**: both repositories fetched, `multi-pass-endings` verified (the
-fix passed as written) and merged. While testing, the tie rule above turned out wrong in the
-app, and a verse-in-ending bug showed up; both are fixed and tested (294 unit tests, build and
-bundle check pass; Playwright and chaos suites not re-run yet). A script that compares each
-song's typed words with the placed words now shows all 17 songs in order. **Still to do: steps
-4–7** (look at each song in the app, work through `CHECKLIST.md`, build the pack for Dad).
-`node_modules` in this folder was left half-deleted by a failed `npm ci` (a leftover esbuild
-process from a stopped chaos run held a lock); until it is cleared, verify from the separate
-worktree `../BanjoPractice-verify` or fix the install after the leftover processes exit.
-
-## Next steps (in order)
-
-1. **Get both repositories:**
-   ```sh
-   git pull                           # main: STATUS.md note and this file
-   git fetch origin multi-pass-endings
-   git clone https://github.com/Idislikejefmac/BanjoPractice-Songs.git sheet-music
-   ```
-2. **Test the fix:** `git switch multi-pass-endings`, `npm ci`, `npm run verify`. Fix anything that
-   fails (the code was written without running it). Add a test that **pins the tie rule**:
-   `indexAbc` of a measure `G4 G4-|G4 A4` with `w:a b|c` puts "c" on the A, not the tied G.
-3. **Merge** `multi-pass-endings` into `main` and push (this deploys staging).
-4. **Check the songs with the app's own loader:** `node scripts/make-song-pack.ts`. It lists every
-   song with ✓/✗; fix any ✗ in `sheet-music/songs/` and commit/push in that repository.
-5. **Look at each song in the app** (`npm run dev`): notation, words under the right notes, and
-   playback through every verse (three or four passes where the song has `[1,2`/`[1,2,3`
-   endings). Work through `sheet-music/CHECKLIST.md` against the photos.
-6. **Build the pack for Dad:** `node scripts/make-song-pack.ts` writes
-   `sheet-music/dads-songs-YYYY-MM-DD.json` (git-ignored). Send it to the iPad and load it with
-   **Settings → Restore from a backup**. Do this only after step 3, or the multi-verse songs
-   play wrong.
-7. Consider moving the lyric-alignment check into `make-song-pack.ts` (port `tools/abccheck.py`'s
-   word-flow check to TypeScript using the indexed melody), so it runs everywhere.
+- **Production builds from the `production` tag if it exists, otherwise from main.**
+  `promote.yml` moves the tag. The deploy log prints the tag object's id, not the commit's.
+- **Song transcription conventions** (all 17 files): `M:2/2` for cut time, `L:1/8`, one `w:`
+  line per verse, `"^Chorus"` text labels, D.S./D.C. written out as repeats and endings.
+  `In Tall Buildings` changes key inline. A tied-to note takes no syllable. In `w:` lines `|`
+  means "skip to the next bar", a hyphen always splits a syllable, and `~` joins words onto one
+  note.
+- `make-song-pack.ts` checks that the ABC reads and the tab is legal, **not** the word
+  alignment.
+- A stopped Playwright run can leave `vite preview` on ports 4173–4175 and an esbuild process
+  holding `node_modules`. The runner clears the ports; kill a leftover esbuild before `npm ci`.
