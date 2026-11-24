@@ -5,6 +5,24 @@ and what is still open. **Before ending a session, update this file**: the date 
 things stand", "Recently done" (keep about ten entries) and the open lists. Lasting decisions
 belong in DEVELOPMENT.md §16 or BANJO_STYLE_GUIDE.md; this file only points at them.
 
+## Starting a session (any machine)
+
+Bring both repositories up to date before doing anything else:
+
+```sh
+git pull                    # this app (public)
+git -C sheet-music pull     # Dad's songs and notes (private); see below if missing
+```
+
+If `sheet-music/` doesn't exist yet (a new machine), clone it into this folder (it is
+git-ignored here):
+
+```sh
+git clone https://github.com/Idislikejefmac/BanjoPractice-Songs.git sheet-music
+```
+
+Then `npm ci` if `package-lock.json` changed.
+
 ## Where things stand
 
 - **main** = `3f1690b` (2026-11-19). Every phase 0–6 is built (README "Status" table) and the
@@ -20,7 +38,7 @@ belong in DEVELOPMENT.md §16 or BANJO_STYLE_GUIDE.md; this file only points at 
   `scripts/yt_transcript.py` in this repo.
 - **The private songs repo** (`sheet-music/`) is fully committed: songs, photos (including
   Dad's roll page), `compendium/` (instructor notes) and `transcripts/` (lesson transcripts,
-  added 2026-11-24, `68ad4f4`). Run `git pull` in `sheet-music/` on a new machine.
+  added 2026-11-24, `68ad4f4`). See "Starting a session" above to get them.
 
 ## Rules (full versions in CLAUDE.md and memory)
 
