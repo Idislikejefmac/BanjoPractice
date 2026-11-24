@@ -16,10 +16,11 @@ belong in DEVELOPMENT.md §16 or BANJO_STYLE_GUIDE.md; this file only points at 
   `718d551` (before the beginner-hand change). Before that there was no tag, so production
   was following main. Only Jeff runs *Actions → Promote to production*, after checking staging
   on the iPad. **Never promote, and never move or delete the tag yourself.**
-- **Uncommitted, not ours: leave alone.** In this repo: `.claude/`, `banjo-songs-abc.md`,
-  `scripts/yt_transcript.py`. In `sheet-music/` (the private repo): `compendium/`,
-  `transcripts/`, `photos/20261115_121459.jpg` (Dad's roll page). Ask Jeff before committing
-  these to the private repo.
+- **Uncommitted, not ours: leave alone:** `.claude/`, `banjo-songs-abc.md` and
+  `scripts/yt_transcript.py` in this repo.
+- **The private songs repo** (`sheet-music/`) is fully committed: songs, photos (including
+  Dad's roll page), `compendium/` (instructor notes) and `transcripts/` (lesson transcripts,
+  added 2026-11-24, `68ad4f4`). Run `git pull` in `sheet-music/` on a new machine.
 
 ## Rules (full versions in CLAUDE.md and memory)
 
