@@ -25,10 +25,11 @@ Then `npm ci` if `package-lock.json` changed.
 
 ## Where things stand
 
-- **main** = `3f1690b` (2026-11-19). Every phase 0–6 is built (README "Status" table) and the
+- **Latest app code** = `3f1690b` (2026-11-19); later commits on main change only docs
+  (this file, README, CLAUDE.md). Every phase 0–6 is built (README "Status" table) and the
   learning phases L1–L3 have shipped (LEARNING_SPEC.md §8). The last full tier (`npm run check
   -- --tier full`) passed on `f0465c3`: 168 e2e, 50 chaos, 0 failed. `3f1690b` passed the
-  feature tier.
+  feature tier. Nothing is in progress: the working tree is clean apart from the files below.
 - **Staging** (`/staging/`) builds from every push to main.
 - **Production (Dad's URL)** builds from the **`production` tag**, pinned 2026-11-19 to
   `718d551` (before the beginner-hand change). Before that there was no tag, so production
@@ -61,6 +62,9 @@ Then `npm ci` if `package-lock.json` changed.
 
 ## Recently done
 
+- 2026-11-24 Docs only. This file became the standing handoff (`7bca66e`, `fa39948`), and
+  CLAUDE.md says to keep it current. The private songs repo got `compendium/`, `transcripts/`
+  and the photo of Dad's roll page (`68ad4f4` there).
 - 2026-11-19 `3f1690b` Rolls outside a beginner's lanes get an "Advanced: …" note
   (`advancedNote` in `hand.ts`). Only Foggy Mountain has one (the thumb on the 2nd string).
 - 2026-11-19 `f0465c3` **Beginner hand** (guide §3.1, `src/core/banjo/hand.ts`). Dad's teacher
